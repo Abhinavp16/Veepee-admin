@@ -1,6 +1,6 @@
 "use client"
 
-import { LayoutDashboard, Package, ShoppingCart, Users, MessageSquareMore, BarChart3, Settings, LogOut } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingCart, Users, MessageSquareMore, BarChart3, Settings, LogOut, Building2, FolderTree } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -29,6 +29,14 @@ export function Sidebar() {
         <Link href="/products" className={`flex items-center gap-4 transition-colors ${isActive('/products')}`}>
           <Package className="h-6 w-6" />
           <span className="text-sm font-medium tracking-wide">PRODUCTS</span>
+        </Link>
+        <Link href="/brands" className={`flex items-center gap-4 transition-colors ${isActive('/brands')}`}>
+          <Building2 className="h-6 w-6" />
+          <span className="text-sm font-medium tracking-wide">BRANDS</span>
+        </Link>
+        <Link href="/categories" className={`flex items-center gap-4 transition-colors ${isActive('/categories')}`}>
+          <FolderTree className="h-6 w-6" />
+          <span className="text-sm font-medium tracking-wide">CATEGORIES</span>
         </Link>
         <Link href="/orders" className={`flex items-center gap-4 transition-colors ${isActive('/orders')}`}>
           <ShoppingCart className="h-6 w-6" />

@@ -47,6 +47,7 @@ export default function OrdersPage() {
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
     const [isdetailsOpen, setIsDetailsOpen] = useState(false)
     const [isVerifying, setIsVerifying] = useState(false)
+    const [isRejecting, setIsRejecting] = useState(false)
 
     useEffect(() => {
         fetchOrders()
@@ -103,14 +104,43 @@ export default function OrdersPage() {
             if (res.ok) {
                 toast.success("Payment verified successfully")
                 setIsDetailsOpen(false)
-                fetchOrders() // Refresh list
+                fetchOrders()
             } else {
-                toast.error("Verification failed")
+                const data = await res.json()
+                toast.error(data.message || "Verification failed")
             }
         } catch (error) {
             toast.error("Error processing request")
         } finally {
             setIsVerifying(false)
+        }
+    }
+
+    async function handleRejectPayment(paymentId: string) {
+        const reason = prompt("Enter rejection reason:")
+        if (!reason) return
+        setIsRejecting(true)
+        try {
+            const res = await fetch(`http://localhost:5000/api/v1/admin/payments/${paymentId}/reject`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ reason })
+            })
+            if (res.ok) {
+                toast.success("Payment rejected")
+                setIsDetailsOpen(false)
+                fetchOrders()
+            } else {
+                const data = await res.json()
+                toast.error(data.message || "Rejection failed")
+            }
+        } catch (error) {
+            toast.error("Error processing request")
+        } finally {
+            setIsRejecting(false)
         }
     }
 
@@ -240,7 +270,15 @@ export default function OrdersPage() {
                                                     {isVerifying && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                                                     Verify Payment
                                                 </Button>
-                                                <Button variant="destructive" className="w-full">Reject</Button>
+                                                <Button
+                                                    variant="destructive"
+                                                    className="w-full"
+                                                    onClick={() => selectedOrder.payment && handleRejectPayment(selectedOrder.payment._id)}
+                                                    disabled={isRejecting}
+                                                >
+                                                    {isRejecting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                                    Reject
+                                                </Button>
                                             </div>
                                         )}
                                     </div>
