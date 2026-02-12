@@ -1,39 +1,66 @@
 "use client"
 
-import { Calendar, Download } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Loader2 } from 'lucide-react'
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts"
 
-const data = [
-  { date: "Jan 1", price: 355 }, { date: "Jan 8", price: 358 }, { date: "Jan 15", price: 345 },
-  { date: "Jan 22", price: 365 }, { date: "Jan 29", price: 355 }, { date: "Feb 5", price: 360 },
-  { date: "Feb 12", price: 345 }, { date: "Feb 19", price: 348 }, { date: "Feb 26", price: 320 },
-  { date: "Mar 5", price: 285 }, { date: "Mar 12", price: 305 }, { date: "Mar 19", price: 325 },
-  { date: "Mar 26", price: 328 }, { date: "Apr 2", price: 318 }, { date: "Apr 9", price: 325 },
-  { date: "Apr 16", price: 315 }, { date: "Apr 23", price: 320 }, { date: "Apr 30", price: 345 },
-  { date: "May 7", price: 335 }, { date: "May 14", price: 330 }, { date: "May 21", price: 320 },
-  { date: "May 28", price: 300 }, { date: "Jun 4", price: 315 }, { date: "Jun 11", price: 310 },
-  { date: "Jun 18", price: 318 }, { date: "Jun 25", price: 312 }, { date: "Jul 2", price: 325 },
-  { date: "Jul 9", price: 330 }, { date: "Jul 16", price: 332 }, { date: "Jul 23", price: 305 },
-  { date: "Jul 30", price: 325 }, { date: "Aug 6", price: 315 }, { date: "Aug 13", price: 305 },
-  { date: "Aug 20", price: 312 }, { date: "Aug 27", price: 335 }, { date: "Sep 3", price: 340 },
-  { date: "Sep 10", price: 338 }, { date: "Sep 17", price: 330 }, { date: "Sep 24", price: 335 },
-  { date: "Oct 1", price: 320 }, { date: "Oct 8", price: 340 }, { date: "Oct 15", price: 350 },
-  { date: "Oct 22", price: 345 }, { date: "Oct 29", price: 330 }, { date: "Nov 5", price: 335 },
-  { date: "Nov 12", price: 348 }, { date: "Nov 19", price: 348 }, { date: "Nov 26", price: 380 },
-  { date: "Dec 3", price: 410 }, { date: "Dec 10", price: 420 }, { date: "Dec 17", price: 428 },
-  { date: "Dec 24", price: 415 }, { date: "Dec 31", price: 425 }, { date: "Jan 7", price: 445 },
-  { date: "Jan 14", price: 420 }, { date: "Jan 21", price: 435 }, { date: "Jan 28", price: 450 },
-  { date: "Feb 4", price: 430 }, { date: "Feb 11", price: 455 }, { date: "Feb 18", price: 435 },
-  { date: "Feb 25", price: 440 }, { date: "Mar 4", price: 430 }, { date: "Mar 11", price: 410 },
-  { date: "Mar 18", price: 425 }, { date: "Mar 25", price: 435 }, { date: "Apr 1", price: 428 },
-  { date: "Apr 8", price: 440 }, { date: "Apr 15", price: 450 }, { date: "Apr 22", price: 430 },
-  { date: "Apr 29", price: 460 }, { date: "May 6", price: 460 }, { date: "May 13", price: 440 },
-  { date: "May 20", price: 465 }, { date: "May 27", price: 450 }, { date: "Jun 3", price: 460 },
-  { date: "Jun 10", price: 435 }, { date: "Jun 17", price: 445 }, { date: "Jun 24", price: 430 },
-  { date: "Jul 1", price: 400 }, { date: "Jul 8", price: 405 }, { date: "Jul 15", price: 400 }
+type PeriodKey = '7d' | '30d' | '90d' | '1y'
+
+const periodMap: { label: string; value: PeriodKey; groupBy: string }[] = [
+  { label: '7D', value: '7d', groupBy: 'day' },
+  { label: '1M', value: '30d', groupBy: 'day' },
+  { label: '3M', value: '90d', groupBy: 'week' },
+  { label: '1Y', value: '1y', groupBy: 'month' },
 ]
 
+interface ChartPoint {
+  date: string
+  revenue: number
+  orders: number
+}
+
 export function PerformanceChart() {
+  const [data, setData] = useState<ChartPoint[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [activePeriod, setActivePeriod] = useState<PeriodKey>('30d')
+
+  useEffect(() => {
+    fetchSales()
+  }, [activePeriod])
+
+  async function fetchSales() {
+    setIsLoading(true)
+    const p = periodMap.find(p => p.value === activePeriod)!
+    try {
+      const res = await fetch(
+        `http://localhost:5000/api/v1/admin/analytics/sales?period=${p.value}&groupBy=${p.groupBy}`,
+        { headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` } }
+      )
+      const json = await res.json()
+      if (res.ok && json.success) {
+        const timeline: { date: string; revenue: number; orders: number }[] = json.data.timeline || []
+        setData(timeline.map(t => ({
+          date: t.date,
+          revenue: t.revenue,
+          orders: t.orders,
+        })))
+      }
+    } catch {
+      // keep empty
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  function formatCurrency(val: number) {
+    if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`
+    if (val >= 1000) return `₹${(val / 1000).toFixed(1)}K`
+    return `₹${val}`
+  }
+
+  const maxRevenue = data.length > 0 ? Math.max(...data.map(d => d.revenue)) : 0
+  const yMax = Math.ceil(maxRevenue * 1.2 / 100) * 100 || 1000
+
   return (
     <div className="flex flex-col gap-6 p-6 bg-[#0D0D0D] rounded-2xl">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 md:gap-2 lg:gap-4 flex-wrap">
@@ -41,79 +68,82 @@ export function PerformanceChart() {
           <h2 className="text-xl font-medium text-white">Sales Overview</h2>
         </div>
 
-        <div className="flex items-center gap-4 md:gap-2 lg:gap-4">
-          <div className="flex items-center bg-[#1A1A1A] rounded-lg p-1">
-            {['1D', '1M', '3M', '6M', '1Y'].map((period) => (
-              <button
-                key={period}
-                className={`px-3 md:px-2 lg:px-3 py-1 text-sm md:text-xs lg:text-sm rounded-md transition-colors ${period === '6M'
-                    ? 'bg-[#2A2A2A] text-white shadow-sm'
-                    : 'text-gray-400 hover:text-white'
-                  }`}
-              >
-                {period}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button className="p-2 text-gray-400 hover:text-white bg-[#1A1A1A] rounded-lg transition-colors">
-              <Calendar className="h-5 w-5" />
+        <div className="flex items-center bg-[#1A1A1A] rounded-lg p-1">
+          {periodMap.map((p) => (
+            <button
+              key={p.value}
+              onClick={() => setActivePeriod(p.value)}
+              className={`px-3 md:px-2 lg:px-3 py-1 text-sm md:text-xs lg:text-sm rounded-md transition-colors ${
+                activePeriod === p.value
+                  ? 'bg-[#2A2A2A] text-white shadow-sm'
+                  : 'text-gray-400 hover:text-white'
+              }`}
+            >
+              {p.label}
             </button>
-            <button className="p-2 text-gray-400 hover:text-white bg-[#1A1A1A] rounded-lg transition-colors">
-              <Download className="h-5 w-5" />
-            </button>
-          </div>
+          ))}
         </div>
       </div>
 
       <div className="h-[400px] w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data}>
-            <defs>
-              <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#86efac" stopOpacity={0.3} />
-                <stop offset="95%" stopColor="#86efac" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" vertical={false} />
-            <XAxis
-              dataKey="date"
-              hide
-            />
-            <YAxis
-              domain={[250, 500]}
-              orientation="left"
-              tick={{ fill: '#666' }}
-              axisLine={false}
-              tickLine={false}
-              ticks={[250, 300, 350, 400, 450, 500]}
-            />
-            <Tooltip
-              content={({ active, payload }) => {
-                if (active && payload && payload.length) {
-                  return (
-                    <div className="bg-[#1A1A1A] border border-[#333] p-2 rounded-lg shadow-xl">
-                      <p className="text-white font-medium">
-                        {payload[0].value?.toLocaleString()} INR <span className="text-gray-400 text-sm ml-2">{payload[0].payload.date}</span>
-                      </p>
-                    </div>
-                  )
-                }
-                return null
-              }}
-            />
-
-            <Area
-              type="monotone"
-              dataKey="price"
-              stroke="#86efac"
-              strokeWidth={2}
-              fillOpacity={1}
-              fill="url(#colorPrice)"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="h-6 w-6 animate-spin text-[#86efac]" />
+          </div>
+        ) : data.length === 0 ? (
+          <div className="flex items-center justify-center h-full text-gray-500 text-sm">
+            No sales data for this period
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={data}>
+              <defs>
+                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#86efac" stopOpacity={0.3} />
+                  <stop offset="95%" stopColor="#86efac" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" vertical={false} />
+              <XAxis
+                dataKey="date"
+                tick={{ fill: '#666', fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                domain={[0, yMax]}
+                orientation="left"
+                tick={{ fill: '#666', fontSize: 11 }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={formatCurrency}
+              />
+              <Tooltip
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    const d = payload[0].payload as ChartPoint
+                    return (
+                      <div className="bg-[#1A1A1A] border border-[#333] p-3 rounded-lg shadow-xl">
+                        <p className="text-white font-medium">₹{d.revenue.toLocaleString('en-IN')}</p>
+                        <p className="text-gray-400 text-xs mt-1">{d.orders} orders &middot; {d.date}</p>
+                      </div>
+                    )
+                  }
+                  return null
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="revenue"
+                stroke="#86efac"
+                strokeWidth={2}
+                fillOpacity={1}
+                fill="url(#colorRevenue)"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
       </div>
     </div>
   )

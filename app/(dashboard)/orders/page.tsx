@@ -12,7 +12,9 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Eye, Truck, CheckCircle2, XCircle } from "lucide-react"
+import { Loader2, Eye, Truck, CheckCircle2, XCircle, Package, MapPin } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 import {
     Dialog,
@@ -27,11 +29,15 @@ import Image from "next/image"
 interface Order {
     _id: string
     orderNumber: string
-    items: { productSnapshot: { name: string } }[]
+    items: { productSnapshot: { name: string }; quantity: number; pricePerUnit: number }[]
     customerSnapshot: { name: string; email: string; phone: string }
     total: number
     status: string
     createdAt: string
+    trackingNumber?: string
+    courierName?: string
+    shippingAddress?: { address: string; city: string; state: string; pincode: string }
+    statusHistory?: { status: string; note?: string; timestamp: string }[]
     payment?: {
         _id: string
         amount: number
@@ -48,6 +54,11 @@ export default function OrdersPage() {
     const [isdetailsOpen, setIsDetailsOpen] = useState(false)
     const [isVerifying, setIsVerifying] = useState(false)
     const [isRejecting, setIsRejecting] = useState(false)
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
+    const [isShipDialogOpen, setIsShipDialogOpen] = useState(false)
+    const [trackingNumber, setTrackingNumber] = useState("")
+    const [courierName, setCourierName] = useState("")
+    const [isShipping, setIsShipping] = useState(false)
 
     useEffect(() => {
         fetchOrders()
@@ -144,6 +155,65 @@ export default function OrdersPage() {
         }
     }
 
+    async function updateOrderStatus(orderId: string, status: string, note?: string) {
+        setIsUpdatingStatus(true)
+        try {
+            const res = await fetch(`http://localhost:5000/api/v1/admin/orders/${orderId}/status`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ status, note })
+            })
+            const data = await res.json()
+            if (res.ok) {
+                toast.success(`Order ${status.replace(/_/g, ' ')}`)
+                setIsDetailsOpen(false)
+                fetchOrders()
+            } else {
+                toast.error(data.message || 'Failed to update status')
+            }
+        } catch {
+            toast.error('Error updating order status')
+        } finally {
+            setIsUpdatingStatus(false)
+        }
+    }
+
+    async function shipOrder(orderId: string) {
+        if (!trackingNumber.trim() || !courierName.trim()) {
+            toast.error('Please enter tracking number and courier name')
+            return
+        }
+        setIsShipping(true)
+        try {
+            const res = await fetch(`http://localhost:5000/api/v1/admin/orders/${orderId}/ship`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ trackingNumber: trackingNumber.trim(), courierName: courierName.trim() })
+            })
+            const data = await res.json()
+            if (res.ok) {
+                toast.success('Order shipped!')
+                setIsShipDialogOpen(false)
+                setIsDetailsOpen(false)
+                setTrackingNumber('')
+                setCourierName('')
+                fetchOrders()
+            } else {
+                toast.error(data.message || 'Failed to ship order')
+            }
+        } catch {
+            toast.error('Error shipping order')
+        } finally {
+            setIsShipping(false)
+        }
+    }
+
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'delivered': return "text-green-500 bg-green-500/10"
@@ -216,7 +286,7 @@ export default function OrdersPage() {
             </Card>
 
             <Dialog open={isdetailsOpen} onOpenChange={setIsDetailsOpen}>
-                <DialogContent className="bg-[#161616] border-[#333] text-white max-w-2xl">
+                <DialogContent className="bg-[#161616] border-[#333] text-white max-w-2xl max-h-[85vh] flex flex-col">
                     <DialogHeader>
                         <DialogTitle>Order Details: {selectedOrder?.orderNumber}</DialogTitle>
                         <DialogDescription>
@@ -225,7 +295,7 @@ export default function OrdersPage() {
                     </DialogHeader>
 
                     {selectedOrder && (
-                        <div className="space-y-6">
+                        <div className="space-y-6 overflow-y-auto pr-2" style={{ maxHeight: 'calc(85vh - 100px)' }}>
                             {/* Payment Section */}
                             <div className="p-4 bg-[#0D0D0D] rounded-lg border border-[#333]">
                                 <h3 className="font-medium mb-2 flex items-center gap-2">
@@ -299,8 +369,160 @@ export default function OrdersPage() {
                                     ))}
                                 </div>
                             </div>
+
+                            {/* Shipping Address */}
+                            {selectedOrder.shippingAddress && (
+                                <div className="p-4 bg-[#0D0D0D] rounded-lg border border-[#333]">
+                                    <h3 className="font-medium mb-2 flex items-center gap-2">
+                                        <MapPin className="w-4 h-4 text-gray-400" /> Shipping Address
+                                    </h3>
+                                    <p className="text-sm text-gray-300">
+                                        {selectedOrder.shippingAddress.address}, {selectedOrder.shippingAddress.city}, {selectedOrder.shippingAddress.state} - {selectedOrder.shippingAddress.pincode}
+                                    </p>
+                                </div>
+                            )}
+
+                            {/* Tracking Info */}
+                            {selectedOrder.trackingNumber && (
+                                <div className="p-4 bg-[#0D0D0D] rounded-lg border border-[#333]">
+                                    <h3 className="font-medium mb-2 flex items-center gap-2">
+                                        <Truck className="w-4 h-4 text-gray-400" /> Shipping Details
+                                    </h3>
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                            <span className="text-gray-400 block">Courier</span>
+                                            <span>{selectedOrder.courierName}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-gray-400 block">Tracking #</span>
+                                            <span className="font-mono">{selectedOrder.trackingNumber}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Status History */}
+                            {selectedOrder.statusHistory && selectedOrder.statusHistory.length > 0 && (
+                                <div className="p-4 bg-[#0D0D0D] rounded-lg border border-[#333]">
+                                    <h3 className="font-medium mb-3">Status History</h3>
+                                    <div className="space-y-2">
+                                        {selectedOrder.statusHistory.slice().reverse().map((h, idx) => (
+                                            <div key={idx} className="flex items-start gap-3 text-sm">
+                                                <div className="w-2 h-2 mt-1.5 rounded-full bg-[#86efac] shrink-0" />
+                                                <div>
+                                                    <span className="text-white capitalize">{h.status.replace(/_/g, ' ')}</span>
+                                                    {h.note && <span className="text-gray-500 ml-2">— {h.note}</span>}
+                                                    <p className="text-xs text-gray-600">{new Date(h.timestamp).toLocaleString('en-IN')}</p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Status Actions */}
+                            {selectedOrder.status === 'payment_verified' && (
+                                <div className="flex flex-col gap-3">
+                                    <Button
+                                        className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                                        onClick={() => updateOrderStatus(selectedOrder._id, 'processing', 'Order confirmed by admin')}
+                                        disabled={isUpdatingStatus}
+                                    >
+                                        {isUpdatingStatus && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                        <Package className="w-4 h-4 mr-2" /> Confirm & Process
+                                    </Button>
+                                    <Button
+                                        variant="destructive"
+                                        className="w-full"
+                                        onClick={() => updateOrderStatus(selectedOrder._id, 'cancelled', 'Cancelled by admin')}
+                                        disabled={isUpdatingStatus}
+                                    >
+                                        <XCircle className="w-4 h-4 mr-2" /> Cancel Order
+                                    </Button>
+                                </div>
+                            )}
+
+                            {selectedOrder.status === 'processing' && (
+                                <div className="flex flex-col gap-3">
+                                    <Button
+                                        className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                                        onClick={() => {
+                                            setTrackingNumber('')
+                                            setCourierName('')
+                                            setIsShipDialogOpen(true)
+                                        }}
+                                        disabled={isUpdatingStatus}
+                                    >
+                                        <Truck className="w-4 h-4 mr-2" /> Ship Order
+                                    </Button>
+                                    <Button
+                                        variant="destructive"
+                                        className="w-full"
+                                        onClick={() => updateOrderStatus(selectedOrder._id, 'cancelled', 'Cancelled by admin')}
+                                        disabled={isUpdatingStatus}
+                                    >
+                                        <XCircle className="w-4 h-4 mr-2" /> Cancel Order
+                                    </Button>
+                                </div>
+                            )}
+
+                            {selectedOrder.status === 'shipped' && (
+                                <Button
+                                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                                    onClick={() => updateOrderStatus(selectedOrder._id, 'delivered', 'Marked as delivered')}
+                                    disabled={isUpdatingStatus}
+                                >
+                                    {isUpdatingStatus && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                    <CheckCircle2 className="w-4 h-4 mr-2" /> Mark as Delivered
+                                </Button>
+                            )}
                         </div>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Ship Order Dialog */}
+            <Dialog open={isShipDialogOpen} onOpenChange={setIsShipDialogOpen}>
+                <DialogContent className="bg-[#161616] border-[#333] text-white max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Ship Order: {selectedOrder?.orderNumber}</DialogTitle>
+                        <DialogDescription>
+                            Enter courier and tracking details
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <div className="space-y-2">
+                            <Label className="text-gray-300">Courier Name</Label>
+                            <Input
+                                placeholder="e.g. BlueDart, Delhivery, DTDC"
+                                value={courierName}
+                                onChange={(e) => setCourierName(e.target.value)}
+                                className="bg-[#0D0D0D] border-[#333] text-white"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label className="text-gray-300">Tracking Number</Label>
+                            <Input
+                                placeholder="e.g. AWB123456789"
+                                value={trackingNumber}
+                                onChange={(e) => setTrackingNumber(e.target.value)}
+                                className="bg-[#0D0D0D] border-[#333] text-white"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setIsShipDialogOpen(false)} className="text-gray-400 hover:bg-[#333]">
+                            Cancel
+                        </Button>
+                        <Button
+                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                            onClick={() => selectedOrder && shipOrder(selectedOrder._id)}
+                            disabled={isShipping}
+                        >
+                            {isShipping && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                            <Truck className="w-4 h-4 mr-2" /> Confirm Shipment
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
         </div>
