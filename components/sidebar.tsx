@@ -1,6 +1,6 @@
 "use client"
 
-import { LayoutDashboard, Package, ShoppingCart, Users, MessageSquareMore, BarChart3, Settings, LogOut, Building2, FolderTree, UserSearch } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingCart, Users, MessageSquareMore, BarChart3, Settings, LogOut, Building2, FolderTree, UserSearch, Image } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -57,6 +57,10 @@ export function Sidebar() {
         <Link href="/potential-customers" className={`flex items-center gap-4 transition-colors ${isActive('/potential-customers')}`}>
           <UserSearch className="h-6 w-6" />
           <span className="text-sm font-medium tracking-wide">LEADS</span>
+        </Link>
+        <Link href="/banners" className={`flex items-center gap-4 transition-colors ${isActive('/banners')}`}>
+          <Image className="h-6 w-6" />
+          <span className="text-sm font-medium tracking-wide">BANNERS</span>
         </Link>
       </nav>
 

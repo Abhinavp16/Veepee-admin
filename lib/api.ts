@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:5000/api/v1'
+const API_BASE = 'http://192.168.1.6:5000/api/v1'
 
 interface FetchOptions extends RequestInit {
   skipAuth?: boolean
@@ -19,7 +19,7 @@ async function refreshAccessToken(): Promise<string | null> {
       // Refresh token expired - clear storage and redirect to login
       localStorage.removeItem('accessToken')
       localStorage.removeItem('refreshToken')
-      localStorage.removeItem('user')
+      localStorage.removeItem('user') 
       window.location.href = '/login'
       return null
     }

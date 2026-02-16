@@ -18,8 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Loader2, Save } from "lucide-react"
 import { toast } from "sonner"
-import { Separator } from "@/components/ui/separator"
-import { Switch } from "@/components/ui/switch"
+import { apiFetch } from "@/lib/api"
 
 const settingsSchema = z.object({
     businessName: z.string().min(1, "Required"),
@@ -68,11 +67,7 @@ export default function SettingsPage() {
 
     async function fetchSettings() {
         try {
-            const res = await fetch('http://localhost:5000/api/v1/admin/settings', {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-                }
-            })
+            const res = await apiFetch('/admin/settings')
             const data = await res.json()
             if (res.ok && data.data) {
                 form.reset(data.data)
@@ -87,19 +82,16 @@ export default function SettingsPage() {
     async function onSubmit(values: z.infer<typeof settingsSchema>) {
         setIsSaving(true)
         try {
-            const res = await fetch('http://localhost:5000/api/v1/admin/settings', {
+            const res = await apiFetch('/admin/settings', {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-                },
                 body: JSON.stringify(values)
             })
 
             if (res.ok) {
                 toast.success("Settings updated successfully")
             } else {
-                toast.error("Failed to update settings")
+                const err = await res.json()
+                toast.error(err.message || "Failed to update settings")
             }
         } catch (error) {
             toast.error("Error saving settings")
