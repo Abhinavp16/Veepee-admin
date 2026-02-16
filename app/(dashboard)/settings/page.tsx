@@ -16,26 +16,33 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Loader2, Save } from "lucide-react"
+import { Loader2, Save, CreditCard, Building2 } from "lucide-react"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
+import { Switch } from "@/components/ui/switch"
 
 const settingsSchema = z.object({
-    businessName: z.string().min(1, "Required"),
-    businessEmail: z.string().email("Invalid email"),
-    businessPhone: z.string().min(10, "Invalid phone"),
-    upiId: z.string().min(1, "Required"),
-    upiDisplayName: z.string().min(1, "Required"),
-    minOrderAmount: z.coerce.number().min(0),
-    defaultBulkMinQuantity: z.coerce.number().min(1),
-    negotiationExpiryDays: z.coerce.number().min(1),
-    lowStockThreshold: z.coerce.number().min(1),
-    features: z.object({
-        enableNegotiations: z.boolean(),
-        enablePayments: z.boolean(),
-        maintenanceMode: z.boolean()
-    }).optional()
-})
+    businessName: z.string().optional(),
+    businessEmail: z.string().optional(),
+    businessPhone: z.string().optional(),
+    upiId: z.string().optional(),
+    upiDisplayName: z.string().optional(),
+    minOrderAmount: z.coerce.number().optional(),
+    defaultBulkMinQuantity: z.coerce.number().optional(),
+    negotiationExpiryDays: z.coerce.number().optional(),
+    lowStockThreshold: z.coerce.number().optional(),
+    // Razorpay
+    razorpayKeyId: z.string().optional(),
+    razorpayKeySecret: z.string().optional(),
+    razorpayEnabled: z.boolean().optional(),
+    // Bank Transfer
+    bankName: z.string().optional(),
+    bankAccountNumber: z.string().optional(),
+    bankIfscCode: z.string().optional(),
+    bankAccountHolderName: z.string().optional(),
+    bankTransferEnabled: z.boolean().optional(),
+    features: z.record(z.any()).optional()
+}).passthrough()
 
 export default function SettingsPage() {
     const [isLoading, setIsLoading] = useState(true)
@@ -53,11 +60,15 @@ export default function SettingsPage() {
             defaultBulkMinQuantity: 10,
             negotiationExpiryDays: 7,
             lowStockThreshold: 10,
-            features: {
-                enableNegotiations: true,
-                enablePayments: true,
-                maintenanceMode: false
-            }
+            razorpayKeyId: "",
+            razorpayKeySecret: "",
+            razorpayEnabled: false,
+            bankName: "",
+            bankAccountNumber: "",
+            bankIfscCode: "",
+            bankAccountHolderName: "",
+            bankTransferEnabled: true,
+            features: {}
         }
     })
 
@@ -80,6 +91,7 @@ export default function SettingsPage() {
     }
 
     async function onSubmit(values: z.infer<typeof settingsSchema>) {
+        console.log('Form submitted with values:', values)
         setIsSaving(true)
         try {
             const res = await apiFetch('/admin/settings', {
@@ -91,13 +103,21 @@ export default function SettingsPage() {
                 toast.success("Settings updated successfully")
             } else {
                 const err = await res.json()
+                console.error('Save error:', err)
                 toast.error(err.message || "Failed to update settings")
             }
         } catch (error) {
+            console.error('Save exception:', error)
             toast.error("Error saving settings")
         } finally {
             setIsSaving(false)
         }
+    }
+
+    function onError(errors: any) {
+        console.error('Form validation errors:', errors)
+        const errorFields = Object.keys(errors).join(', ')
+        toast.error(`Form errors in: ${errorFields}`)
     }
 
     if (isLoading) {
@@ -113,7 +133,7 @@ export default function SettingsPage() {
             <h1 className="text-3xl font-bold text-white">Settings</h1>
 
             <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <form onSubmit={form.handleSubmit(onSubmit, onError)} className="space-y-6">
 
                     {/* General Settings */}
                     <Card className="bg-[#161616] border-[#333]">
@@ -166,22 +186,39 @@ export default function SettingsPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Payment Settings */}
+                    {/* Razorpay Settings */}
                     <Card className="bg-[#161616] border-[#333]">
                         <CardHeader>
-                            <CardTitle className="text-white">Payment Settings</CardTitle>
-                            <CardDescription>Configure UPI details for receiving payments</CardDescription>
+                            <CardTitle className="text-white flex items-center gap-2">
+                                <CreditCard className="h-5 w-5" /> Razorpay Payment Gateway
+                            </CardTitle>
+                            <CardDescription>Configure Razorpay for instant UPI/Card payments</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                            <FormField
+                                control={form.control}
+                                name="razorpayEnabled"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border border-[#333] p-4">
+                                        <div className="space-y-0.5">
+                                            <FormLabel className="text-base text-white">Enable Razorpay</FormLabel>
+                                            <FormDescription>Allow customers to pay via Razorpay</FormDescription>
+                                        </div>
+                                        <FormControl>
+                                            <Switch checked={!!field.value} onCheckedChange={field.onChange} />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
                             <div className="grid grid-cols-2 gap-4">
                                 <FormField
                                     control={form.control}
-                                    name="upiId"
+                                    name="razorpayKeyId"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-white">UPI ID</FormLabel>
+                                            <FormLabel className="text-white">Razorpay Key ID</FormLabel>
                                             <FormControl>
-                                                <Input className="bg-[#0D0D0D] border-[#333] text-white" placeholder="username@oksbi" {...field} />
+                                                <Input className="bg-[#0D0D0D] border-[#333] text-white" placeholder="rzp_live_xxxxxxxxx" {...field} value={field.value || ''} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -189,17 +226,129 @@ export default function SettingsPage() {
                                 />
                                 <FormField
                                     control={form.control}
-                                    name="upiDisplayName"
+                                    name="razorpayKeySecret"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-white">Display Name</FormLabel>
+                                            <FormLabel className="text-white">Razorpay Key Secret</FormLabel>
                                             <FormControl>
-                                                <Input className="bg-[#0D0D0D] border-[#333] text-white" placeholder="AgriMart Business" {...field} />
+                                                <Input type="password" className="bg-[#0D0D0D] border-[#333] text-white" placeholder="••••••••••••" {...field} value={field.value || ''} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Bank Transfer Settings */}
+                    <Card className="bg-[#161616] border-[#333]">
+                        <CardHeader>
+                            <CardTitle className="text-white flex items-center gap-2">
+                                <Building2 className="h-5 w-5" /> Bank Transfer Settings
+                            </CardTitle>
+                            <CardDescription>Bank details for manual transfer payments</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <FormField
+                                control={form.control}
+                                name="bankTransferEnabled"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border border-[#333] p-4">
+                                        <div className="space-y-0.5">
+                                            <FormLabel className="text-base text-white">Enable Bank Transfer</FormLabel>
+                                            <FormDescription>Allow customers to pay via bank transfer + screenshot</FormDescription>
+                                        </div>
+                                        <FormControl>
+                                            <Switch checked={field.value !== false} onCheckedChange={field.onChange} />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="bankName"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-white">Bank Name</FormLabel>
+                                            <FormControl>
+                                                <Input className="bg-[#0D0D0D] border-[#333] text-white" placeholder="e.g. HDFC Bank" {...field} value={field.value || ''} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="bankAccountHolderName"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-white">Account Holder Name</FormLabel>
+                                            <FormControl>
+                                                <Input className="bg-[#0D0D0D] border-[#333] text-white" placeholder="e.g. AgriMart Pvt Ltd" {...field} value={field.value || ''} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="bankAccountNumber"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-white">Account Number</FormLabel>
+                                            <FormControl>
+                                                <Input className="bg-[#0D0D0D] border-[#333] text-white" placeholder="e.g. 1234567890" {...field} value={field.value || ''} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="bankIfscCode"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-white">IFSC Code</FormLabel>
+                                            <FormControl>
+                                                <Input className="bg-[#0D0D0D] border-[#333] text-white" placeholder="e.g. HDFC0001234" {...field} value={field.value || ''} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                            <div className="border-t border-[#333] pt-4 mt-4">
+                                <p className="text-sm text-[#919191] mb-3">UPI Details (for bank transfer option)</p>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="upiId"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-white">UPI ID</FormLabel>
+                                                <FormControl>
+                                                    <Input className="bg-[#0D0D0D] border-[#333] text-white" placeholder="username@oksbi" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="upiDisplayName"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-white">Display Name</FormLabel>
+                                                <FormControl>
+                                                    <Input className="bg-[#0D0D0D] border-[#333] text-white" placeholder="AgriMart Business" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
