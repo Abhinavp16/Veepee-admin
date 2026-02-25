@@ -67,7 +67,7 @@ interface ProductImage {
 
 const productSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters"),
-    description: z.string().min(10, "Description must be at least 10 characters"),
+    description: z.string().optional().default(""),
     shortDescription: z.string().optional(),
     bulletPoints: z.array(z.string()).optional(),
     category: z.string().min(1, "Category is required"),
@@ -83,6 +83,9 @@ const productSchema = z.object({
     company: z.string().optional(),
     videoUrl: z.string().optional(),
     shippingTerms: z.string().optional(),
+    rating: z.string().refine((val) => !isNaN(Number(val)), "Must be a number").default("4.5"),
+    purchaseCountMin: z.string().refine((val) => !isNaN(Number(val)), "Must be a number").default("0"),
+    purchaseCountMax: z.string().refine((val) => !isNaN(Number(val)), "Must be a number").default("0"),
 })
 
 export default function AddProductPage() {
@@ -90,7 +93,7 @@ export default function AddProductPage() {
     const searchParams = useSearchParams()
     const editId = searchParams.get('edit')
     const isEditMode = !!editId
-    
+
     const [isLoading, setIsLoading] = useState(false)
     const [isLoadingProduct, setIsLoadingProduct] = useState(false)
     const [companies, setCompanies] = useState<Company[]>([])
@@ -125,12 +128,15 @@ export default function AddProductPage() {
             wholesalePrice: "",
             stock: "0",
             minWholesaleQuantity: "10",
-            status: "draft",
+            status: "active",
             isFeatured: false,
             isHot: false,
             company: "",
             videoUrl: "",
             shippingTerms: "Free shipping on orders above ₹5,000. Standard delivery within 5-7 business days. Express delivery available at additional cost.\n\nReturn Policy: Products can be returned within 7 days of delivery if unused and in original packaging. Damaged or defective items will be replaced free of charge. Refunds are processed within 5-7 business days after the returned item is received and inspected.",
+            rating: "4.5",
+            purchaseCountMin: "0",
+            purchaseCountMax: "0",
         },
     })
 
@@ -150,12 +156,12 @@ export default function AddProductPage() {
                 headers: { 'Authorization': `Bearer ${token}` }
             })
             if (!res.ok) throw new Error("Product not found")
-            
+
             const data = await res.json()
             const product = data.data
-            
+
             if (!product) throw new Error("Product data is empty")
-            
+
             // Set form values
             form.reset({
                 name: product.name || "",
@@ -175,13 +181,16 @@ export default function AddProductPage() {
                 company: product.company?._id || product.company || "none",
                 videoUrl: product.videoUrl || "",
                 shippingTerms: product.shippingTerms || "",
+                rating: String(product.rating || "4.5"),
+                purchaseCountMin: String(product.purchaseCountMin || "0"),
+                purchaseCountMax: String(product.purchaseCountMax || "0"),
             })
-            
+
             // Set images
             if (product.images && product.images.length > 0) {
                 setImages(product.images)
             }
-            
+
             // Set bullet points from specifications
             if (product.specifications && product.specifications.length > 0) {
                 setBulletPoints(product.specifications.map((s: any) => s.value))
@@ -256,7 +265,7 @@ export default function AddProductPage() {
         setUploadStatus('converting')
 
         const formData = new FormData()
-        
+
         // Upload multiple files
         for (let i = 0; i < files.length; i++) {
             formData.append('images', files[i])
@@ -282,7 +291,7 @@ export default function AddProductPage() {
             }
 
             const data = await response.json()
-            
+
             setUploadStatus('done')
 
             if (data.success && data.data) {
@@ -372,7 +381,7 @@ export default function AddProductPage() {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${localStorage.getItem('accessToken')}`
                 },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     name: newCompanyName.trim(),
                     logo: newCompanyLogo.trim() ? { url: newCompanyLogo.trim() } : undefined,
                 }),
@@ -472,12 +481,15 @@ export default function AddProductPage() {
                 })),
                 videoUrl: values.videoUrl?.trim() || null,
                 shippingTerms: values.shippingTerms?.trim() || null,
+                rating: Number(values.rating),
+                purchaseCountMin: Number(values.purchaseCountMin),
+                purchaseCountMax: Number(values.purchaseCountMax),
             }
 
-            const url = isEditMode 
+            const url = isEditMode
                 ? `http://localhost:5000/api/v1/admin/products/${editId}`
                 : "http://localhost:5000/api/v1/admin/products"
-            
+
             const response = await fetch(url, {
                 method: isEditMode ? "PUT" : "POST",
                 headers: {
@@ -517,9 +529,29 @@ export default function AddProductPage() {
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
                 </NextLink>
-                <h1 className="text-3xl font-bold text-white">
-                    {isEditMode ? "Edit Product" : "Add New Product"}
-                </h1>
+                <div className="flex-1">
+                    <h1 className="text-3xl font-bold text-white">
+                        {isEditMode ? "Edit Product" : "Add New Product"}
+                    </h1>
+                </div>
+                <div className="flex items-center gap-3">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        className="text-gray-400 hover:text-white"
+                        onClick={() => router.back()}
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={() => form.handleSubmit(onSubmit)()}
+                        disabled={isLoading}
+                        className="px-8"
+                    >
+                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isEditMode ? "Update" : "Create"}
+                    </Button>
+                </div>
             </div>
 
             <Form {...form}>
@@ -612,7 +644,6 @@ export default function AddProductPage() {
                                                                         type="button"
                                                                         onClick={createNewCategory}
                                                                         disabled={isCreatingCategory}
-                                                                        className="bg-[#86efac] text-black hover:bg-[#86efac]/90"
                                                                     >
                                                                         {isCreatingCategory && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                                                         Create Category
@@ -655,11 +686,10 @@ export default function AddProductPage() {
                                             <button
                                                 type="button"
                                                 onClick={() => setImageUploadMode('url')}
-                                                className={`px-3 py-1 text-xs rounded-md transition-colors flex items-center gap-1 ${
-                                                    imageUploadMode === 'url' 
-                                                        ? 'bg-[#86efac] text-black' 
-                                                        : 'text-gray-400 hover:text-white'
-                                                }`}
+                                                className={`px-3 py-1 text-xs rounded-md transition-colors flex items-center gap-1 ${imageUploadMode === 'url'
+                                                    ? 'bg-[#86efac] text-black'
+                                                    : 'text-gray-400 hover:text-white'
+                                                    }`}
                                             >
                                                 <Link className="h-3 w-3" />
                                                 URL
@@ -667,30 +697,29 @@ export default function AddProductPage() {
                                             <button
                                                 type="button"
                                                 onClick={() => setImageUploadMode('file')}
-                                                className={`px-3 py-1 text-xs rounded-md transition-colors flex items-center gap-1 ${
-                                                    imageUploadMode === 'file' 
-                                                        ? 'bg-[#86efac] text-black' 
-                                                        : 'text-gray-400 hover:text-white'
-                                                }`}
+                                                className={`px-3 py-1 text-xs rounded-md transition-colors flex items-center gap-1 ${imageUploadMode === 'file'
+                                                    ? 'bg-[#86efac] text-black'
+                                                    : 'text-gray-400 hover:text-white'
+                                                    }`}
                                             >
                                                 <Upload className="h-3 w-3" />
                                                 Upload
                                             </button>
                                         </div>
                                     </div>
-                                    
+
                                     {/* URL Input Mode */}
                                     {imageUploadMode === 'url' && (
                                         <div className="flex gap-2 mb-4">
-                                            <Input 
-                                                placeholder="Enter image URL..." 
+                                            <Input
+                                                placeholder="Enter image URL..."
                                                 value={newImageUrl}
                                                 onChange={(e) => setNewImageUrl(e.target.value)}
                                                 onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addImage())}
-                                                className="bg-[#0D0D0D] border-[#333] text-white flex-1" 
+                                                className="bg-[#0D0D0D] border-[#333] text-white flex-1"
                                             />
-                                            <Button 
-                                                type="button" 
+                                            <Button
+                                                type="button"
                                                 onClick={addImage}
                                                 className="bg-[#86efac] text-black hover:bg-[#86efac]/90"
                                             >
@@ -702,23 +731,21 @@ export default function AddProductPage() {
                                     {/* File Upload Mode */}
                                     {imageUploadMode === 'file' && (
                                         <div className="mb-4">
-                                            <label className={`flex flex-col items-center justify-center w-full border-2 border-dashed rounded-lg transition-colors ${
-                                                isUploadingImage 
-                                                    ? 'border-[#86efac]/50 bg-[#86efac]/5 cursor-wait' 
-                                                    : 'border-[#333] bg-[#0D0D0D] hover:bg-[#1a1a1a] cursor-pointer'
-                                            } ${isUploadingImage ? 'h-28' : 'h-24'}`}>
+                                            <label className={`flex flex-col items-center justify-center w-full border-2 border-dashed rounded-lg transition-colors ${isUploadingImage
+                                                ? 'border-[#86efac]/50 bg-[#86efac]/5 cursor-wait'
+                                                : 'border-[#333] bg-[#0D0D0D] hover:bg-[#1a1a1a] cursor-pointer'
+                                                } ${isUploadingImage ? 'h-28' : 'h-24'}`}>
                                                 <div className="flex flex-col items-center justify-center py-4">
                                                     {isUploadingImage ? (
                                                         <div className="flex flex-col items-center gap-2 w-full px-6">
                                                             {/* Step indicators */}
                                                             <div className="flex items-center gap-1 text-xs">
-                                                                <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${
-                                                                    uploadStatus === 'converting' 
-                                                                        ? 'bg-yellow-500/20 text-yellow-400' 
-                                                                        : uploadStatus === 'uploading' || uploadStatus === 'done'
-                                                                            ? 'bg-green-500/20 text-green-400' 
-                                                                            : 'bg-gray-500/20 text-gray-500'
-                                                                }`}>
+                                                                <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${uploadStatus === 'converting'
+                                                                    ? 'bg-yellow-500/20 text-yellow-400'
+                                                                    : uploadStatus === 'uploading' || uploadStatus === 'done'
+                                                                        ? 'bg-green-500/20 text-green-400'
+                                                                        : 'bg-gray-500/20 text-gray-500'
+                                                                    }`}>
                                                                     {uploadStatus === 'converting' ? (
                                                                         <Loader2 className="h-3 w-3 animate-spin" />
                                                                     ) : (
@@ -727,13 +754,12 @@ export default function AddProductPage() {
                                                                     Converting to WebP
                                                                 </span>
                                                                 <span className="text-gray-600">→</span>
-                                                                <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${
-                                                                    uploadStatus === 'uploading' 
-                                                                        ? 'bg-blue-500/20 text-blue-400' 
-                                                                        : uploadStatus === 'done'
-                                                                            ? 'bg-green-500/20 text-green-400' 
-                                                                            : 'bg-gray-500/20 text-gray-500'
-                                                                }`}>
+                                                                <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${uploadStatus === 'uploading'
+                                                                    ? 'bg-blue-500/20 text-blue-400'
+                                                                    : uploadStatus === 'done'
+                                                                        ? 'bg-green-500/20 text-green-400'
+                                                                        : 'bg-gray-500/20 text-gray-500'
+                                                                    }`}>
                                                                     {uploadStatus === 'uploading' ? (
                                                                         <Loader2 className="h-3 w-3 animate-spin" />
                                                                     ) : uploadStatus === 'done' ? (
@@ -744,11 +770,10 @@ export default function AddProductPage() {
                                                                     Uploading
                                                                 </span>
                                                                 <span className="text-gray-600">→</span>
-                                                                <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${
-                                                                    uploadStatus === 'done' 
-                                                                        ? 'bg-green-500/20 text-green-400' 
-                                                                        : 'bg-gray-500/20 text-gray-500'
-                                                                }`}>
+                                                                <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${uploadStatus === 'done'
+                                                                    ? 'bg-green-500/20 text-green-400'
+                                                                    : 'bg-gray-500/20 text-gray-500'
+                                                                    }`}>
                                                                     {uploadStatus === 'done' ? (
                                                                         <span className="text-[10px]">✓</span>
                                                                     ) : (
@@ -759,13 +784,12 @@ export default function AddProductPage() {
                                                             </div>
                                                             {/* Progress bar */}
                                                             <div className="w-full bg-[#333] rounded-full h-1.5">
-                                                                <div className={`h-1.5 rounded-full transition-all duration-500 ${
-                                                                    uploadStatus === 'converting' 
-                                                                        ? 'w-1/3 bg-yellow-500' 
-                                                                        : uploadStatus === 'uploading' 
-                                                                            ? 'w-2/3 bg-blue-500' 
-                                                                            : 'w-full bg-green-500'
-                                                                }`} />
+                                                                <div className={`h-1.5 rounded-full transition-all duration-500 ${uploadStatus === 'converting'
+                                                                    ? 'w-1/3 bg-yellow-500'
+                                                                    : uploadStatus === 'uploading'
+                                                                        ? 'w-2/3 bg-blue-500'
+                                                                        : 'w-full bg-green-500'
+                                                                    }`} />
                                                             </div>
                                                             <p className="text-xs text-gray-500">
                                                                 {uploadStatus === 'converting' && 'Converting images to WebP for smaller file sizes...'}
@@ -783,9 +807,9 @@ export default function AddProductPage() {
                                                         </>
                                                     )}
                                                 </div>
-                                                <input 
-                                                    type="file" 
-                                                    className="hidden" 
+                                                <input
+                                                    type="file"
+                                                    className="hidden"
                                                     accept="image/jpeg,image/png,image/gif,image/webp"
                                                     multiple
                                                     onChange={handleFileUpload}
@@ -799,14 +823,13 @@ export default function AddProductPage() {
                                     {images.length > 0 ? (
                                         <div className="grid grid-cols-3 gap-3">
                                             {images.map((img, index) => (
-                                                <div 
-                                                    key={index} 
-                                                    className={`relative group rounded-lg overflow-hidden border-2 ${
-                                                        img.isPrimary ? 'border-[#86efac]' : 'border-[#333]'
-                                                    }`}
+                                                <div
+                                                    key={index}
+                                                    className={`relative group rounded-lg overflow-hidden border-2 ${img.isPrimary ? 'border-[#86efac]' : 'border-[#333]'
+                                                        }`}
                                                 >
-                                                    <img 
-                                                        src={img.url} 
+                                                    <img
+                                                        src={img.url}
                                                         alt={`Product ${index + 1}`}
                                                         className="w-full aspect-square object-cover"
                                                         onError={(e) => {
@@ -871,12 +894,12 @@ export default function AddProductPage() {
                                 <CardContent className="pt-6">
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className="text-white font-medium">Key Features / Bullet Points</h3>
-                                        <Button 
-                                            type="button" 
+                                        <Button
+                                            type="button"
                                             size="sm"
                                             variant="outline"
                                             onClick={addBulletPoint}
-                                            className="border-[#333] text-gray-300 hover:text-white hover:bg-[#333]"
+                                            className="border-[#333]"
                                         >
                                             <Plus className="h-3 w-3 mr-1" />
                                             Add Point
@@ -1070,6 +1093,66 @@ export default function AddProductPage() {
                                             </FormItem>
                                         )}
                                     />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="rating"
+                                        render={({ field }) => (
+                                            <FormItem className="mt-4">
+                                                <FormLabel className="text-white flex items-center gap-2">
+                                                    <Star className="h-4 w-4 text-yellow-500" />
+                                                    Admin Rating (0-5)
+                                                </FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.1"
+                                                        min="0"
+                                                        max="5"
+                                                        placeholder="4.5"
+                                                        {...field}
+                                                        className="bg-[#0D0D0D] border-[#333] text-white"
+                                                    />
+                                                </FormControl>
+                                                <FormDescription className="text-gray-500">
+                                                    Initial rating for the product visibility.
+                                                </FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <div className="grid grid-cols-2 gap-4 mt-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="purchaseCountMin"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-white">Min Purchase Count</FormLabel>
+                                                    <FormControl>
+                                                        <Input type="number" placeholder="0" {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="purchaseCountMax"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-white">Max Purchase Count</FormLabel>
+                                                    <FormControl>
+                                                        <Input type="number" placeholder="50" {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                    <FormDescription className="text-gray-500 mt-1">
+                                        A random number between these two values will be shown as live purchases, changing every 24 hours.
+                                    </FormDescription>
                                 </CardContent>
                             </Card>
 
@@ -1138,8 +1221,8 @@ export default function AddProductPage() {
                                                                         />
                                                                         {newCompanyLogo && (
                                                                             <div className="w-10 h-10 rounded-lg bg-[#0D0D0D] border border-[#333] overflow-hidden shrink-0">
-                                                                                <img 
-                                                                                    src={newCompanyLogo} 
+                                                                                <img
+                                                                                    src={newCompanyLogo}
                                                                                     alt="Preview"
                                                                                     className="w-full h-full object-cover"
                                                                                     onError={(e) => {
@@ -1165,7 +1248,6 @@ export default function AddProductPage() {
                                                                     type="button"
                                                                     onClick={createNewCompany}
                                                                     disabled={isCreatingCompany}
-                                                                    className="bg-[#86efac] text-black hover:bg-[#86efac]/90"
                                                                 >
                                                                     {isCreatingCompany && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                                                     Create Company
@@ -1234,16 +1316,16 @@ export default function AddProductPage() {
                                 </CardContent>
                             </Card>
 
-                            <div className="flex gap-4">
+                            <div className="flex gap-4 pt-4">
                                 <Button
                                     type="button"
                                     variant="outline"
-                                    className="w-full border-[#333] bg-[#1A1A1A] text-gray-300 hover:text-white hover:bg-[#333]"
+                                    className="flex-1 border-[#333] bg-[#1A1A1A] text-gray-300 hover:text-white hover:bg-[#333]"
                                     onClick={() => router.back()}
                                 >
                                     Cancel
                                 </Button>
-                                <Button type="submit" className="w-full bg-[#86efac] text-black hover:bg-[#86efac]/90" disabled={isLoading}>
+                                <Button type="submit" className="flex-1" disabled={isLoading}>
                                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     {isEditMode ? "Update Product" : "Create Product"}
                                 </Button>

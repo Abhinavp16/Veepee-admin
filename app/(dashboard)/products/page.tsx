@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Plus, Loader2, Pencil, Trash2, Eye, LayoutGrid, List, Package } from "lucide-react"
+import { Plus, Loader2, Pencil, Trash2, Eye, LayoutGrid, List, Package, Star } from "lucide-react"
 import { useEffect, useState } from "react"
 import {
     Table,
@@ -23,6 +23,7 @@ interface Product {
     stock: number
     status: string
     sku: string
+    rating: number
 }
 
 export default function ProductsPage() {
@@ -106,6 +107,7 @@ export default function ProductsPage() {
                                 <TableHead className="text-gray-400">Category</TableHead>
                                 <TableHead className="text-gray-400 text-right">Price</TableHead>
                                 <TableHead className="text-gray-400 text-right">Stock</TableHead>
+                                <TableHead className="text-gray-400 text-center">Rating</TableHead>
                                 <TableHead className="text-gray-400 text-center">Status</TableHead>
                                 <TableHead className="text-gray-400 text-right">Actions</TableHead>
                             </TableRow>
@@ -122,6 +124,12 @@ export default function ProductsPage() {
                                     </TableCell>
                                     <TableCell className="text-white text-right">₹{product.retailPrice.toLocaleString()}</TableCell>
                                     <TableCell className="text-white text-right">{product.stock}</TableCell>
+                                    <TableCell className="text-center">
+                                        <div className="flex items-center justify-center gap-1 text-yellow-500">
+                                            <Star className="h-3 w-3 fill-current" />
+                                            <span className="text-xs">{product.rating || '4.5'}</span>
+                                        </div>
+                                    </TableCell>
                                     <TableCell className="text-center">
                                         <Badge className={`${product.status === 'active' ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20' :
                                             'bg-gray-500/10 text-gray-500 hover:bg-gray-500/20'
@@ -153,8 +161,8 @@ export default function ProductsPage() {
                 /* Card View */
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {products.map((product) => (
-                        <div 
-                            key={product._id} 
+                        <div
+                            key={product._id}
                             className="bg-[#161616] rounded-xl border border-[#333] p-4 hover:border-[#444] transition-colors"
                         >
                             <div className="flex items-start justify-between mb-3">
@@ -186,6 +194,10 @@ export default function ProductsPage() {
                                     }`}>
                                     {product.status}
                                 </Badge>
+                                <div className="flex items-center gap-1 text-yellow-500">
+                                    <Star className="h-3 w-3 fill-current" />
+                                    <span className="text-xs font-medium">{product.rating || '4.5'}</span>
+                                </div>
                             </div>
                             <div className="flex items-center justify-between pt-3 border-t border-[#333]">
                                 <div>

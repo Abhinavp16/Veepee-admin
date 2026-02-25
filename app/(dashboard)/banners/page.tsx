@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Loader2, Save, Plus, Trash2, GripVertical, Image as ImageIcon } from "lucide-react"
+import { Loader2, Save, Plus, Trash2, GripVertical, Image as ImageIcon, Upload } from "lucide-react"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
 import { Switch } from "@/components/ui/switch"
@@ -27,6 +27,46 @@ export default function BannersPage() {
     const [promoBanners, setPromoBanners] = useState<Banner[]>([])
     const [isSavingHero, setIsSavingHero] = useState(false)
     const [isSavingPromo, setIsSavingPromo] = useState(false)
+    const [uploadingIndex, setUploadingIndex] = useState<{ type: 'hero' | 'promo', index: number } | null>(null)
+
+    async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>, type: 'hero' | 'promo', index: number) {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        setUploadingIndex({ type, index })
+
+        const formData = new FormData()
+        formData.append('image', file)
+
+        try {
+            const token = localStorage.getItem('accessToken')
+            const res = await fetch('http://localhost:5000/api/v1/upload/image?folder=banners', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                },
+                body: formData
+            })
+
+            const data = await res.json()
+            if (res.ok && data.success) {
+                if (type === 'hero') {
+                    updateHeroBanner(index, 'imageUrl', data.data.url)
+                } else {
+                    updatePromoBanner(index, 'imageUrl', data.data.url)
+                }
+                toast.success("Image uploaded successfully")
+            } else {
+                toast.error(data.message || "Upload failed")
+            }
+        } catch (error) {
+            toast.error("Error uploading image")
+        } finally {
+            setUploadingIndex(null)
+            // Reset the input value so the same file can be uploaded again if needed
+            e.target.value = ''
+        }
+    }
 
     useEffect(() => {
         fetchBanners()
@@ -124,11 +164,14 @@ export default function BannersPage() {
     function renderBannerCard(
         banner: Banner,
         index: number,
+        type: 'hero' | 'promo',
         updateFn: (index: number, field: keyof Banner, value: string | boolean | number) => void,
         removeFn: (index: number) => void
     ) {
+        const isUploading = uploadingIndex?.type === type && uploadingIndex?.index === index;
+
         return (
-            <div key={index} className="border border-[#333] rounded-lg p-4 space-y-3 bg-[#0D0D0D]">
+            <div key={index} className="border border-[#333] rounded-lg p-4 space-y-4 bg-[#0D0D0D]">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <GripVertical className="h-4 w-4 text-[#555]" />
@@ -151,53 +194,99 @@ export default function BannersPage() {
                         </Button>
                     </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                    <div>
-                        <label className="text-xs text-[#919191] mb-1 block">Title *</label>
-                        <Input
-                            className="bg-[#161616] border-[#333] text-white text-sm"
-                            placeholder="e.g. Summer Sale"
-                            value={banner.title}
-                            onChange={(e) => updateFn(index, 'title', e.target.value)}
-                        />
+
+                <div className="flex gap-4">
+                    {/* Image Preview */}
+                    <div className="h-32 w-48 rounded-md border border-[#333] overflow-hidden bg-[#161616] flex-shrink-0 flex items-center justify-center relative">
+                        {banner.imageUrl ? (
+                            <img
+                                src={banner.imageUrl}
+                                alt="Preview"
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                    (e.target as HTMLImageElement).src = 'https://placehold.co/600x400/161616/white?text=Invalid+Image';
+                                }}
+                            />
+                        ) : (
+                            <div className="flex flex-col items-center gap-1 text-[#555]">
+                                <ImageIcon className="h-8 w-8" />
+                                <span className="text-[10px]">No Image</span>
+                            </div>
+                        )}
+
+                        {isUploading && (
+                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                <Loader2 className="h-6 w-6 animate-spin text-white" />
+                            </div>
+                        )}
                     </div>
-                    <div>
-                        <label className="text-xs text-[#919191] mb-1 block">Tag</label>
-                        <Input
-                            className="bg-[#161616] border-[#333] text-white text-sm"
-                            placeholder="e.g. NEW ARRIVAL"
-                            value={banner.tag}
-                            onChange={(e) => updateFn(index, 'tag', e.target.value)}
-                        />
-                    </div>
-                </div>
-                <div>
-                    <label className="text-xs text-[#919191] mb-1 block">Subtitle</label>
-                    <Input
-                        className="bg-[#161616] border-[#333] text-white text-sm"
-                        placeholder="e.g. Up to 20% off on bulk orders"
-                        value={banner.subtitle}
-                        onChange={(e) => updateFn(index, 'subtitle', e.target.value)}
-                    />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                    <div>
-                        <label className="text-xs text-[#919191] mb-1 block">Image URL</label>
-                        <Input
-                            className="bg-[#161616] border-[#333] text-white text-sm"
-                            placeholder="https://..."
-                            value={banner.imageUrl}
-                            onChange={(e) => updateFn(index, 'imageUrl', e.target.value)}
-                        />
-                    </div>
-                    <div>
-                        <label className="text-xs text-[#919191] mb-1 block">Link URL</label>
-                        <Input
-                            className="bg-[#161616] border-[#333] text-white text-sm"
-                            placeholder="e.g. /product/abc123"
-                            value={banner.linkUrl}
-                            onChange={(e) => updateFn(index, 'linkUrl', e.target.value)}
-                        />
+
+                    <div className="flex-1 space-y-3">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs text-[#919191] mb-1 block">Title *</label>
+                                <Input
+                                    className="bg-[#161616] border-[#333] text-white text-sm"
+                                    placeholder="e.g. Summer Sale"
+                                    value={banner.title}
+                                    onChange={(e) => updateFn(index, 'title', e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs text-[#919191] mb-1 block">Tag</label>
+                                <Input
+                                    className="bg-[#161616] border-[#333] text-white text-sm"
+                                    placeholder="e.g. NEW ARRIVAL"
+                                    value={banner.tag}
+                                    onChange={(e) => updateFn(index, 'tag', e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-xs text-[#919191] mb-1 block">Subtitle</label>
+                            <Input
+                                className="bg-[#161616] border-[#333] text-white text-sm"
+                                placeholder="e.g. Up to 20% off on bulk orders"
+                                value={banner.subtitle}
+                                onChange={(e) => updateFn(index, 'subtitle', e.target.value)}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs text-[#919191] mb-1 block">Banner Image</label>
+                                <input
+                                    type="file"
+                                    id={`upload-${type}-${index}`}
+                                    className="hidden"
+                                    accept="image/*"
+                                    onChange={(e) => handleBannerUpload(e, type, index)}
+                                />
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="w-full border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A] flex items-center justify-center gap-2 h-10"
+                                    onClick={() => document.getElementById(`upload-${type}-${index}`)?.click()}
+                                    disabled={isUploading}
+                                >
+                                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                                    <span className="text-sm">
+                                        {banner.imageUrl ? "Change Image" : "Upload Image"}
+                                    </span>
+                                </Button>
+                                {banner.imageUrl && (
+                                    <p className="text-[10px] text-[#555] mt-1 truncate max-w-xs">{banner.imageUrl}</p>
+                                )}
+                            </div>
+                            <div>
+                                <label className="text-xs text-[#919191] mb-1 block">Link URL</label>
+                                <Input
+                                    className="bg-[#161616] border-[#333] text-white text-sm"
+                                    placeholder="e.g. /product/abc123"
+                                    value={banner.linkUrl}
+                                    onChange={(e) => updateFn(index, 'linkUrl', e.target.value)}
+                                />
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -221,11 +310,11 @@ export default function BannersPage() {
 
             <Tabs defaultValue="hero" className="w-full">
                 <TabsList className="bg-[#161616] border border-[#333]">
-                    <TabsTrigger value="hero" className="data-[state=active]:bg-[#333]">
-                        Hero Banners (Top)
+                    <TabsTrigger value="hero" className="data-[state=active]:bg-[#333] data-[state=active]:text-white text-[#919191]">
+                        Top Banners (Hero)
                     </TabsTrigger>
-                    <TabsTrigger value="promo" className="data-[state=active]:bg-[#333]">
-                        Promo Banners (Below Products)
+                    <TabsTrigger value="promo" className="data-[state=active]:bg-[#333] data-[state=active]:text-white text-[#919191]">
+                        Bottom Banners (Promo)
                     </TabsTrigger>
                 </TabsList>
 
@@ -235,9 +324,9 @@ export default function BannersPage() {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <CardTitle className="text-white flex items-center gap-2">
-                                        <ImageIcon className="h-5 w-5" /> Hero Banners
+                                        <ImageIcon className="h-5 w-5" /> Top Banners
                                     </CardTitle>
-                                    <CardDescription>Main carousel at the top of the home screen</CardDescription>
+                                    <CardDescription className="text-[#919191]">Main carousel at the top of the home screen</CardDescription>
                                 </div>
                                 <Button onClick={addHeroBanner} variant="outline" size="sm" className="border-[#333] text-white hover:bg-[#222]">
                                     <Plus className="h-4 w-4 mr-1" /> Add Banner
@@ -251,12 +340,12 @@ export default function BannersPage() {
                                     <p className="text-sm">No hero banners yet. Add your first banner.</p>
                                 </div>
                             ) : (
-                                heroBanners.map((banner, index) => 
-                                    renderBannerCard(banner, index, updateHeroBanner, removeHeroBanner)
+                                heroBanners.map((banner, index) =>
+                                    renderBannerCard(banner, index, 'hero', updateHeroBanner, removeHeroBanner)
                                 )
                             )}
                             {heroBanners.length > 0 && (
-                                <Button onClick={saveHeroBanners} disabled={isSavingHero} className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+                                <Button onClick={saveHeroBanners} disabled={isSavingHero} className="w-full">
                                     {isSavingHero && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     <Save className="mr-2 h-4 w-4" /> Save Hero Banners
                                 </Button>
@@ -271,9 +360,9 @@ export default function BannersPage() {
                             <div className="flex items-center justify-between">
                                 <div>
                                     <CardTitle className="text-white flex items-center gap-2">
-                                        <ImageIcon className="h-5 w-5" /> Promo Banners
+                                        <ImageIcon className="h-5 w-5" /> Bottom Banners
                                     </CardTitle>
-                                    <CardDescription>Secondary carousel below the Popular Products section</CardDescription>
+                                    <CardDescription className="text-[#919191]">Promotional carousel displayed just above the "Why Buy From Us" section</CardDescription>
                                 </div>
                                 <Button onClick={addPromoBanner} variant="outline" size="sm" className="border-[#333] text-white hover:bg-[#222]">
                                     <Plus className="h-4 w-4 mr-1" /> Add Banner
@@ -287,12 +376,12 @@ export default function BannersPage() {
                                     <p className="text-sm">No promo banners yet. Add your first banner.</p>
                                 </div>
                             ) : (
-                                promoBanners.map((banner, index) => 
-                                    renderBannerCard(banner, index, updatePromoBanner, removePromoBanner)
+                                promoBanners.map((banner, index) =>
+                                    renderBannerCard(banner, index, 'promo', updatePromoBanner, removePromoBanner)
                                 )
                             )}
                             {promoBanners.length > 0 && (
-                                <Button onClick={savePromoBanners} disabled={isSavingPromo} className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                                <Button onClick={savePromoBanners} disabled={isSavingPromo} className="w-full">
                                     {isSavingPromo && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     <Save className="mr-2 h-4 w-4" /> Save Promo Banners
                                 </Button>

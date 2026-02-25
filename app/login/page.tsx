@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import { apiFetch, logout } from "@/lib/api"
 import * as z from "zod"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
@@ -40,11 +41,9 @@ export default function LoginPage() {
     async function onSubmit(values: z.infer<typeof loginSchema>) {
         setIsLoading(true)
         try {
-            const res = await fetch('http://localhost:5000/api/v1/auth/login', {
+            const res = await apiFetch('/auth/login', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                skipAuth: true,
                 body: JSON.stringify(values),
             })
 

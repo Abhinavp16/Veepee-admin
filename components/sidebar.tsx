@@ -1,13 +1,15 @@
 "use client"
 
-import { LayoutDashboard, Package, ShoppingCart, Users, MessageSquareMore, BarChart3, Settings, LogOut, Building2, FolderTree, UserSearch, Image } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingCart, Users, MessageSquareMore, BarChart3, Settings, LogOut, Building2, FolderTree, UserSearch, Image, TicketPercent, ChevronDown, ChevronRight, User, Store, BadgeCheck, Star } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { useState } from 'react'
 
 export function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
+  const [offersOpen, setOffersOpen] = useState(pathname.startsWith('/offers'));
 
   const handleLogout = () => {
     localStorage.removeItem('accessToken')
@@ -50,6 +52,37 @@ export function Sidebar() {
           <Users className="h-6 w-6" />
           <span className="text-sm font-medium tracking-wide">CUSTOMERS</span>
         </Link>
+
+        <div className="flex flex-col gap-4">
+          <button
+            onClick={() => setOffersOpen(!offersOpen)}
+            className={`flex items-center justify-between w-full transition-colors ${pathname.startsWith('/offers') ? "text-[#E7E7E7]" : "text-[#919191] hover:text-[#E7E7E7]"}`}
+          >
+            <div className="flex items-center gap-4">
+              <TicketPercent className="h-6 w-6" />
+              <span className="text-sm font-medium tracking-wide">OFFERS</span>
+            </div>
+            {offersOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </button>
+
+          {offersOpen && (
+            <div className="ml-6 flex flex-col gap-5 mt-2 transition-all duration-300">
+              <Link href="/offers/customers" className={`text-xs font-medium tracking-wide transition-colors flex items-center gap-3 ${isActive('/offers/customers')}`}>
+                <User className="h-4 w-4" />
+                CUSTOMERS
+              </Link>
+              <Link href="/offers/wholesalers" className={`text-xs font-medium tracking-wide transition-colors flex items-center gap-3 ${isActive('/offers/wholesalers')}`}>
+                <Store className="h-4 w-4" />
+                WHOLESALERS
+              </Link>
+              <Link href="/offers/affiliates" className={`text-xs font-medium tracking-wide transition-colors flex items-center gap-3 ${isActive('/offers/affiliates')}`}>
+                <BadgeCheck className="h-4 w-4" />
+                AFFILIATE CODES
+              </Link>
+            </div>
+          )}
+        </div>
+
         <Link href="/analytics" className={`flex items-center gap-4 transition-colors ${isActive('/analytics')}`}>
           <BarChart3 className="h-6 w-6" />
           <span className="text-sm font-medium tracking-wide">ANALYTICS</span>
@@ -61,6 +94,10 @@ export function Sidebar() {
         <Link href="/banners" className={`flex items-center gap-4 transition-colors ${isActive('/banners')}`}>
           <Image className="h-6 w-6" />
           <span className="text-sm font-medium tracking-wide">BANNERS</span>
+        </Link>
+        <Link href="/reviews" className={`flex items-center gap-4 transition-colors ${isActive('/reviews')}`}>
+          <Star className="h-6 w-6" />
+          <span className="text-sm font-medium tracking-wide">REVIEWS</span>
         </Link>
       </nav>
 
