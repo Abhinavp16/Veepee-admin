@@ -128,7 +128,7 @@ export default function SettingsPage() {
 
         try {
             const token = localStorage.getItem('accessToken')
-            const response = await fetch('http://192.168.1.4:5000/api/v1/upload/image?folder=avatars', {
+            const response = await fetch('http://192.168.1.10:5000/api/v1/upload/image?folder=avatars', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

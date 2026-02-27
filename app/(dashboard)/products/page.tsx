@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Plus, Loader2, Pencil, Trash2, Eye, LayoutGrid, List, Package, Star } from "lucide-react"
+import { Plus, Loader2, Pencil, Trash2, Eye, LayoutGrid, List, Package, Star, Languages } from "lucide-react"
 import { useEffect, useState } from "react"
 import {
     Table,
@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
+import { apiFetch } from "@/lib/api"
 
 interface Product {
     _id: string
@@ -30,6 +31,7 @@ export default function ProductsPage() {
     const [products, setProducts] = useState<Product[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [viewMode, setViewMode] = useState<'list' | 'card'>('list')
+    const [isConvertingHindi, setIsConvertingHindi] = useState(false)
 
     useEffect(() => {
         fetchProducts()
@@ -37,11 +39,7 @@ export default function ProductsPage() {
 
     async function fetchProducts() {
         try {
-            const res = await fetch('http://localhost:5000/api/v1/admin/products', {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-                }
-            })
+            const res = await apiFetch('/admin/products')
             const data = await res.json()
             if (res.ok) {
                 setProducts(data.data || [])
@@ -56,6 +54,38 @@ export default function ProductsPage() {
         }
     }
 
+    async function convertMissingHindiNames() {
+        const confirmed = window.confirm(
+            "Convert missing Hindi names for all products that don't have Hindi text yet?"
+        )
+        if (!confirmed) return
+
+        setIsConvertingHindi(true)
+        try {
+            const res = await apiFetch('/admin/products/hindi-names/generate-missing', {
+                method: 'POST',
+                body: JSON.stringify({}),
+            })
+            const data = await res.json()
+
+            if (!res.ok || !data?.success) {
+                toast.error(data?.message || "Failed to convert Hindi names")
+                return
+            }
+
+            const stats = data.data || {}
+            toast.success(
+                `Hindi conversion done: ${stats.updated ?? 0} updated, ${stats.skipped ?? 0} skipped (processed ${stats.processed ?? 0}).`
+            )
+            fetchProducts()
+        } catch (error) {
+            console.error(error)
+            toast.error("Error converting Hindi names")
+        } finally {
+            setIsConvertingHindi(false)
+        }
+    }
+
     return (
         <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
@@ -64,6 +94,20 @@ export default function ProductsPage() {
                     <p className="text-gray-400">Manage your product catalog.</p>
                 </div>
                 <div className="flex items-center gap-3">
+                    <Button
+                        type="button"
+                        onClick={convertMissingHindiNames}
+                        disabled={isConvertingHindi}
+                        variant="outline"
+                        className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
+                    >
+                        {isConvertingHindi ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <Languages className="mr-2 h-4 w-4" />
+                        )}
+                        Convert Missing Hindi Names
+                    </Button>
                     {/* View Toggle */}
                     <div className="flex items-center bg-[#161616] rounded-lg p-1 border border-[#333]">
                         <button
