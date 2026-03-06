@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import {
     Table,
     TableBody,
@@ -10,8 +10,9 @@ import {
     TableRow
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Loader2, Eye, UserSearch, Phone, Mail, Package, ChevronLeft, ChevronRight, Clock, TrendingUp } from "lucide-react"
+import { Loader2, Eye, UserSearch, Phone, Mail, Package, ChevronLeft, ChevronRight, Clock, TrendingUp, MessageCircle } from "lucide-react"
 import { toast } from "sonner"
+import { apiFetch } from "@/lib/api"
 
 interface PotentialCustomer {
     userId: string
@@ -40,27 +41,33 @@ interface Pagination {
     pages: number
 }
 
+type InterestLevel = "Hot" | "Warm" | "Browsing"
+
 export default function PotentialCustomersPage() {
     const [leads, setLeads] = useState<PotentialCustomer[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [period, setPeriod] = useState("7d")
     const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 30, total: 0, pages: 0 })
+    const [scheduleTime, setScheduleTime] = useState("")
+    const [scheduledAt, setScheduledAt] = useState<Date | null>(null)
+    const scheduleTimeoutRef = useRef<number | null>(null)
 
     useEffect(() => {
         fetchLeads(1)
     }, [period])
 
+    useEffect(() => {
+        return () => {
+            if (scheduleTimeoutRef.current) {
+                window.clearTimeout(scheduleTimeoutRef.current)
+            }
+        }
+    }, [])
+
     async function fetchLeads(page: number) {
         setIsLoading(true)
         try {
-            const res = await fetch(
-                `http://localhost:5000/api/v1/admin/analytics/potential-customers?period=${period}&page=${page}&limit=30`,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-                    }
-                }
-            )
+            const res = await apiFetch(`/admin/analytics/potential-customers?period=${period}&page=${page}&limit=30`)
             const data = await res.json()
             if (res.ok && data.success) {
                 setLeads(data.data.potentialCustomers || [])
@@ -88,6 +95,120 @@ export default function PotentialCustomersPage() {
 
     function formatPrice(price: number) {
         return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(price)
+    }
+
+    function getInterestLevel(viewCount: number): InterestLevel {
+        if (viewCount >= 5) return "Hot"
+        if (viewCount >= 3) return "Warm"
+        return "Browsing"
+    }
+
+    function formatWhatsappNumber(phone: string): string | null {
+        const digits = phone.replace(/\D/g, "")
+        if (!digits) return null
+        if (digits.length === 10) return `91${digits}`
+        return digits
+    }
+
+    function buildLeadMessage(lead: PotentialCustomer, interest: InterestLevel): string {
+        const greetingName = lead.user.name || "there"
+        if (interest === "Hot") {
+            return `Hi ${greetingName}, we noticed your strong interest in ${lead.product.name}. It's currently available at ${formatPrice(lead.product.price)}. I can help you place an order now and share the best deal.`
+        }
+        if (interest === "Warm") {
+            return `Hi ${greetingName}, thanks for checking ${lead.product.name}. It's available at ${formatPrice(lead.product.price)}. Let me know if you want specs, delivery timeline, or a quote.`
+        }
+        return `Hi ${greetingName}, sharing details for ${lead.product.name} (${formatPrice(lead.product.price)}). If you are comparing options, I can help with features, stock, and pricing.`
+    }
+
+    function sendInterestMessage(lead: PotentialCustomer) {
+        const whatsappUrl = getWhatsappUrlForLead(lead)
+        if (!whatsappUrl) {
+            toast.error("Customer phone number is missing or invalid")
+            return
+        }
+        window.open(whatsappUrl, "_blank", "noopener,noreferrer")
+    }
+
+    function getWhatsappUrlForLead(lead: PotentialCustomer): string | null {
+        if (!lead.user.phone) return null
+        const phone = formatWhatsappNumber(lead.user.phone)
+        if (!phone) return null
+        const interest = getInterestLevel(lead.viewCount)
+        const message = buildLeadMessage(lead, interest)
+        return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
+    }
+
+    function sendMessageToAll() {
+        if (leads.length === 0) {
+            toast.error("No leads available to message")
+            return
+        }
+
+        const urls = leads
+            .map((lead) => getWhatsappUrlForLead(lead))
+            .filter((url): url is string => !!url)
+
+        if (urls.length === 0) {
+            toast.error("No valid phone numbers found in current leads")
+            return
+        }
+
+        urls.forEach((url, index) => {
+            setTimeout(() => {
+                window.open(url, "_blank", "noopener,noreferrer")
+            }, index * 250)
+        })
+
+        const skipped = leads.length - urls.length
+        if (skipped > 0) {
+            toast.success(`Opening ${urls.length} chats. Skipped ${skipped} leads with invalid phone numbers.`)
+        } else {
+            toast.success(`Opening ${urls.length} WhatsApp chats`)
+        }
+    }
+
+    function scheduleMessageToAll() {
+        if (!scheduleTime) {
+            toast.error("Please select date and time")
+            return
+        }
+        if (leads.length === 0) {
+            toast.error("No leads available to message")
+            return
+        }
+
+        const targetTime = new Date(scheduleTime)
+        if (Number.isNaN(targetTime.getTime())) {
+            toast.error("Invalid date/time selected")
+            return
+        }
+
+        const delay = targetTime.getTime() - Date.now()
+        if (delay <= 0) {
+            toast.error("Please select a future time")
+            return
+        }
+
+        if (scheduleTimeoutRef.current) {
+            window.clearTimeout(scheduleTimeoutRef.current)
+        }
+
+        scheduleTimeoutRef.current = window.setTimeout(() => {
+            sendMessageToAll()
+            setScheduledAt(null)
+            scheduleTimeoutRef.current = null
+        }, delay)
+        setScheduledAt(targetTime)
+        toast.success(`Bulk message scheduled for ${targetTime.toLocaleString()}. Keep this tab open.`)
+    }
+
+    function cancelScheduledMessage() {
+        if (!scheduleTimeoutRef.current) return
+        window.clearTimeout(scheduleTimeoutRef.current)
+        scheduleTimeoutRef.current = null
+        setScheduledAt(null)
+        toast.success("Scheduled bulk message cancelled")
     }
 
     const periods = [
@@ -155,9 +276,50 @@ export default function PotentialCustomersPage() {
 
             {/* Table */}
             <div className="bg-[#161616] border border-[#333] rounded-2xl">
-                <div className="px-6 py-4 border-b border-[#333]">
+                <div className="px-6 py-4 border-b border-[#333] flex items-center justify-between gap-3">
                     <h2 className="text-lg font-semibold text-white">Lead Details</h2>
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                        <input
+                            type="datetime-local"
+                            value={scheduleTime}
+                            onChange={(e) => setScheduleTime(e.target.value)}
+                            className="bg-[#0D0D0D] border border-[#333] text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-[#86efac]"
+                        />
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-[#86efac] text-[#86efac] hover:bg-[#86efac]/10"
+                            onClick={scheduleMessageToAll}
+                            disabled={isLoading || leads.length === 0}
+                        >
+                            Schedule All
+                        </Button>
+                        {scheduledAt && (
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-white hover:bg-[#333]"
+                                onClick={cancelScheduledMessage}
+                            >
+                                Cancel Schedule
+                            </Button>
+                        )}
+                        <Button
+                            size="sm"
+                            className="bg-[#86efac] text-black hover:bg-[#86efac]/90"
+                            onClick={sendMessageToAll}
+                            disabled={isLoading || leads.length === 0}
+                        >
+                            <MessageCircle className="h-4 w-4 mr-1" />
+                            Send Message to All
+                        </Button>
+                    </div>
                 </div>
+                {scheduledAt && (
+                    <div className="px-6 py-2 border-b border-[#333] text-xs text-[#86efac]">
+                        Scheduled bulk message: {scheduledAt.toLocaleString()}
+                    </div>
+                )}
                 <div className="p-6">
                     {isLoading ? (
                         <div className="flex justify-center py-16">
@@ -180,10 +342,13 @@ export default function PotentialCustomersPage() {
                                         <TableHead className="text-gray-400">Last Viewed</TableHead>
                                         <TableHead className="text-gray-400">Stock</TableHead>
                                         <TableHead className="text-gray-400">Interest</TableHead>
+                                        <TableHead className="text-gray-400 text-right">Action</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {leads.map((lead, i) => (
+                                    {leads.map((lead, i) => {
+                                        const interest = getInterestLevel(lead.viewCount)
+                                        return (
                                         <TableRow key={`${lead.userId}-${lead.productId}-${i}`} className="border-[#333] hover:bg-[#1A1A1A]">
                                             <TableCell>
                                                 <div className="space-y-1">
@@ -245,16 +410,27 @@ export default function PotentialCustomersPage() {
                                                 )}
                                             </TableCell>
                                             <TableCell>
-                                                {lead.viewCount >= 5 ? (
+                                                {interest === "Hot" ? (
                                                     <span className="px-2 py-1 rounded-full text-xs font-medium text-red-400 bg-red-500/10">Hot</span>
-                                                ) : lead.viewCount >= 3 ? (
+                                                ) : interest === "Warm" ? (
                                                     <span className="px-2 py-1 rounded-full text-xs font-medium text-orange-400 bg-orange-500/10">Warm</span>
                                                 ) : (
                                                     <span className="px-2 py-1 rounded-full text-xs font-medium text-blue-400 bg-blue-500/10">Browsing</span>
                                                 )}
                                             </TableCell>
+                                            <TableCell className="text-right">
+                                                <Button
+                                                    size="sm"
+                                                    className="bg-[#86efac] text-black hover:bg-[#86efac]/90"
+                                                    onClick={() => sendInterestMessage(lead)}
+                                                >
+                                                    <MessageCircle className="h-4 w-4 mr-1" />
+                                                    Send Message
+                                                </Button>
+                                            </TableCell>
                                         </TableRow>
-                                    ))}
+                                        )
+                                    })}
                                 </TableBody>
                             </Table>
 

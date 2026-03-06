@@ -1,4 +1,11 @@
-const API_BASE = 'http://192.168.1.14:5000/api/v1'
+const DEFAULT_API_BASE = "http://localhost:5000/api/v1"
+const RAW_API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE
+const API_BASE = RAW_API_BASE.replace(/\/+$/, "")
+
+function buildApiUrl(endpoint: string): string {
+  const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`
+  return `${API_BASE}${normalizedEndpoint}`
+}
 
 interface FetchOptions extends RequestInit {
   skipAuth?: boolean
@@ -9,7 +16,7 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!refreshToken) return null
 
   try {
-    const res = await fetch(`${API_BASE}/auth/refresh-token`, {
+    const res = await fetch(buildApiUrl("/auth/refresh-token"), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken }),
@@ -50,17 +57,25 @@ export async function apiFetch(endpoint: string, options: FetchOptions = {}): Pr
     }
   }
 
-  let res = await fetch(`${API_BASE}${endpoint}`, {
-    ...fetchOptions,
-    headers,
-  })
+  let res: Response
+  try {
+    res = await fetch(buildApiUrl(endpoint), {
+      ...fetchOptions,
+      headers,
+    })
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(`Unable to reach API at ${API_BASE}. Check backend server and NEXT_PUBLIC_API_BASE_URL.`)
+    }
+    throw error
+  }
 
   // If 401 and not skipping auth, try to refresh token
   if (res.status === 401 && !skipAuth) {
     const newToken = await refreshAccessToken()
     if (newToken) {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`
-      res = await fetch(`${API_BASE}${endpoint}`, {
+      res = await fetch(buildApiUrl(endpoint), {
         ...fetchOptions,
         headers,
       })
