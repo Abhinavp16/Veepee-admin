@@ -380,7 +380,7 @@ export default function SettingsPage() {
                                         <FormItem>
                                             <FormLabel className="text-white">Account Holder Name</FormLabel>
                                             <FormControl>
-                                                <Input className="bg-[#0D0D0D] border-[#333] text-white" placeholder="e.g. AgriMart Pvt Ltd" {...field} value={field.value || ''} />
+                                                <Input className="bg-[#0D0D0D] border-[#333] text-white" placeholder="e.g. OXON Pvt Ltd" {...field} value={field.value || ''} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -436,7 +436,7 @@ export default function SettingsPage() {
                                             <FormItem>
                                                 <FormLabel className="text-white">Display Name</FormLabel>
                                                 <FormControl>
-                                                    <Input className="bg-[#0D0D0D] border-[#333] text-white" placeholder="AgriMart Business" {...field} />
+                                                    <Input className="bg-[#0D0D0D] border-[#333] text-white" placeholder="OXON Business" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { apiFetch, logout } from "@/lib/api"
+import Image from "next/image"
 import * as z from "zod"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
@@ -78,7 +79,16 @@ export default function LoginPage() {
         <div className="min-h-screen flex items-center justify-center bg-black p-4">
             <Card className="w-full max-w-md bg-[#161616] border-[#333]">
                 <CardHeader className="space-y-1">
-                    <CardTitle className="text-2xl font-bold text-white text-center">AgriMart Admin</CardTitle>
+                    <div className="flex justify-center pb-2">
+                        <Image
+                            src="/oxon-logo.jpeg"
+                            alt="OXON logo"
+                            width={56}
+                            height={56}
+                            className="h-14 w-14 rounded-xl object-cover"
+                        />
+                    </div>
+                    <CardTitle className="text-2xl font-bold text-white text-center">OXON Admin</CardTitle>
                     <CardDescription className="text-gray-400 text-center">
                         Enter your credentials to access the dashboard
                     </CardDescription>
@@ -93,7 +103,7 @@ export default function LoginPage() {
                                     <FormItem>
                                         <FormLabel className="text-white">Email</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="admin@agrimart.com" {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
+                                            <Input placeholder="admin@oxon.com" {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>

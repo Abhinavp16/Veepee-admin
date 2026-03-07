@@ -4,7 +4,7 @@ const BASE_URL = 'http://localhost:3000';
 const API_URL = 'http://localhost:5000';
 
 // Test credentials
-const ADMIN_EMAIL = 'admin@agrimart.com';
+const ADMIN_EMAIL = 'admin@oxon.com';
 const ADMIN_PASSWORD = 'Admin@123';
 
 test.describe('Admin Panel E2E Tests', () => {
@@ -13,7 +13,7 @@ test.describe('Admin Panel E2E Tests', () => {
     
     test('should show login page', async ({ page }) => {
       await page.goto(`${BASE_URL}/login`);
-      await expect(page.getByText('AgriMart Admin')).toBeVisible();
+      await expect(page.getByText('OXON Admin')).toBeVisible();
       await expect(page.getByRole('textbox', { name: 'Email' })).toBeVisible();
       await expect(page.getByRole('textbox', { name: 'Password' })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Sign In' })).toBeVisible();

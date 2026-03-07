@@ -1,6 +1,5 @@
 "use client"
 
-import { FinbroLogo } from "@/components/finbro-logo"
 import { Settings2, LogOut, User } from 'lucide-react'
 import {
   DropdownMenu,
@@ -14,6 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { useEffect, useState } from "react"
 import { getUser, logout } from "@/lib/api"
 import Link from "next/link"
+import Image from "next/image"
 
 export function Header() {
   const [user, setUser] = useState<any>(null)
@@ -28,10 +28,14 @@ export function Header() {
   return (
     <header className="absolute top-0 left-0 right-0 z-50 flex items-center justify-between p-6 bg-black/10 backdrop-blur-[120px]">
       <div className="text-white text-xl font-bold tracking-tight pl-4 flex items-center gap-2">
-        <div className="h-8 w-8 bg-[#86efac] rounded-lg flex items-center justify-center">
-          <span className="text-black font-black text-xs">V</span>
-        </div>
-        AgriMart <span className="text-[#86efac]">Admin</span>
+        <Image
+          src="/oxon-logo.jpeg"
+          alt="OXON logo"
+          width={32}
+          height={32}
+          className="h-8 w-8 rounded-lg object-cover"
+        />
+        OXON <span className="text-[#86efac]">Admin</span>
       </div>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -52,7 +56,7 @@ export function Header() {
           <DropdownMenuLabel className="font-normal border-b border-[#1F1F1F] pb-3 mb-2 px-3">
             <div className="flex flex-col space-y-1">
               <p className="text-sm font-bold leading-none text-white">{user?.name || 'Administrator'}</p>
-              <p className="text-xs leading-none text-[#919191] truncate">{user?.email || 'admin@agrimart.com'}</p>
+              <p className="text-xs leading-none text-[#919191] truncate">{user?.email || 'admin@oxon.com'}</p>
             </div>
           </DropdownMenuLabel>
           <Link href="/settings">

@@ -7,25 +7,17 @@ import './globals.css'
 const spaceGrotesk = Space_Grotesk({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'AgriMart Admin',
-  description: 'AgriMart Admin Dashboard - Manage products, orders, and negotiations',
+  title: 'OXON Admin',
+  description: 'OXON Admin Dashboard - Manage products, orders, and negotiations',
   generator: 'v0.app',
   icons: {
     icon: [
       {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
+        url: '/oxon-logo.jpeg',
+        type: 'image/jpeg',
       },
     ],
-    apple: '/apple-icon.png',
+    apple: '/oxon-logo.jpeg',
   },
 }
 
