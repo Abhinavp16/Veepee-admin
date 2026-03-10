@@ -61,7 +61,7 @@ export default function CustomersPage() {
 
     async function fetchCustomers() {
         try {
-            const res = await fetch('http://localhost:5000/api/v1/admin/customers', {
+            const res = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/customers', {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
                 }
@@ -82,7 +82,7 @@ export default function CustomersPage() {
 
     async function fetchCustomerDetails(id: string) {
         try {
-            const res = await fetch(`http://localhost:5000/api/v1/admin/customers/${id}`, {
+            const res = await fetch(`https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/customers/${id}`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
                 }

@@ -40,7 +40,7 @@ export default function BannersPage() {
 
         try {
             const token = localStorage.getItem('accessToken')
-            const res = await fetch('http://localhost:5000/api/v1/upload/image?folder=banners', {
+            const res = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/upload/image?folder=banners', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`

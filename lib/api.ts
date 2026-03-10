@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE = "http://localhost:5000/api/v1"
+const DEFAULT_API_BASE = "https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1"
 const RAW_API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE
 const API_BASE = RAW_API_BASE.replace(/\/+$/, "")
 

@@ -72,7 +72,7 @@ export default function NegotiationsPage() {
 
     async function fetchNegotiations() {
         try {
-            const res = await fetch('http://localhost:5000/api/v1/admin/negotiations', {
+            const res = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/negotiations', {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
                 }
@@ -93,7 +93,7 @@ export default function NegotiationsPage() {
 
     async function fetchNegotiationDetails(id: string) {
         try {
-            const res = await fetch(`http://localhost:5000/api/v1/admin/negotiations/${id}`, {
+            const res = await fetch(`https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/negotiations/${id}`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
                 }
@@ -112,7 +112,7 @@ export default function NegotiationsPage() {
         if (!selectedNegotiation) return
         setIsSubmitting(true)
 
-        let endpoint = `http://localhost:5000/api/v1/admin/negotiations/${selectedNegotiation._id}/${action}`
+        let endpoint = `https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/negotiations/${selectedNegotiation._id}/${action}`
         let body = {}
 
         if (action === 'counter') {

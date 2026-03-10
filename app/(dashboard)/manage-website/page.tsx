@@ -16,7 +16,7 @@ type WebsiteFeaturedProduct = { name: string; price: string; image: string; badg
 type WebsiteHeroCard = { image: string; order: number }
 type SectionConfig = { eyebrow: string; title: string; description?: string; sideText?: string; buttonText: string }
 
-const DEFAULT_HERO_CARD_IMAGES = ["/images/Banner/1.jpg", "/images/Banner/2.jpg", "/images/Banner/3.jpg", "/images/Banner/4.jpg", "/images/Banner/5.jpg", "/images/Banner/1.jpg"]
+const DEFAULT_HERO_CARD_IMAGES = ["/images/Banner/1.jpg", "/images/Banner/2.jpg", "/images/Banner/3.jpg", "/images/Banner/4.jpg", "/images/Banner/5.jpg"]
 const defaultHeroCards = (): WebsiteHeroCard[] => DEFAULT_HERO_CARD_IMAGES.map((image, order) => ({ image, order }))
 const normalizeList = (values: string[]) => values.map((v) => v.trim()).filter(Boolean)
 const defaultCategoriesSection: SectionConfig = {
@@ -45,7 +45,7 @@ export default function ManageWebsitePage() {
     const [featuredSection, setFeaturedSection] = useState<SectionConfig>(defaultFeaturedSection)
 
     const uploadUrl = useMemo(() => {
-        const rawBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:5000/api/v1"
+        const rawBase = process.env.NEXT_PUBLIC_API_BASE_URL || "https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1"
         const origin = rawBase.replace(/\/api\/v1\/?$/, "")
         return `${origin}/api/v1/upload/image?folder=website`
     }, [])
@@ -73,7 +73,7 @@ export default function ManageWebsitePage() {
             setCategoriesSection({ ...defaultCategoriesSection, ...(data.data.categoriesSection || {}) })
             setFeaturedSection({ ...defaultFeaturedSection, ...(data.data.featuredSection || {}) })
             const incoming = Array.isArray(data.data.heroCards) ? data.data.heroCards : []
-            setHeroCards(incoming.length === 6 ? incoming.map((x: any, i: number) => ({ image: x?.image || DEFAULT_HERO_CARD_IMAGES[i], order: i })) : defaultHeroCards())
+            setHeroCards(incoming.length === 5 ? incoming.map((x: any, i: number) => ({ image: x?.image || DEFAULT_HERO_CARD_IMAGES[i], order: i })) : defaultHeroCards())
         } catch {
             toast.error("Failed to load website settings")
         } finally {
@@ -146,7 +146,7 @@ export default function ManageWebsitePage() {
         <div className="space-y-6">
             <div>
                 <h1 className="text-3xl font-bold text-white flex items-center gap-3"><Globe className="h-7 w-7 text-[#86efac]" />Manage Website</h1>
-                <p className="text-[#919191] mt-1">Hero has fixed 6 cards. Admin can only update image.</p>
+                <p className="text-[#919191] mt-1">Hero has fixed 5 cards. Admin can only update image.</p>
             </div>
 
             <Tabs defaultValue="hero" className="w-full">
@@ -162,16 +162,16 @@ export default function ManageWebsitePage() {
                             <CardHeader>
                                 <CardTitle className="text-white flex items-center gap-2">
                                     <span className="inline-block w-2 h-2 rounded-full bg-[#86efac]" />
-                                    Hero Banner Cards
+                                    Hero Cards
                                 </CardTitle>
-                                <CardDescription className="text-[#A5A9B5]">Exactly 6 cards. Only image is editable.</CardDescription>
+                                <CardDescription className="text-[#A5A9B5]">Exactly 5 cards. Only image is editable.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 {heroCards.map((item, index) => (
                                     <div key={index} className="border border-[#303543] rounded-2xl p-4 bg-[#121417] space-y-3">
                                         <div className="flex items-center justify-between">
-                                            <p className="text-sm text-white font-semibold">Hero Card {index + 1}</p>
-                                            <span className="text-[11px] px-2 py-1 rounded-full bg-[#202633] text-[#8FB2FF] border border-[#2E3A50]">Slide {index + 1}</span>
+                                            <p className="text-sm text-white font-semibold">Card {index + 1}</p>
+                                            <span className="text-[11px] px-2 py-1 rounded-full bg-[#202633] text-[#8FB2FF] border border-[#2E3A50]">Card {index + 1}</span>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-[1fr_170px] gap-3 items-start">
                                             <Input value={item.image} onChange={(e) => setHeroCards((prev) => prev.map((h, i) => i === index ? { ...h, image: e.target.value } : h))} className="bg-[#0D0D0D] border-[#2F3542] text-white" />
@@ -204,7 +204,7 @@ export default function ManageWebsitePage() {
                         <Card className="bg-gradient-to-b from-[#171a22] to-[#141414] border-[#2E3340] xl:col-span-4 xl:sticky xl:top-24 shadow-[0_10px_40px_rgba(0,0,0,0.35)]">
                             <CardHeader>
                                 <CardTitle className="text-white text-lg">Live Preview</CardTitle>
-                                <CardDescription className="text-[#A5A9B5]">Final look of all 6 hero slides.</CardDescription>
+                                <CardDescription className="text-[#A5A9B5]">Final look of all 5 hero cards.</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
@@ -214,7 +214,7 @@ export default function ManageWebsitePage() {
                                                 {item.image ? (
                                                     <img
                                                         src={previewSrc(item.image)}
-                                                        alt={`Hero ${i + 1}`}
+                                                        alt={`Card ${i + 1}`}
                                                         className="w-full h-full object-cover"
                                                         onError={(e) => {
                                                             (e.target as HTMLImageElement).src = `https://placehold.co/600x260/0b0f16/9ca3af?text=Hero+${i + 1}`;
@@ -224,12 +224,12 @@ export default function ManageWebsitePage() {
                                                     <div className="w-full h-full flex items-center justify-center text-xs text-[#666]">No Image</div>
                                                 )}
                                                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-                                                <div className="absolute top-2 left-2 text-[11px] px-2 py-1 rounded-full bg-black/60 text-white border border-white/20">Hero {i + 1}</div>
+                                                <div className="absolute top-2 left-2 text-[11px] px-2 py-1 rounded-full bg-black/60 text-white border border-white/20">Card {i + 1}</div>
                                             </div>
                                             <div className="p-2 flex items-center justify-between">
                                                 <p className="text-xs text-[#A5A9B5] truncate">Card {i + 1}</p>
                                                 <div className="w-14 h-1.5 rounded-full bg-[#202633] overflow-hidden">
-                                                    <div className="h-full bg-[#86efac]" style={{ width: `${((i + 1) / 6) * 100}%` }} />
+                                                    <div className="h-full bg-[#86efac]" style={{ width: `${((i + 1) / 5) * 100}%` }} />
                                                 </div>
                                             </div>
                                         </div>

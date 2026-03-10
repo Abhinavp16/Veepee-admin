@@ -152,7 +152,7 @@ export default function AddProductPage() {
         setIsLoadingProduct(true)
         try {
             const token = localStorage.getItem('accessToken')
-            const res = await fetch(`http://localhost:5000/api/v1/admin/products/${id}`, {
+            const res = await fetch(`https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/products/${id}`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             })
             if (!res.ok) throw new Error("Product not found")
@@ -206,7 +206,7 @@ export default function AddProductPage() {
 
     async function fetchCategories() {
         try {
-            const response = await fetch("http://localhost:5000/api/v1/categories")
+            const response = await fetch("https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/categories")
             if (response.ok) {
                 const data = await response.json()
                 setCategories(data.data || [])
@@ -220,7 +220,7 @@ export default function AddProductPage() {
 
     async function fetchCompanies() {
         try {
-            const response = await fetch("http://localhost:5000/api/v1/companies")
+            const response = await fetch("https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/companies")
             if (response.ok) {
                 const data = await response.json()
                 setCompanies(data.data || [])
@@ -277,7 +277,7 @@ export default function AddProductPage() {
             setUploadStatus('uploading')
 
             const token = localStorage.getItem('accessToken')
-            const response = await fetch('http://localhost:5000/api/v1/upload/images?folder=products', {
+            const response = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/upload/images?folder=products', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -375,7 +375,7 @@ export default function AddProductPage() {
 
         setIsCreatingCompany(true)
         try {
-            const response = await fetch("http://localhost:5000/api/v1/companies", {
+            const response = await fetch("https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/companies", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -416,7 +416,7 @@ export default function AddProductPage() {
 
         setIsCreatingCategory(true)
         try {
-            const response = await fetch("http://localhost:5000/api/v1/categories", {
+            const response = await fetch("https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/categories", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -487,8 +487,8 @@ export default function AddProductPage() {
             }
 
             const url = isEditMode
-                ? `http://localhost:5000/api/v1/admin/products/${editId}`
-                : "http://localhost:5000/api/v1/admin/products"
+                ? `https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/products/${editId}`
+                : "https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/products"
 
             const response = await fetch(url, {
                 method: isEditMode ? "PUT" : "POST",

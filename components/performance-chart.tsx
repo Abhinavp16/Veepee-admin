@@ -33,7 +33,7 @@ export function PerformanceChart() {
     const p = periodMap.find(p => p.value === activePeriod)!
     try {
       const res = await fetch(
-        `http://localhost:5000/api/v1/admin/analytics/sales?period=${p.value}&groupBy=${p.groupBy}`,
+        `https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/analytics/sales?period=${p.value}&groupBy=${p.groupBy}`,
         { headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` } }
       )
       const json = await res.json()

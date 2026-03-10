@@ -73,7 +73,7 @@ export default function CategoriesPage() {
 
     async function fetchCategories() {
         try {
-            const res = await fetch("http://localhost:5000/api/v1/categories")
+            const res = await fetch("https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/categories")
             if (res.ok) {
                 const data = await res.json()
                 setCategories(data.data || [])
@@ -134,7 +134,7 @@ export default function CategoriesPage() {
             setUploadStatus('uploading')
 
             const token = localStorage.getItem('accessToken')
-            const response = await fetch('http://localhost:5000/api/v1/upload/image?folder=categories', {
+            const response = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/upload/image?folder=categories', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -193,8 +193,8 @@ export default function CategoriesPage() {
             }
 
             const url = editingCategory
-                ? `http://localhost:5000/api/v1/categories/${editingCategory._id}`
-                : "http://localhost:5000/api/v1/categories"
+                ? `https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/categories/${editingCategory._id}`
+                : "https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/categories"
 
             const res = await fetch(url, {
                 method: editingCategory ? "PUT" : "POST",
@@ -224,7 +224,7 @@ export default function CategoriesPage() {
         const token = localStorage.getItem('accessToken')
 
         try {
-            const res = await fetch(`http://localhost:5000/api/v1/categories/${id}`, {
+            const res = await fetch(`https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/categories/${id}`, {
                 method: "DELETE",
                 headers: {
                     "Authorization": `Bearer ${token}`,

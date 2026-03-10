@@ -66,7 +66,7 @@ export default function OrdersPage() {
 
     async function fetchOrders() {
         try {
-            const res = await fetch('http://localhost:5000/api/v1/admin/orders', {
+            const res = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/orders', {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
                 }
@@ -87,7 +87,7 @@ export default function OrdersPage() {
 
     async function fetchOrderDetails(id: string) {
         try {
-            const res = await fetch(`http://localhost:5000/api/v1/admin/orders/${id}`, {
+            const res = await fetch(`https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/orders/${id}`, {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
                 }
@@ -106,7 +106,7 @@ export default function OrdersPage() {
         if (!confirm("Are you sure you want to verify this payment?")) return
         setIsVerifying(true)
         try {
-            const res = await fetch(`http://localhost:5000/api/v1/admin/payments/${paymentId}/verify`, {
+            const res = await fetch(`https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/payments/${paymentId}/verify`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
@@ -132,7 +132,7 @@ export default function OrdersPage() {
         if (!reason) return
         setIsRejecting(true)
         try {
-            const res = await fetch(`http://localhost:5000/api/v1/admin/payments/${paymentId}/reject`, {
+            const res = await fetch(`https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/payments/${paymentId}/reject`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -158,7 +158,7 @@ export default function OrdersPage() {
     async function updateOrderStatus(orderId: string, status: string, note?: string) {
         setIsUpdatingStatus(true)
         try {
-            const res = await fetch(`http://localhost:5000/api/v1/admin/orders/${orderId}/status`, {
+            const res = await fetch(`https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/orders/${orderId}/status`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
@@ -188,7 +188,7 @@ export default function OrdersPage() {
         }
         setIsShipping(true)
         try {
-            const res = await fetch(`http://localhost:5000/api/v1/admin/orders/${orderId}/ship`, {
+            const res = await fetch(`https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/orders/${orderId}/ship`, {
                 method: 'PUT',
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,

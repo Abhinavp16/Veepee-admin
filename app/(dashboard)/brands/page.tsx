@@ -55,7 +55,7 @@ export default function BrandsPage() {
 
     async function fetchCompanies() {
         try {
-            const res = await fetch("http://localhost:5000/api/v1/companies")
+            const res = await fetch("https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/companies")
             if (res.ok) {
                 const data = await res.json()
                 setCompanies(data.data || [])
@@ -98,7 +98,7 @@ export default function BrandsPage() {
 
         try {
             const token = localStorage.getItem('accessToken')
-            const response = await fetch('http://localhost:5000/api/v1/upload/image?folder=brands', {
+            const response = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/upload/image?folder=brands', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
@@ -144,8 +144,8 @@ export default function BrandsPage() {
             }
 
             const url = editingCompany
-                ? `http://localhost:5000/api/v1/companies/${editingCompany._id}`
-                : "http://localhost:5000/api/v1/companies"
+                ? `https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/companies/${editingCompany._id}`
+                : "https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/companies"
 
             const res = await fetch(url, {
                 method: editingCompany ? "PUT" : "POST",
@@ -175,7 +175,7 @@ export default function BrandsPage() {
         const token = localStorage.getItem('accessToken')
 
         try {
-            const res = await fetch(`http://localhost:5000/api/v1/companies/${id}`, {
+            const res = await fetch(`https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/companies/${id}`, {
                 method: "DELETE",
                 headers: {
                     "Authorization": `Bearer ${token}`,

@@ -24,7 +24,7 @@ export function DashboardMetrics() {
   useEffect(() => {
     async function fetchStats() {
       try {
-        const res = await fetch('http://localhost:5000/api/v1/admin/analytics/dashboard', {
+        const res = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/analytics/dashboard', {
           headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
         })
         const json = await res.json()
