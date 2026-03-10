@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts"
+import { apiFetch } from '@/lib/api'
 
 type PeriodKey = '7d' | '30d' | '90d' | '1y'
 
@@ -23,8 +24,11 @@ export function PerformanceChart() {
   const [data, setData] = useState<ChartPoint[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [activePeriod, setActivePeriod] = useState<PeriodKey>('30d')
+  const lastFetchedPeriodRef = useRef<PeriodKey | null>(null)
 
   useEffect(() => {
+    if (lastFetchedPeriodRef.current === activePeriod) return
+    lastFetchedPeriodRef.current = activePeriod
     fetchSales()
   }, [activePeriod])
 
@@ -32,10 +36,12 @@ export function PerformanceChart() {
     setIsLoading(true)
     const p = periodMap.find(p => p.value === activePeriod)!
     try {
-      const res = await fetch(
-        `https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/analytics/sales?period=${p.value}&groupBy=${p.groupBy}`,
-        { headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` } }
-      )
+      const res = await apiFetch(`/admin/analytics/sales?period=${p.value}&groupBy=${p.groupBy}`)
+      const contentType = res.headers.get('content-type') || ''
+      if (!contentType.includes('application/json')) {
+        return
+      }
+
       const json = await res.json()
       if (res.ok && json.success) {
         const timeline: { date: string; revenue: number; orders: number }[] = json.data.timeline || []

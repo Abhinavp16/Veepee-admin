@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, Clock, CheckCircle2, Loader2 } from 'lucide-react'
 import Link from 'next/link'
+import { apiFetch } from '@/lib/api'
 
 interface Order {
     _id: string
@@ -17,13 +18,20 @@ interface Order {
 export function RecentOrders() {
     const [orders, setOrders] = useState<Order[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const fetchedRef = useRef(false)
 
     useEffect(() => {
+        if (fetchedRef.current) return
+        fetchedRef.current = true
+
         async function fetchOrders() {
             try {
-                const res = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/orders?limit=6', {
-                    headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-                })
+                const res = await apiFetch('/admin/orders?limit=6')
+                const contentType = res.headers.get('content-type') || ''
+                if (!contentType.includes('application/json')) {
+                    return
+                }
+
                 const json = await res.json()
                 if (res.ok) {
                     setOrders((json.data || []).slice(0, 6))

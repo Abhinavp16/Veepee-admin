@@ -1,8 +1,9 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Wallet, ShoppingCart, Users, Handshake, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { apiFetch } from '@/lib/api'
 
 interface DashboardData {
   overview: {
@@ -20,19 +21,29 @@ interface DashboardData {
 export function DashboardMetrics() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const fetchedRef = useRef(false)
 
   useEffect(() => {
+    if (fetchedRef.current) return
+    fetchedRef.current = true
+
     async function fetchStats() {
       try {
-        const res = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/analytics/dashboard', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('accessToken')}` }
-        })
-        const json = await res.json()
-        if (res.ok && json.success) {
-          setData(json.data)
+        const res = await apiFetch('/admin/analytics/dashboard')
+        const contentType = res.headers.get('content-type') || ''
+
+        if (!contentType.includes('application/json')) {
+          throw new Error(`Unexpected API response (${res.status})`)
         }
-      } catch {
-        toast.error('Failed to load dashboard stats')
+
+        const json = await res.json()
+        if (!res.ok || !json.success) {
+          throw new Error(json?.message || `Failed to load dashboard stats (${res.status})`)
+        }
+
+        setData(json.data)
+      } catch (error: any) {
+        toast.error(error?.message || 'Failed to load dashboard stats')
       } finally {
         setIsLoading(false)
       }
