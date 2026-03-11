@@ -9,17 +9,135 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import { Loader2, Plus, Save, Trash2, Upload, Globe } from "lucide-react"
+import { Loader2, Plus, Save, Trash2, Upload, Globe, ChevronDown, ChevronRight } from "lucide-react"
 
-type WebsiteCategory = { name: string; description: string; image: string; products: string[]; isActive: boolean; order: number }
+type WebsiteCategoryProduct = {
+    productId: string
+    name: string
+    slug: string
+    category: string
+    shortDescription: string
+    description: string
+    sku: string
+    mrp: number
+    retailPrice: number
+    wholesalePrice: number
+    stock: number
+    status: string
+    image: string
+    images: string[]
+    order: number
+}
+type WebsiteCategory = { name: string; description: string; image: string; products: string[]; productDetails: WebsiteCategoryProduct[]; isActive: boolean; order: number }
 type WebsiteFeaturedProduct = { name: string; price: string; image: string; badge: string; specs: string[]; isActive: boolean; order: number }
 type WebsiteHeroCard = { image: string; order: number }
 type SectionConfig = { eyebrow: string; title: string; description?: string; sideText?: string; buttonText: string }
-type AdminProductOption = { _id: string; name: string; category?: string }
+type AdminProductImage = { url: string; isPrimary?: boolean; order?: number }
+type AdminProductOption = {
+    _id: string
+    name: string
+    slug?: string
+    category?: string
+    shortDescription?: string
+    description?: string
+    sku?: string
+    mrp?: number
+    retailPrice?: number
+    wholesalePrice?: number
+    stock?: number
+    status?: string
+    images?: AdminProductImage[]
+}
 
 const DEFAULT_HERO_CARD_IMAGES = ["/images/Banner/1.jpg", "/images/Banner/2.jpg", "/images/Banner/3.jpg", "/images/Banner/4.jpg", "/images/Banner/5.jpg"]
 const defaultHeroCards = (): WebsiteHeroCard[] => DEFAULT_HERO_CARD_IMAGES.map((image, order) => ({ image, order }))
 const normalizeList = (values: string[]) => values.map((v) => v.trim()).filter(Boolean)
+const toNumber = (value: unknown): number => {
+    const num = Number(value)
+    return Number.isFinite(num) ? num : 0
+}
+const normalizeCategoryProduct = (value: any, order: number): WebsiteCategoryProduct => {
+    if (typeof value === "string") {
+        const name = value.trim()
+        return {
+            productId: "",
+            name,
+            slug: "",
+            category: "",
+            shortDescription: "",
+            description: "",
+            sku: "",
+            mrp: 0,
+            retailPrice: 0,
+            wholesalePrice: 0,
+            stock: 0,
+            status: "",
+            image: "",
+            images: [],
+            order,
+        }
+    }
+
+    const images = Array.isArray(value?.images) ? value.images.map((image: any) => String(image || "")).filter(Boolean) : []
+    return {
+        productId: String(value?.productId || value?._id || ""),
+        name: String(value?.name || "").trim(),
+        slug: String(value?.slug || ""),
+        category: String(value?.category || ""),
+        shortDescription: String(value?.shortDescription || ""),
+        description: String(value?.description || ""),
+        sku: String(value?.sku || ""),
+        mrp: toNumber(value?.mrp),
+        retailPrice: toNumber(value?.retailPrice),
+        wholesalePrice: toNumber(value?.wholesalePrice),
+        stock: toNumber(value?.stock),
+        status: String(value?.status || ""),
+        image: String(value?.image || images[0] || ""),
+        images,
+        order: Number.isFinite(value?.order) ? value.order : order,
+    }
+}
+const normalizeCategoryProductList = (values: any[]): WebsiteCategoryProduct[] => {
+    if (!Array.isArray(values)) return []
+    return values
+        .map((value, index) => normalizeCategoryProduct(value, index))
+        .filter((product) => product.name)
+}
+const getPrimaryProductImage = (product: AdminProductOption): string => {
+    const images = Array.isArray(product.images) ? product.images : []
+    const sorted = [...images].sort((a, b) => (a?.order || 0) - (b?.order || 0))
+    const primary = sorted.find((image) => image?.isPrimary) || sorted[0]
+    return primary?.url || ""
+}
+const mapAdminProductToWebsiteProduct = (product: AdminProductOption, order: number): WebsiteCategoryProduct => {
+    const image = getPrimaryProductImage(product)
+    const images = Array.isArray(product.images) ? product.images.map((img) => String(img?.url || "")).filter(Boolean) : (image ? [image] : [])
+    return {
+        productId: product._id,
+        name: product.name,
+        slug: String(product.slug || ""),
+        category: String(product.category || ""),
+        shortDescription: String(product.shortDescription || ""),
+        description: String(product.description || ""),
+        sku: String(product.sku || ""),
+        mrp: toNumber(product.mrp),
+        retailPrice: toNumber(product.retailPrice),
+        wholesalePrice: toNumber(product.wholesalePrice),
+        stock: toNumber(product.stock),
+        status: String(product.status || ""),
+        image,
+        images,
+        order,
+    }
+}
+const getCategoryProducts = (category: WebsiteCategory): WebsiteCategoryProduct[] => {
+    const fromDetails = normalizeCategoryProductList(category.productDetails || [])
+    if (fromDetails.length > 0) return fromDetails
+    return normalizeList(category.products || []).map((name, index) => normalizeCategoryProduct(name, index))
+}
+const getCategoryProductNames = (category: WebsiteCategory): string[] => normalizeList(getCategoryProducts(category).map((product) => product.name))
+const categoryPreviewFallback = "https://placehold.co/160x110/0f1115/8a93a3?text=Category"
+const productPreviewFallback = "https://placehold.co/120x120/0f1115/8a93a3?text=Product"
 const defaultCategoriesSection: SectionConfig = {
     eyebrow: "PRODUCT CATEGORIES",
     title: "The Heart of Modern Farming",
@@ -46,7 +164,9 @@ export default function ManageWebsitePage() {
     const [featuredSection, setFeaturedSection] = useState<SectionConfig>(defaultFeaturedSection)
     const [availableProducts, setAvailableProducts] = useState<AdminProductOption[]>([])
     const [isLoadingProductOptions, setIsLoadingProductOptions] = useState(false)
-    const [categoryProductDrafts, setCategoryProductDrafts] = useState<Record<number, string>>({})
+    const [categorySelectedProductIds, setCategorySelectedProductIds] = useState<Record<number, string>>({})
+    const [expandedCategoryIndex, setExpandedCategoryIndex] = useState<number | null>(null)
+    const [expandedProductKey, setExpandedProductKey] = useState<string | null>(null)
 
     const uploadUrl = useMemo(() => buildApiUrl("/upload/image?folder=website"), [])
     const websiteBaseUrl = useMemo(() => {
@@ -66,21 +186,31 @@ export default function ManageWebsitePage() {
         loadProductOptions()
     }, [])
 
+    useEffect(() => {
+        setExpandedCategoryIndex((prev) => {
+            if (categories.length === 0) return null
+            if (prev === null) return 0
+            return Math.min(prev, categories.length - 1)
+        })
+    }, [categories.length])
+
     async function loadData() {
         try {
             const res = await apiFetch("/admin/website-settings")
             const data = await res.json()
             if (!res.ok || !data?.data) throw new Error("failed")
-            setCategories(
-                (data.data.productCategories || []).map((item: any, index: number) => ({
-                    name: item?.name || "",
-                    description: item?.description || "",
-                    image: item?.image || "",
-                    products: normalizeList(Array.isArray(item?.products) ? item.products : []),
-                    isActive: item?.isActive !== false,
-                    order: Number.isFinite(item?.order) ? item.order : index,
-                }))
-            )
+            const nextCategories = (data.data.productCategories || []).map((item: any, index: number) => ({
+                name: item?.name || "",
+                description: item?.description || "",
+                image: item?.image || "",
+                products: normalizeList(Array.isArray(item?.products) ? item.products : []),
+                productDetails: normalizeCategoryProductList(
+                    Array.isArray(item?.productDetails) ? item.productDetails : (Array.isArray(item?.products) ? item.products : [])
+                ),
+                isActive: item?.isActive !== false,
+                order: Number.isFinite(item?.order) ? item.order : index,
+            }))
+            setCategories(nextCategories)
             setFeaturedProducts(data.data.featuredProducts || [])
             setCategoriesSection({ ...defaultCategoriesSection, ...(data.data.categoriesSection || {}) })
             setFeaturedSection({ ...defaultFeaturedSection, ...(data.data.featuredSection || {}) })
@@ -109,7 +239,21 @@ export default function ManageWebsitePage() {
                 collected.push(...items.map((item: any) => ({
                     _id: String(item?._id || ""),
                     name: String(item?.name || ""),
+                    slug: String(item?.slug || ""),
                     category: typeof item?.category === "string" ? item.category : "",
+                    shortDescription: String(item?.shortDescription || ""),
+                    description: String(item?.description || ""),
+                    sku: String(item?.sku || ""),
+                    mrp: toNumber(item?.mrp),
+                    retailPrice: toNumber(item?.retailPrice),
+                    wholesalePrice: toNumber(item?.wholesalePrice),
+                    stock: toNumber(item?.stock),
+                    status: String(item?.status || ""),
+                    images: Array.isArray(item?.images) ? item.images.map((image: any) => ({
+                        url: String(image?.url || ""),
+                        isPrimary: Boolean(image?.isPrimary),
+                        order: toNumber(image?.order),
+                    })).filter((image: AdminProductImage) => image.url) : [],
                 })).filter((item: AdminProductOption) => item._id && item.name))
 
                 hasNext = Boolean(data?.pagination?.hasNext)
@@ -124,31 +268,46 @@ export default function ManageWebsitePage() {
         }
     }
 
-    function addProductToCategory(categoryIndex: number, value: string) {
-        const nextValue = value.trim()
-        if (!nextValue) return
+    function addProductToCategory(categoryIndex: number) {
+        const selectedProductId = categorySelectedProductIds[categoryIndex]
+        if (!selectedProductId) return
+
+        const selectedProduct = availableProducts.find((product) => product._id === selectedProductId)
+        if (!selectedProduct) {
+            toast.error("Selected product not found")
+            return
+        }
 
         setCategories((prev) => prev.map((category, index) => {
             if (index !== categoryIndex) return category
-            const normalized = normalizeList(category.products || [])
-            if (normalized.some((product) => product.toLowerCase() === nextValue.toLowerCase())) return { ...category, products: normalized }
-            return { ...category, products: [...normalized, nextValue] }
+            const productDetails = getCategoryProducts(category)
+            const alreadyAdded = productDetails.some((product) =>
+                product.productId
+                    ? product.productId === selectedProduct._id
+                    : product.name.toLowerCase() === selectedProduct.name.toLowerCase()
+            )
+            if (alreadyAdded) return category
+
+            const nextProductDetails = [...productDetails, mapAdminProductToWebsiteProduct(selectedProduct, productDetails.length)]
+            return {
+                ...category,
+                productDetails: nextProductDetails,
+                products: normalizeList(nextProductDetails.map((product) => product.name)),
+            }
         }))
+        setCategorySelectedProductIds((prev) => ({ ...prev, [categoryIndex]: "" }))
     }
 
     function removeCategoryProduct(categoryIndex: number, productIndex: number) {
         setCategories((prev) => prev.map((category, index) => {
             if (index !== categoryIndex) return category
-            return { ...category, products: (category.products || []).filter((_, idx) => idx !== productIndex) }
-        }))
-    }
-
-    function updateCategoryProduct(categoryIndex: number, productIndex: number, value: string) {
-        setCategories((prev) => prev.map((category, index) => {
-            if (index !== categoryIndex) return category
+            const nextProductDetails = getCategoryProducts(category)
+                .filter((_, idx) => idx !== productIndex)
+                .map((product, idx) => ({ ...product, order: idx }))
             return {
                 ...category,
-                products: (category.products || []).map((product, idx) => idx === productIndex ? value : product),
+                productDetails: nextProductDetails,
+                products: normalizeList(nextProductDetails.map((product) => product.name)),
             }
         }))
     }
@@ -159,7 +318,7 @@ export default function ManageWebsitePage() {
                 .filter((_, index) => index !== indexToRemove)
                 .map((category, index) => ({ ...category, order: index }))
         )
-        setCategoryProductDrafts((prev) => {
+        setCategorySelectedProductIds((prev) => {
             const next: Record<number, string> = {}
             for (const [key, value] of Object.entries(prev)) {
                 const index = Number(key)
@@ -167,6 +326,11 @@ export default function ManageWebsitePage() {
                 if (index > indexToRemove) next[index - 1] = value
             }
             return next
+        })
+        setExpandedCategoryIndex((prev) => {
+            if (prev === null) return null
+            if (prev === indexToRemove) return null
+            return prev > indexToRemove ? prev - 1 : prev
         })
     }
 
@@ -208,7 +372,15 @@ export default function ManageWebsitePage() {
     async function saveCategories() {
         setIsSavingCategories(true)
         try {
-            const productCategories = categories.map((c, i) => ({ ...c, products: normalizeList(c.products || []), order: Number.isFinite(c.order) ? c.order : i }))
+            const productCategories = categories.map((category, index) => {
+                const productDetails = getCategoryProducts(category).map((product, productIndex) => ({ ...product, order: productIndex }))
+                return {
+                    ...category,
+                    products: normalizeList(productDetails.map((product) => product.name)),
+                    productDetails,
+                    order: Number.isFinite(category.order) ? category.order : index,
+                }
+            })
             const res = await apiFetch("/admin/website-settings", { method: "PUT", body: JSON.stringify({ productCategories, categoriesSection }) })
             if (!res.ok) throw new Error()
             toast.success("Website product categories saved")
@@ -332,7 +504,24 @@ export default function ManageWebsitePage() {
                 <TabsContent value="categories" className="mt-4">
                     <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
                         <Card className="bg-[#161616] border-[#333] xl:col-span-8">
-                            <CardHeader><div className="flex items-center justify-between gap-4"><div><CardTitle className="text-white">The Heart of Modern Farming</CardTitle></div><Button onClick={() => setCategories((prev) => { const reordered = prev.map((category, index) => ({ ...category, order: index })); return [...reordered, { name: "", description: "", image: "", products: [], isActive: true, order: reordered.length }] })} variant="outline" className="border-[#333] text-white hover:bg-[#222]"><Plus className="h-4 w-4 mr-2" /> Add Category Card</Button></div></CardHeader>
+                            <CardHeader>
+                                <div className="flex items-center justify-between gap-4">
+                                    <div><CardTitle className="text-white">The Heart of Modern Farming</CardTitle></div>
+                                    <Button
+                                        onClick={() => {
+                                            setCategories((prev) => {
+                                                const reordered = prev.map((category, index) => ({ ...category, order: index }))
+                                                return [...reordered, { name: "", description: "", image: "", products: [], productDetails: [], isActive: true, order: reordered.length }]
+                                            })
+                                            setExpandedCategoryIndex(categories.length)
+                                        }}
+                                        variant="outline"
+                                        className="border-[#333] text-white hover:bg-[#222]"
+                                    >
+                                        <Plus className="h-4 w-4 mr-2" /> Add Category Card
+                                    </Button>
+                                </div>
+                            </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="border border-[#333] rounded-lg p-4 space-y-3 bg-[#121212]">
                                     <p className="text-sm font-semibold text-white">Section Content</p>
@@ -343,75 +532,196 @@ export default function ManageWebsitePage() {
                                     <Textarea value={categoriesSection.description || ""} onChange={(e) => setCategoriesSection((prev) => ({ ...prev, description: e.target.value }))} placeholder="Section description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[70px]" />
                                     <Input value={categoriesSection.buttonText || ""} onChange={(e) => setCategoriesSection((prev) => ({ ...prev, buttonText: e.target.value }))} placeholder="Card button text" className="bg-[#0D0D0D] border-[#333] text-white" />
                                 </div>
-                                {categories.map((item, index) => (
-                                    <div key={index} className="border border-[#333] rounded-lg p-4 space-y-3">
-                                        <div className="flex justify-between items-center"><p className="text-sm text-white font-medium">Card {index + 1}</p><div className="flex items-center gap-3"><span className="text-xs text-[#919191]">Active</span><Switch checked={item.isActive !== false} onCheckedChange={(v) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, isActive: v } : c))} /><Button type="button" variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8" onClick={() => removeCategoryCard(index)}><Trash2 className="h-4 w-4" /></Button></div></div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3"><Input value={item.name} onChange={(e) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, name: e.target.value } : c))} placeholder="Category title" className="bg-[#0D0D0D] border-[#333] text-white" /><Input value={item.image} onChange={(e) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, image: e.target.value } : c))} placeholder="Image URL" className="bg-[#0D0D0D] border-[#333] text-white" /></div>
-                                        <Textarea value={item.description} onChange={(e) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, description: e.target.value } : c))} placeholder="Description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[70px]" />
-                                        <div className="space-y-3 rounded-lg border border-[#2c2c2c] bg-[#101010] p-3">
-                                            <div className="flex items-center justify-between">
-                                                <p className="text-xs font-medium tracking-wide text-[#d7d7d7] uppercase">Products In This Category</p>
-                                                <span className="text-[11px] text-[#919191]">{normalizeList(item.products || []).length} added</span>
-                                            </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                                                <Input
-                                                    value={categoryProductDrafts[index] || ""}
-                                                    onChange={(e) => setCategoryProductDrafts((prev) => ({ ...prev, [index]: e.target.value }))}
-                                                    placeholder={isLoadingProductOptions ? "Loading products..." : "Type product name or select suggestion"}
-                                                    className="bg-[#0D0D0D] border-[#333] text-white"
-                                                    list={`category-products-${index}`}
-                                                    disabled={isLoadingProductOptions}
-                                                />
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
-                                                    onClick={() => {
-                                                        addProductToCategory(index, categoryProductDrafts[index] || "")
-                                                        setCategoryProductDrafts((prev) => ({ ...prev, [index]: "" }))
-                                                    }}
-                                                    disabled={isLoadingProductOptions || !(categoryProductDrafts[index] || "").trim()}
-                                                >
-                                                    <Plus className="h-4 w-4 mr-2" />
-                                                    Add Product
-                                                </Button>
-                                            </div>
-                                            <datalist id={`category-products-${index}`}>
-                                                {availableProducts.map((product) => (
-                                                    <option key={product._id} value={product.name} label={product.category ? `${product.name} (${product.category})` : product.name} />
-                                                ))}
-                                            </datalist>
-                                            {isLoadingProductOptions && (
-                                                <p className="text-[11px] text-[#919191]">Loading product suggestions...</p>
-                                            )}
-                                            <div className="space-y-2">
-                                                {normalizeList(item.products || []).length === 0 && (
-                                                    <p className="text-[11px] text-[#717171]">No products added yet.</p>
-                                                )}
-                                                {normalizeList(item.products || []).map((product, productIndex) => (
-                                                    <div key={`${index}-${productIndex}`} className="grid grid-cols-[1fr_auto] gap-2">
-                                                        <Input
-                                                            value={product}
-                                                            onChange={(e) => updateCategoryProduct(index, productIndex, e.target.value)}
-                                                            placeholder="Product name"
-                                                            className="bg-[#0D0D0D] border-[#333] text-white"
+                                {categories.map((item, index) => {
+                                    const isExpanded = expandedCategoryIndex === index
+                                    const categoryProducts = getCategoryProducts(item)
+                                    const selectedProduct = availableProducts.find((product) => product._id === (categorySelectedProductIds[index] || ""))
+                                    return (
+                                        <div key={index} className="border border-[#333] rounded-lg bg-[#111] overflow-hidden">
+                                            <button
+                                                type="button"
+                                                className="w-full p-4 flex items-center justify-between text-left hover:bg-[#151515] transition-colors"
+                                                onClick={() => setExpandedCategoryIndex((prev) => prev === index ? null : index)}
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className="w-14 h-10 rounded-md border border-[#303030] overflow-hidden shrink-0 bg-[#0D0D0D]">
+                                                        <img
+                                                            src={previewSrc(item.image || categoryPreviewFallback)}
+                                                            alt={item.name || `Category ${index + 1}`}
+                                                            className="w-full h-full object-cover"
+                                                            onError={(e) => {
+                                                                (e.target as HTMLImageElement).src = categoryPreviewFallback
+                                                            }}
                                                         />
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-10 w-10"
-                                                            onClick={() => removeCategoryProduct(index, productIndex)}
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
                                                     </div>
-                                                ))}
-                                            </div>
+                                                    <div className="min-w-0">
+                                                        <p className="text-sm text-white font-semibold line-clamp-1">{item.name || `Card ${index + 1}`}</p>
+                                                        <p className="text-xs text-[#919191] mt-1 line-clamp-1">{categoryProducts.length} products - Order {item.order ?? index}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`text-[11px] px-2 py-1 rounded-full border ${item.isActive !== false ? "border-[#2e4d35] text-[#86efac] bg-[#1d2a1f]" : "border-[#444] text-[#aaa] bg-[#1b1b1b]"}`}>
+                                                        {item.isActive !== false ? "Active" : "Inactive"}
+                                                    </span>
+                                                    {isExpanded ? <ChevronDown className="h-4 w-4 text-[#aaa]" /> : <ChevronRight className="h-4 w-4 text-[#aaa]" />}
+                                                </div>
+                                            </button>
+                                            {isExpanded && (
+                                                <div className="p-4 border-t border-[#333] space-y-3 bg-[#121212]">
+                                                    <div className="flex justify-between items-center">
+                                                        <p className="text-sm text-white font-medium">Card {index + 1} Details</p>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-xs text-[#919191]">Active</span>
+                                                            <Switch checked={item.isActive !== false} onCheckedChange={(v) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, isActive: v } : c))} />
+                                                            <Button type="button" variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8" onClick={() => removeCategoryCard(index)}><Trash2 className="h-4 w-4" /></Button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                        <Input value={item.name} onChange={(e) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, name: e.target.value } : c))} placeholder="Category title" className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                        <Input value={item.image} onChange={(e) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, image: e.target.value } : c))} placeholder="Image URL" className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                    </div>
+                                                    <div className="rounded-lg border border-[#2f2f2f] bg-[#0f0f0f] p-3">
+                                                        <p className="text-[11px] uppercase tracking-wide text-[#9ca3af] mb-2">Category Image Preview</p>
+                                                        <div className="h-28 w-full max-w-[220px] rounded-md overflow-hidden border border-[#303030] bg-[#0D0D0D]">
+                                                            <img
+                                                                src={previewSrc(item.image || categoryPreviewFallback)}
+                                                                alt={item.name || `Category ${index + 1}`}
+                                                                className="w-full h-full object-cover"
+                                                                onError={(e) => {
+                                                                    (e.target as HTMLImageElement).src = categoryPreviewFallback
+                                                                }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <Textarea value={item.description} onChange={(e) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, description: e.target.value } : c))} placeholder="Description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[70px]" />
+                                                    <div className="space-y-3 rounded-lg border border-[#2c2c2c] bg-[#101010] p-3">
+                                                        <div className="flex items-center justify-between">
+                                                            <p className="text-xs font-medium tracking-wide text-[#d7d7d7] uppercase">Products In This Category</p>
+                                                            <span className="text-[11px] text-[#919191]">{categoryProducts.length} added</span>
+                                                        </div>
+                                                        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+                                                            <select
+                                                                value={categorySelectedProductIds[index] || ""}
+                                                                onChange={(e) => setCategorySelectedProductIds((prev) => ({ ...prev, [index]: e.target.value }))}
+                                                                className="h-10 rounded-md bg-[#0D0D0D] border border-[#333] px-3 text-sm text-white"
+                                                                disabled={isLoadingProductOptions}
+                                                            >
+                                                                <option value="">{isLoadingProductOptions ? "Loading products..." : "Select product to add"}</option>
+                                                                {availableProducts.map((product) => (
+                                                                    <option key={product._id} value={product._id}>
+                                                                        {product.name}{product.category ? ` (${product.category})` : ""}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                            <Button type="button" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => addProductToCategory(index)} disabled={isLoadingProductOptions || !categorySelectedProductIds[index]}>
+                                                                <Plus className="h-4 w-4 mr-2" />
+                                                                Add Product
+                                                            </Button>
+                                                        </div>
+                                                        {selectedProduct && (
+                                                            <div className="rounded-md border border-[#2d2d2d] bg-[#0f0f0f] p-2 flex items-center gap-2">
+                                                                <div className="w-12 h-12 rounded-md overflow-hidden border border-[#333] bg-[#0D0D0D] shrink-0">
+                                                                    <img
+                                                                        src={previewSrc(getPrimaryProductImage(selectedProduct) || productPreviewFallback)}
+                                                                        alt={selectedProduct.name}
+                                                                        className="w-full h-full object-cover"
+                                                                        onError={(e) => {
+                                                                            (e.target as HTMLImageElement).src = productPreviewFallback
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="text-xs text-white font-medium line-clamp-1">{selectedProduct.name}</p>
+                                                                    <p className="text-[11px] text-[#9ca3af] line-clamp-1">{selectedProduct.category || "No category"} - SKU: {selectedProduct.sku || "N/A"}</p>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                        {categoryProducts.length === 0 && (
+                                                            <p className="text-[11px] text-[#717171]">No products added yet.</p>
+                                                        )}
+                                                        {categoryProducts.map((product, productIndex) => {
+                                                            const productKey = `${index}-${productIndex}`
+                                                            const showProductDetails = expandedProductKey === productKey
+                                                            return (
+                                                                <div key={productKey} className="border border-[#2d2d2d] rounded-lg bg-[#0f0f0f] p-3 space-y-2">
+                                                                    <div className="flex items-center justify-between gap-2">
+                                                                        <div className="min-w-0 flex items-center gap-2">
+                                                                            <div className="w-12 h-12 rounded-md overflow-hidden border border-[#333] bg-[#0D0D0D] shrink-0">
+                                                                                <img
+                                                                                    src={previewSrc(product.image || product.images?.[0] || productPreviewFallback)}
+                                                                                    alt={product.name}
+                                                                                    className="w-full h-full object-cover"
+                                                                                    onError={(e) => {
+                                                                                        (e.target as HTMLImageElement).src = productPreviewFallback
+                                                                                    }}
+                                                                                />
+                                                                            </div>
+                                                                            <div className="min-w-0">
+                                                                                <p className="text-sm text-white font-medium line-clamp-1">{product.name}</p>
+                                                                                <p className="text-[11px] text-[#919191] line-clamp-1">SKU: {product.sku || "N/A"} - Stock: {product.stock}</p>
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <Button type="button" variant="outline" size="sm" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => setExpandedProductKey((prev) => prev === productKey ? null : productKey)}>
+                                                                                {showProductDetails ? "Hide Fields" : "Show Fields"}
+                                                                            </Button>
+                                                                            <Button type="button" variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8" onClick={() => removeCategoryProduct(index, productIndex)}>
+                                                                                <Trash2 className="h-4 w-4" />
+                                                                            </Button>
+                                                                        </div>
+                                                                    </div>
+                                                                    {showProductDetails && (
+                                                                        <div className="space-y-2">
+                                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-[#c7c7c7]">
+                                                                                <p><span className="text-[#8f8f8f]">Product ID:</span> {product.productId || "N/A"}</p>
+                                                                                <p><span className="text-[#8f8f8f]">Slug:</span> {product.slug || "N/A"}</p>
+                                                                                <p><span className="text-[#8f8f8f]">Category:</span> {product.category || "N/A"}</p>
+                                                                                <p><span className="text-[#8f8f8f]">Status:</span> {product.status || "N/A"}</p>
+                                                                                <p><span className="text-[#8f8f8f]">MRP:</span> {product.mrp}</p>
+                                                                                <p><span className="text-[#8f8f8f]">Retail Price:</span> {product.retailPrice}</p>
+                                                                                <p><span className="text-[#8f8f8f]">Wholesale Price:</span> {product.wholesalePrice}</p>
+                                                                                <p><span className="text-[#8f8f8f]">Stock:</span> {product.stock}</p>
+                                                                                <p className="md:col-span-2"><span className="text-[#8f8f8f]">Short Description:</span> {product.shortDescription || "N/A"}</p>
+                                                                                <p className="md:col-span-2"><span className="text-[#8f8f8f]">Description:</span> {product.description || "N/A"}</p>
+                                                                                <p className="md:col-span-2 break-all"><span className="text-[#8f8f8f]">Image:</span> {product.image || "N/A"}</p>
+                                                                            </div>
+                                                                            <div>
+                                                                                <p className="text-[11px] uppercase tracking-wide text-[#8f8f8f] mb-1">Product Image Preview</p>
+                                                                                <div className="flex items-center gap-2 overflow-x-auto">
+                                                                                    {(product.images && product.images.length > 0 ? product.images : [product.image || productPreviewFallback]).map((imageUrl, imageIndex) => (
+                                                                                        <div key={`${productKey}-img-${imageIndex}`} className="w-12 h-12 rounded-md overflow-hidden border border-[#333] bg-[#0D0D0D] shrink-0">
+                                                                                            <img
+                                                                                                src={previewSrc(imageUrl || productPreviewFallback)}
+                                                                                                alt={`${product.name} ${imageIndex + 1}`}
+                                                                                                className="w-full h-full object-cover"
+                                                                                                onError={(e) => {
+                                                                                                    (e.target as HTMLImageElement).src = productPreviewFallback
+                                                                                                }}
+                                                                                            />
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                    <div className="flex justify-end">
+                                                        <div className="flex items-center gap-2">
+                                                            <input id={`category-upload-${index}`} type="file" className="hidden" accept="image/*" onChange={(e) => uploadImage(e, "category", index)} />
+                                                            <Button type="button" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => document.getElementById(`category-upload-${index}`)?.click()} disabled={uploading === `category-${index}`}>
+                                                                {uploading === `category-${index}` ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                                                                Upload Image
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="flex justify-end"><div className="flex items-center gap-2"><input id={`category-upload-${index}`} type="file" className="hidden" accept="image/*" onChange={(e) => uploadImage(e, "category", index)} /><Button type="button" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => document.getElementById(`category-upload-${index}`)?.click()} disabled={uploading === `category-${index}`}>{uploading === `category-${index}` ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}Upload Image</Button></div></div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                                 {categories.length > 0 && <Button onClick={saveCategories} disabled={isSavingCategories} className="w-full">{isSavingCategories ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}Save Product Categories</Button>}
                             </CardContent>
                         </Card>
@@ -453,13 +763,13 @@ export default function ManageWebsitePage() {
                                                 </div>
                                                 <div className="p-3">
                                                     <ul className="space-y-1.5">
-                                                        {normalizeList(item.products || []).slice(0, 3).map((product, idx) => (
+                                                        {getCategoryProductNames(item).slice(0, 3).map((product, idx) => (
                                                             <li key={idx} className="text-[11px] text-[#c8ced8] line-clamp-1 flex items-center gap-2">
                                                                 <span className="w-1 h-1 rounded-full bg-[#86efac] shrink-0" />
                                                                 {product}
                                                             </li>
                                                         ))}
-                                                        {normalizeList(item.products || []).length === 0 && (
+                                                        {getCategoryProductNames(item).length === 0 && (
                                                             <li className="text-[11px] text-[#717171]">No list items yet</li>
                                                         )}
                                                     </ul>
