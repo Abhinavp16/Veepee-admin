@@ -21,6 +21,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
+import { apiFetch } from "@/lib/api"
 import { toast } from "sonner"
 
 interface Company {
@@ -55,7 +56,7 @@ export default function BrandsPage() {
 
     async function fetchCompanies() {
         try {
-            const res = await fetch("https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/companies")
+            const res = await apiFetch("/companies", { skipAuth: true })
             if (res.ok) {
                 const data = await res.json()
                 setCompanies(data.data || [])
@@ -97,12 +98,8 @@ export default function BrandsPage() {
         formData.append('image', file)
 
         try {
-            const token = localStorage.getItem('accessToken')
-            const response = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/upload/image?folder=brands', {
+            const response = await apiFetch('/upload/image?folder=brands', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
                 body: formData,
             })
 
@@ -134,7 +131,6 @@ export default function BrandsPage() {
         }
 
         setIsSubmitting(true)
-        const token = localStorage.getItem('accessToken')
 
         try {
             const payload = {
@@ -143,16 +139,12 @@ export default function BrandsPage() {
                 logo: logoUrl.trim() ? { url: logoUrl.trim(), publicId: logoPublicId || undefined } : undefined,
             }
 
-            const url = editingCompany
-                ? `https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/companies/${editingCompany._id}`
-                : "https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/companies"
+            const endpoint = editingCompany
+                ? `/companies/${editingCompany._id}`
+                : "/companies"
 
-            const res = await fetch(url, {
+            const res = await apiFetch(endpoint, {
                 method: editingCompany ? "PUT" : "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`,
-                },
                 body: JSON.stringify(payload),
             })
 
@@ -172,14 +164,9 @@ export default function BrandsPage() {
     }
 
     async function handleDelete(id: string) {
-        const token = localStorage.getItem('accessToken')
-
         try {
-            const res = await fetch(`https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/companies/${id}`, {
+            const res = await apiFetch(`/companies/${id}`, {
                 method: "DELETE",
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                },
             })
 
             if (!res.ok) {

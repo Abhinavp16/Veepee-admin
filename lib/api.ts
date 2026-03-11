@@ -1,8 +1,11 @@
-const DEFAULT_API_BASE = "https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1"
+const DEFAULT_API_BASE =
+  process.env.NODE_ENV === "development"
+    ? "http://localhost:5000/api/v1"
+    : "https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1"
 const RAW_API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || DEFAULT_API_BASE
 const API_BASE = RAW_API_BASE.replace(/\/+$/, "")
 
-function buildApiUrl(endpoint: string): string {
+export function buildApiUrl(endpoint: string): string {
   const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`
   return `${API_BASE}${normalizedEndpoint}`
 }
@@ -45,9 +48,13 @@ async function refreshAccessToken(): Promise<string | null> {
 export async function apiFetch(endpoint: string, options: FetchOptions = {}): Promise<Response> {
   const { skipAuth, ...fetchOptions } = options
 
+  const isFormDataBody = typeof FormData !== "undefined" && fetchOptions.body instanceof FormData
   const headers: HeadersInit = {
-    'Content-Type': 'application/json',
     ...fetchOptions.headers,
+  }
+
+  if (!isFormDataBody && !(headers as Record<string, string>)["Content-Type"]) {
+    ;(headers as Record<string, string>)["Content-Type"] = "application/json"
   }
 
   if (!skipAuth) {

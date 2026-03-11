@@ -21,6 +21,7 @@ import {
     DialogTitle,
     DialogDescription,
 } from "@/components/ui/dialog"
+import { apiFetch } from "@/lib/api"
 
 interface Customer {
     _id: string
@@ -61,11 +62,7 @@ export default function CustomersPage() {
 
     async function fetchCustomers() {
         try {
-            const res = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/customers', {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-                }
-            })
+            const res = await apiFetch('/admin/customers')
             const data = await res.json()
             if (res.ok) {
                 setCustomers(data.data || [])
@@ -82,11 +79,7 @@ export default function CustomersPage() {
 
     async function fetchCustomerDetails(id: string) {
         try {
-            const res = await fetch(`https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/customers/${id}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-                }
-            })
+            const res = await apiFetch(`/admin/customers/${id}`)
             const data = await res.json()
             if (res.ok) {
                 // Backend returns data flattened with stats?

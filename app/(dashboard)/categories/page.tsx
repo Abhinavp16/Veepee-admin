@@ -29,6 +29,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
+import { apiFetch } from "@/lib/api"
 import { toast } from "sonner"
 
 interface Category {
@@ -73,7 +74,7 @@ export default function CategoriesPage() {
 
     async function fetchCategories() {
         try {
-            const res = await fetch("https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/categories")
+            const res = await apiFetch("/categories", { skipAuth: true })
             if (res.ok) {
                 const data = await res.json()
                 setCategories(data.data || [])
@@ -133,12 +134,8 @@ export default function CategoriesPage() {
             await new Promise(r => setTimeout(r, 300))
             setUploadStatus('uploading')
 
-            const token = localStorage.getItem('accessToken')
-            const response = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/upload/image?folder=categories', {
+            const response = await apiFetch('/upload/image?folder=categories', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
                 body: formData,
             })
 
@@ -180,7 +177,6 @@ export default function CategoriesPage() {
         }
 
         setIsSubmitting(true)
-        const token = localStorage.getItem('accessToken')
 
         try {
             const payload: any = {
@@ -192,16 +188,12 @@ export default function CategoriesPage() {
                 isActive,
             }
 
-            const url = editingCategory
-                ? `https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/categories/${editingCategory._id}`
-                : "https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/categories"
+            const endpoint = editingCategory
+                ? `/categories/${editingCategory._id}`
+                : "/categories"
 
-            const res = await fetch(url, {
+            const res = await apiFetch(endpoint, {
                 method: editingCategory ? "PUT" : "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`,
-                },
                 body: JSON.stringify(payload),
             })
 
@@ -221,14 +213,9 @@ export default function CategoriesPage() {
     }
 
     async function handleDelete(id: string) {
-        const token = localStorage.getItem('accessToken')
-
         try {
-            const res = await fetch(`https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/categories/${id}`, {
+            const res = await apiFetch(`/categories/${id}`, {
                 method: "DELETE",
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                },
             })
 
             if (!res.ok) {

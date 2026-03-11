@@ -25,6 +25,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { apiFetch } from "@/lib/api"
 
 interface NegotiationList {
     id: string
@@ -72,11 +73,7 @@ export default function NegotiationsPage() {
 
     async function fetchNegotiations() {
         try {
-            const res = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/negotiations', {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-                }
-            })
+            const res = await apiFetch('/admin/negotiations')
             const data = await res.json()
             if (res.ok) {
                 setNegotiations(data.data || [])
@@ -93,11 +90,7 @@ export default function NegotiationsPage() {
 
     async function fetchNegotiationDetails(id: string) {
         try {
-            const res = await fetch(`https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/negotiations/${id}`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-                }
-            })
+            const res = await apiFetch(`/admin/negotiations/${id}`)
             const data = await res.json()
             if (res.ok) {
                 setSelectedNegotiation(data.data)
@@ -112,7 +105,7 @@ export default function NegotiationsPage() {
         if (!selectedNegotiation) return
         setIsSubmitting(true)
 
-        let endpoint = `https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/negotiations/${selectedNegotiation._id}/${action}`
+        let endpoint = `/admin/negotiations/${selectedNegotiation._id}/${action}`
         let body = {}
 
         if (action === 'counter') {
@@ -132,12 +125,8 @@ export default function NegotiationsPage() {
         }
 
         try {
-            const res = await fetch(endpoint, {
+            const res = await apiFetch(endpoint, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
-                },
                 body: JSON.stringify(body)
             })
 
