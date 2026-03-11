@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Loader2, Save, CreditCard, Building2, User, Upload, ImageIcon } from "lucide-react"
 import { toast } from "sonner"
-import { apiFetch, getUser } from "@/lib/api"
+import { apiFetch, buildApiUrl, getUser } from "@/lib/api"
 import { Switch } from "@/components/ui/switch"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
@@ -128,7 +128,7 @@ export default function SettingsPage() {
 
         try {
             const token = localStorage.getItem('accessToken')
-            const response = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/upload/image?folder=avatars', {
+            const response = await fetch(buildApiUrl('/upload/image?folder=avatars'), {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

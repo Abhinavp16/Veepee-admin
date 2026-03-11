@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import { apiFetch } from "@/lib/api"
 
 interface Category {
     _id: string
@@ -151,10 +152,7 @@ export default function AddProductPage() {
     async function fetchProduct(id: string) {
         setIsLoadingProduct(true)
         try {
-            const token = localStorage.getItem('accessToken')
-            const res = await fetch(`https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/products/${id}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            })
+            const res = await apiFetch(`/admin/products/${id}`)
             if (!res.ok) throw new Error("Product not found")
 
             const data = await res.json()
@@ -206,7 +204,7 @@ export default function AddProductPage() {
 
     async function fetchCategories() {
         try {
-            const response = await fetch("https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/categories")
+            const response = await apiFetch("/categories", { skipAuth: true })
             if (response.ok) {
                 const data = await response.json()
                 setCategories(data.data || [])
@@ -220,7 +218,7 @@ export default function AddProductPage() {
 
     async function fetchCompanies() {
         try {
-            const response = await fetch("https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/companies")
+            const response = await apiFetch("/companies", { skipAuth: true })
             if (response.ok) {
                 const data = await response.json()
                 setCompanies(data.data || [])
@@ -276,12 +274,8 @@ export default function AddProductPage() {
             await new Promise(r => setTimeout(r, 300))
             setUploadStatus('uploading')
 
-            const token = localStorage.getItem('accessToken')
-            const response = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/upload/images?folder=products', {
+            const response = await apiFetch('/upload/images?folder=products', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
                 body: formData,
             })
 
@@ -375,12 +369,8 @@ export default function AddProductPage() {
 
         setIsCreatingCompany(true)
         try {
-            const response = await fetch("https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/companies", {
+            const response = await apiFetch("/companies", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${localStorage.getItem('accessToken')}`
-                },
                 body: JSON.stringify({
                     name: newCompanyName.trim(),
                     logo: newCompanyLogo.trim() ? { url: newCompanyLogo.trim() } : undefined,
@@ -416,12 +406,8 @@ export default function AddProductPage() {
 
         setIsCreatingCategory(true)
         try {
-            const response = await fetch("https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/categories", {
+            const response = await apiFetch("/categories", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${localStorage.getItem('accessToken')}`
-                },
                 body: JSON.stringify({ name: newCategoryName.trim() }),
             })
 
@@ -486,16 +472,12 @@ export default function AddProductPage() {
                 purchaseCountMax: Number(values.purchaseCountMax),
             }
 
-            const url = isEditMode
-                ? `https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/products/${editId}`
-                : "https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/admin/products"
+            const endpoint = isEditMode
+                ? `/admin/products/${editId}`
+                : "/admin/products"
 
-            const response = await fetch(url, {
+            const response = await apiFetch(endpoint, {
                 method: isEditMode ? "PUT" : "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${localStorage.getItem('accessToken')}`
-                },
                 body: JSON.stringify(payload),
             })
 

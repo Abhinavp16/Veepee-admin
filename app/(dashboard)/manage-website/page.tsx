@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { apiFetch } from "@/lib/api"
+import { apiFetch, buildApiUrl } from "@/lib/api"
 import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,6 +15,7 @@ type WebsiteCategory = { name: string; description: string; image: string; produ
 type WebsiteFeaturedProduct = { name: string; price: string; image: string; badge: string; specs: string[]; isActive: boolean; order: number }
 type WebsiteHeroCard = { image: string; order: number }
 type SectionConfig = { eyebrow: string; title: string; description?: string; sideText?: string; buttonText: string }
+type AdminProductOption = { _id: string; name: string; category?: string }
 
 const DEFAULT_HERO_CARD_IMAGES = ["/images/Banner/1.jpg", "/images/Banner/2.jpg", "/images/Banner/3.jpg", "/images/Banner/4.jpg", "/images/Banner/5.jpg"]
 const defaultHeroCards = (): WebsiteHeroCard[] => DEFAULT_HERO_CARD_IMAGES.map((image, order) => ({ image, order }))
@@ -23,7 +24,7 @@ const defaultCategoriesSection: SectionConfig = {
     eyebrow: "PRODUCT CATEGORIES",
     title: "The Heart of Modern Farming",
     description: "Our diverse range of agriculture and industrial machines stands at the core of modern farming practices. Each piece of equipment is designed with utmost precision.",
-    buttonText: "Inquire Now",
+    buttonText: "View all product",
 }
 const defaultFeaturedSection: SectionConfig = {
     eyebrow: "PRECISION ENGINEERING",
@@ -43,12 +44,11 @@ export default function ManageWebsitePage() {
     const [featuredProducts, setFeaturedProducts] = useState<WebsiteFeaturedProduct[]>([])
     const [categoriesSection, setCategoriesSection] = useState<SectionConfig>(defaultCategoriesSection)
     const [featuredSection, setFeaturedSection] = useState<SectionConfig>(defaultFeaturedSection)
+    const [availableProducts, setAvailableProducts] = useState<AdminProductOption[]>([])
+    const [isLoadingProductOptions, setIsLoadingProductOptions] = useState(false)
+    const [categoryProductDrafts, setCategoryProductDrafts] = useState<Record<number, string>>({})
 
-    const uploadUrl = useMemo(() => {
-        const rawBase = process.env.NEXT_PUBLIC_API_BASE_URL || "https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1"
-        const origin = rawBase.replace(/\/api\/v1\/?$/, "")
-        return `${origin}/api/v1/upload/image?folder=website`
-    }, [])
+    const uploadUrl = useMemo(() => buildApiUrl("/upload/image?folder=website"), [])
     const websiteBaseUrl = useMemo(() => {
         const raw = process.env.NEXT_PUBLIC_WEBSITE_BASE_URL || "http://localhost:3000"
         return raw.replace(/\/+$/, "")
@@ -61,14 +61,26 @@ export default function ManageWebsitePage() {
         return url
     }
 
-    useEffect(() => { loadData() }, [])
+    useEffect(() => {
+        loadData()
+        loadProductOptions()
+    }, [])
 
     async function loadData() {
         try {
             const res = await apiFetch("/admin/website-settings")
             const data = await res.json()
             if (!res.ok || !data?.data) throw new Error("failed")
-            setCategories(data.data.productCategories || [])
+            setCategories(
+                (data.data.productCategories || []).map((item: any, index: number) => ({
+                    name: item?.name || "",
+                    description: item?.description || "",
+                    image: item?.image || "",
+                    products: normalizeList(Array.isArray(item?.products) ? item.products : []),
+                    isActive: item?.isActive !== false,
+                    order: Number.isFinite(item?.order) ? item.order : index,
+                }))
+            )
             setFeaturedProducts(data.data.featuredProducts || [])
             setCategoriesSection({ ...defaultCategoriesSection, ...(data.data.categoriesSection || {}) })
             setFeaturedSection({ ...defaultFeaturedSection, ...(data.data.featuredSection || {}) })
@@ -79,6 +91,83 @@ export default function ManageWebsitePage() {
         } finally {
             setIsLoading(false)
         }
+    }
+
+    async function loadProductOptions() {
+        setIsLoadingProductOptions(true)
+        try {
+            const collected: AdminProductOption[] = []
+            let page = 1
+            let hasNext = true
+
+            while (hasNext && page <= 20) {
+                const res = await apiFetch(`/admin/products?page=${page}&limit=50&status=active&sort=name:asc`)
+                const data = await res.json()
+                if (!res.ok) throw new Error("failed")
+
+                const items = Array.isArray(data?.data) ? data.data : []
+                collected.push(...items.map((item: any) => ({
+                    _id: String(item?._id || ""),
+                    name: String(item?.name || ""),
+                    category: typeof item?.category === "string" ? item.category : "",
+                })).filter((item: AdminProductOption) => item._id && item.name))
+
+                hasNext = Boolean(data?.pagination?.hasNext)
+                page += 1
+            }
+
+            setAvailableProducts(collected)
+        } catch {
+            toast.error("Failed to load product options")
+        } finally {
+            setIsLoadingProductOptions(false)
+        }
+    }
+
+    function addProductToCategory(categoryIndex: number, value: string) {
+        const nextValue = value.trim()
+        if (!nextValue) return
+
+        setCategories((prev) => prev.map((category, index) => {
+            if (index !== categoryIndex) return category
+            const normalized = normalizeList(category.products || [])
+            if (normalized.some((product) => product.toLowerCase() === nextValue.toLowerCase())) return { ...category, products: normalized }
+            return { ...category, products: [...normalized, nextValue] }
+        }))
+    }
+
+    function removeCategoryProduct(categoryIndex: number, productIndex: number) {
+        setCategories((prev) => prev.map((category, index) => {
+            if (index !== categoryIndex) return category
+            return { ...category, products: (category.products || []).filter((_, idx) => idx !== productIndex) }
+        }))
+    }
+
+    function updateCategoryProduct(categoryIndex: number, productIndex: number, value: string) {
+        setCategories((prev) => prev.map((category, index) => {
+            if (index !== categoryIndex) return category
+            return {
+                ...category,
+                products: (category.products || []).map((product, idx) => idx === productIndex ? value : product),
+            }
+        }))
+    }
+
+    function removeCategoryCard(indexToRemove: number) {
+        setCategories((prev) =>
+            prev
+                .filter((_, index) => index !== indexToRemove)
+                .map((category, index) => ({ ...category, order: index }))
+        )
+        setCategoryProductDrafts((prev) => {
+            const next: Record<number, string> = {}
+            for (const [key, value] of Object.entries(prev)) {
+                const index = Number(key)
+                if (index < indexToRemove) next[index] = value
+                if (index > indexToRemove) next[index - 1] = value
+            }
+            return next
+        })
     }
 
     async function uploadImage(e: React.ChangeEvent<HTMLInputElement>, type: "hero" | "category" | "featured", index: number) {
@@ -243,7 +332,7 @@ export default function ManageWebsitePage() {
                 <TabsContent value="categories" className="mt-4">
                     <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
                         <Card className="bg-[#161616] border-[#333] xl:col-span-8">
-                            <CardHeader><div className="flex items-center justify-between gap-4"><div><CardTitle className="text-white">The Heart of Modern Farming</CardTitle></div><Button onClick={() => setCategories((prev) => [...prev, { name: "", description: "", image: "", products: [""], isActive: true, order: prev.length }])} variant="outline" className="border-[#333] text-white hover:bg-[#222]"><Plus className="h-4 w-4 mr-2" /> Add Category Card</Button></div></CardHeader>
+                            <CardHeader><div className="flex items-center justify-between gap-4"><div><CardTitle className="text-white">The Heart of Modern Farming</CardTitle></div><Button onClick={() => setCategories((prev) => { const reordered = prev.map((category, index) => ({ ...category, order: index })); return [...reordered, { name: "", description: "", image: "", products: [], isActive: true, order: reordered.length }] })} variant="outline" className="border-[#333] text-white hover:bg-[#222]"><Plus className="h-4 w-4 mr-2" /> Add Category Card</Button></div></CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="border border-[#333] rounded-lg p-4 space-y-3 bg-[#121212]">
                                     <p className="text-sm font-semibold text-white">Section Content</p>
@@ -256,10 +345,70 @@ export default function ManageWebsitePage() {
                                 </div>
                                 {categories.map((item, index) => (
                                     <div key={index} className="border border-[#333] rounded-lg p-4 space-y-3">
-                                        <div className="flex justify-between items-center"><p className="text-sm text-white font-medium">Card {index + 1}</p><div className="flex items-center gap-3"><span className="text-xs text-[#919191]">Active</span><Switch checked={item.isActive !== false} onCheckedChange={(v) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, isActive: v } : c))} /><Button type="button" variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8" onClick={() => setCategories((prev) => prev.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button></div></div>
+                                        <div className="flex justify-between items-center"><p className="text-sm text-white font-medium">Card {index + 1}</p><div className="flex items-center gap-3"><span className="text-xs text-[#919191]">Active</span><Switch checked={item.isActive !== false} onCheckedChange={(v) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, isActive: v } : c))} /><Button type="button" variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8" onClick={() => removeCategoryCard(index)}><Trash2 className="h-4 w-4" /></Button></div></div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3"><Input value={item.name} onChange={(e) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, name: e.target.value } : c))} placeholder="Category title" className="bg-[#0D0D0D] border-[#333] text-white" /><Input value={item.image} onChange={(e) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, image: e.target.value } : c))} placeholder="Image URL" className="bg-[#0D0D0D] border-[#333] text-white" /></div>
                                         <Textarea value={item.description} onChange={(e) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, description: e.target.value } : c))} placeholder="Description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[70px]" />
-                                        <Textarea value={(item.products || []).join("\n")} onChange={(e) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, products: e.target.value.split("\n") } : c))} placeholder="List items (one per line)" className="bg-[#0D0D0D] border-[#333] text-white min-h-[90px]" />
+                                        <div className="space-y-3 rounded-lg border border-[#2c2c2c] bg-[#101010] p-3">
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-xs font-medium tracking-wide text-[#d7d7d7] uppercase">Products In This Category</p>
+                                                <span className="text-[11px] text-[#919191]">{normalizeList(item.products || []).length} added</span>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+                                                <Input
+                                                    value={categoryProductDrafts[index] || ""}
+                                                    onChange={(e) => setCategoryProductDrafts((prev) => ({ ...prev, [index]: e.target.value }))}
+                                                    placeholder={isLoadingProductOptions ? "Loading products..." : "Type product name or select suggestion"}
+                                                    className="bg-[#0D0D0D] border-[#333] text-white"
+                                                    list={`category-products-${index}`}
+                                                    disabled={isLoadingProductOptions}
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
+                                                    onClick={() => {
+                                                        addProductToCategory(index, categoryProductDrafts[index] || "")
+                                                        setCategoryProductDrafts((prev) => ({ ...prev, [index]: "" }))
+                                                    }}
+                                                    disabled={isLoadingProductOptions || !(categoryProductDrafts[index] || "").trim()}
+                                                >
+                                                    <Plus className="h-4 w-4 mr-2" />
+                                                    Add Product
+                                                </Button>
+                                            </div>
+                                            <datalist id={`category-products-${index}`}>
+                                                {availableProducts.map((product) => (
+                                                    <option key={product._id} value={product.name} label={product.category ? `${product.name} (${product.category})` : product.name} />
+                                                ))}
+                                            </datalist>
+                                            {isLoadingProductOptions && (
+                                                <p className="text-[11px] text-[#919191]">Loading product suggestions...</p>
+                                            )}
+                                            <div className="space-y-2">
+                                                {normalizeList(item.products || []).length === 0 && (
+                                                    <p className="text-[11px] text-[#717171]">No products added yet.</p>
+                                                )}
+                                                {normalizeList(item.products || []).map((product, productIndex) => (
+                                                    <div key={`${index}-${productIndex}`} className="grid grid-cols-[1fr_auto] gap-2">
+                                                        <Input
+                                                            value={product}
+                                                            onChange={(e) => updateCategoryProduct(index, productIndex, e.target.value)}
+                                                            placeholder="Product name"
+                                                            className="bg-[#0D0D0D] border-[#333] text-white"
+                                                        />
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-10 w-10"
+                                                            onClick={() => removeCategoryProduct(index, productIndex)}
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
                                         <div className="flex justify-end"><div className="flex items-center gap-2"><input id={`category-upload-${index}`} type="file" className="hidden" accept="image/*" onChange={(e) => uploadImage(e, "category", index)} /><Button type="button" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => document.getElementById(`category-upload-${index}`)?.click()} disabled={uploading === `category-${index}`}>{uploading === `category-${index}` ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}Upload Image</Button></div></div>
                                     </div>
                                 ))}
@@ -315,7 +464,7 @@ export default function ManageWebsitePage() {
                                                         )}
                                                     </ul>
                                                     <button className="mt-3 w-full py-2 rounded-lg border border-[#2f3742] bg-[#171c23] text-[#d6dde8] text-xs font-semibold">
-                                                        {categoriesSection.buttonText || "Inquire Now"}
+                                                        {categoriesSection.buttonText || "View all product"}
                                                     </button>
                                                     <div className="mt-3 text-[11px] text-[#9aa3b2] flex items-center justify-between">
                                                         <span>Order: {item.order ?? i}</span>

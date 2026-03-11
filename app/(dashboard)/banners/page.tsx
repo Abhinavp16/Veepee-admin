@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Loader2, Save, Plus, Trash2, GripVertical, Image as ImageIcon, Upload } from "lucide-react"
 import { toast } from "sonner"
-import { apiFetch } from "@/lib/api"
+import { apiFetch, buildApiUrl } from "@/lib/api"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
@@ -40,7 +40,7 @@ export default function BannersPage() {
 
         try {
             const token = localStorage.getItem('accessToken')
-            const res = await fetch('https://veepee-impex-raqhn76jm-veepeeimpexs-projects.vercel.app/api/v1/upload/image?folder=banners', {
+            const res = await fetch(buildApiUrl('/upload/image?folder=banners'), {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`
