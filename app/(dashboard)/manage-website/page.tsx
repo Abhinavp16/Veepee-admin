@@ -53,6 +53,23 @@ type AdminProductOption = {
 const DEFAULT_HERO_CARD_IMAGES = ["/images/Banner/1.jpg", "/images/Banner/2.jpg", "/images/Banner/3.jpg", "/images/Banner/4.jpg", "/images/Banner/5.jpg"]
 const defaultHeroCards = (): WebsiteHeroCard[] => DEFAULT_HERO_CARD_IMAGES.map((image, order) => ({ image, order }))
 const normalizeList = (values: string[]) => values.map((v) => v.trim()).filter(Boolean)
+const createEmptyCategoryProduct = (categoryName = ""): WebsiteCategoryProduct => ({
+    productId: "",
+    name: "",
+    slug: "",
+    category: categoryName,
+    shortDescription: "",
+    description: "",
+    sku: "",
+    mrp: 0,
+    retailPrice: 0,
+    wholesalePrice: 0,
+    stock: 0,
+    status: "active",
+    image: "",
+    images: [],
+    order: 0,
+})
 const toNumber = (value: unknown): number => {
     const num = Number(value)
     return Number.isFinite(num) ? num : 0
@@ -166,6 +183,7 @@ export default function ManageWebsitePage() {
     const [availableProducts, setAvailableProducts] = useState<AdminProductOption[]>([])
     const [isLoadingProductOptions, setIsLoadingProductOptions] = useState(false)
     const [categorySelectedProductIds, setCategorySelectedProductIds] = useState<Record<number, string>>({})
+    const [categoryDraftProducts, setCategoryDraftProducts] = useState<Record<number, WebsiteCategoryProduct>>({})
     const [expandedCategoryIndex, setExpandedCategoryIndex] = useState<number | null>(null)
     const [expandedProductKey, setExpandedProductKey] = useState<string | null>(null)
 
@@ -299,6 +317,66 @@ export default function ManageWebsitePage() {
         setCategorySelectedProductIds((prev) => ({ ...prev, [categoryIndex]: "" }))
     }
 
+    function updateDraftCategoryProduct(categoryIndex: number, updates: Partial<WebsiteCategoryProduct>) {
+        setCategoryDraftProducts((prev) => {
+            const current = prev[categoryIndex] || createEmptyCategoryProduct(categories[categoryIndex]?.name || "")
+            const next = { ...current, ...updates }
+            return { ...prev, [categoryIndex]: next }
+        })
+    }
+
+    function addDraftProductToCategory(categoryIndex: number) {
+        const draftProduct = categoryDraftProducts[categoryIndex] || createEmptyCategoryProduct(categories[categoryIndex]?.name || "")
+        if (!draftProduct.name.trim()) {
+            toast.error("Product name is required")
+            return
+        }
+
+        setCategories((prev) => prev.map((category, index) => {
+            if (index !== categoryIndex) return category
+            const productDetails = getCategoryProducts(category)
+            const nextProduct: WebsiteCategoryProduct = {
+                ...draftProduct,
+                name: draftProduct.name.trim(),
+                category: draftProduct.category || category.name,
+                image: draftProduct.image.trim(),
+                images: draftProduct.image ? [draftProduct.image.trim()] : [],
+                order: productDetails.length,
+            }
+
+            const nextProductDetails = [...productDetails, nextProduct]
+            return {
+                ...category,
+                productDetails: nextProductDetails,
+                products: normalizeList(nextProductDetails.map((product) => product.name)),
+            }
+        }))
+        setCategoryDraftProducts((prev) => ({
+            ...prev,
+            [categoryIndex]: createEmptyCategoryProduct(categories[categoryIndex]?.name || ""),
+        }))
+        toast.success("Product added to category")
+    }
+
+    function updateCategoryProduct(categoryIndex: number, productIndex: number, updates: Partial<WebsiteCategoryProduct>) {
+        setCategories((prev) => prev.map((category, index) => {
+            if (index !== categoryIndex) return category
+            const nextProductDetails = getCategoryProducts(category).map((product, idx) => {
+                if (idx !== productIndex) return product
+                const nextProduct = { ...product, ...updates }
+                if (updates.image !== undefined) {
+                    nextProduct.images = updates.image ? [updates.image] : []
+                }
+                return nextProduct
+            })
+            return {
+                ...category,
+                productDetails: nextProductDetails,
+                products: normalizeList(nextProductDetails.map((product) => product.name)),
+            }
+        }))
+    }
+
     function removeCategoryProduct(categoryIndex: number, productIndex: number) {
         setCategories((prev) => prev.map((category, index) => {
             if (index !== categoryIndex) return category
@@ -329,6 +407,15 @@ export default function ManageWebsitePage() {
             }
             return next
         })
+        setCategoryDraftProducts((prev) => {
+            const next: Record<number, WebsiteCategoryProduct> = {}
+            for (const [key, value] of Object.entries(prev)) {
+                const index = Number(key)
+                if (index < indexToRemove) next[index] = value
+                if (index > indexToRemove) next[index - 1] = value
+            }
+            return next
+        })
         setExpandedCategoryIndex((prev) => {
             if (prev === null) return null
             if (prev === indexToRemove) return null
@@ -336,20 +423,33 @@ export default function ManageWebsitePage() {
         })
     }
 
-    async function uploadImage(e: React.ChangeEvent<HTMLInputElement>, type: "hero" | "category" | "featured", index: number) {
+    async function uploadSingleImage(file: File) {
+        const token = localStorage.getItem("accessToken")
+        const formData = new FormData()
+        formData.append("image", file)
+        const res = await fetch(uploadUrl, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData })
+        const data = await res.json()
+        if (!res.ok || !data?.data?.url) throw new Error("Upload failed")
+        return String(data.data.url)
+    }
+
+    async function uploadImage(
+        e: React.ChangeEvent<HTMLInputElement>,
+        type: "hero" | "category" | "featured" | "category-product" | "draft-category-product",
+        index: number,
+        productIndex?: number
+    ) {
         const file = e.target.files?.[0]
         if (!file) return
-        setUploading(`${type}-${index}`)
+        const uploadKey = productIndex === undefined ? `${type}-${index}` : `${type}-${index}-${productIndex}`
+        setUploading(uploadKey)
         try {
-            const token = localStorage.getItem("accessToken")
-            const formData = new FormData()
-            formData.append("image", file)
-            const res = await fetch(uploadUrl, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData })
-            const data = await res.json()
-            if (!res.ok || !data?.data?.url) throw new Error("Upload failed")
-            if (type === "hero") setHeroCards((prev) => prev.map((h, i) => i === index ? { ...h, image: data.data.url } : h))
-            if (type === "category") setCategories((prev) => prev.map((c, i) => i === index ? { ...c, image: data.data.url } : c))
-            if (type === "featured") setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, image: data.data.url } : p))
+            const imageUrl = await uploadSingleImage(file)
+            if (type === "hero") setHeroCards((prev) => prev.map((h, i) => i === index ? { ...h, image: imageUrl } : h))
+            if (type === "category") setCategories((prev) => prev.map((c, i) => i === index ? { ...c, image: imageUrl } : c))
+            if (type === "featured") setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, image: imageUrl } : p))
+            if (type === "category-product" && productIndex !== undefined) updateCategoryProduct(index, productIndex, { image: imageUrl, images: [imageUrl] })
+            if (type === "draft-category-product") updateDraftCategoryProduct(index, { image: imageUrl, images: [imageUrl] })
             toast.success("Image uploaded")
         } catch {
             toast.error("Failed to upload image")
@@ -375,7 +475,12 @@ export default function ManageWebsitePage() {
         setIsSavingCategories(true)
         try {
             const productCategories = categories.map((category, index) => {
-                const productDetails = getCategoryProducts(category).map((product, productIndex) => ({ ...product, order: productIndex }))
+                const productDetails = getCategoryProducts(category).map((product, productIndex) => ({
+                    ...product,
+                    category: product.category || category.name,
+                    images: product.image ? [product.image] : normalizeList(product.images || []),
+                    order: productIndex,
+                }))
                 return {
                     ...category,
                     products: normalizeList(productDetails.map((product) => product.name)),
@@ -543,6 +648,7 @@ export default function ManageWebsitePage() {
                                     const isExpanded = expandedCategoryIndex === index
                                     const categoryProducts = getCategoryProducts(item)
                                     const selectedProduct = availableProducts.find((product) => product._id === (categorySelectedProductIds[index] || ""))
+                                    const draftProduct = categoryDraftProducts[index] || createEmptyCategoryProduct(item.name)
                                     return (
                                         <div key={index} className="border border-[#333] rounded-lg bg-[#111] overflow-hidden">
                                             <button
@@ -576,73 +682,152 @@ export default function ManageWebsitePage() {
                                             {isExpanded && (
                                                 <div className="p-4 border-t border-[#333] space-y-3 bg-[#121212]">
                                                     <div className="flex justify-between items-center">
-                                                        <p className="text-sm text-white font-medium">Card {index + 1} Details</p>
+                                                        <div>
+                                                            <p className="text-sm text-white font-medium">Category Setup</p>
+                                                            <p className="text-[11px] text-[#8c8c8c] mt-1">Fill the category details first, then add products below.</p>
+                                                        </div>
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-xs text-[#919191]">Active</span>
                                                             <Switch checked={item.isActive !== false} onCheckedChange={(v) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, isActive: v } : c))} />
                                                             <Button type="button" variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8" onClick={() => removeCategoryCard(index)}><Trash2 className="h-4 w-4" /></Button>
                                                         </div>
                                                     </div>
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                        <Input value={item.name} onChange={(e) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, name: e.target.value } : c))} placeholder="Category title" className="bg-[#0D0D0D] border-[#333] text-white" />
-                                                        <Input value={item.image} onChange={(e) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, image: e.target.value } : c))} placeholder="Image URL" className="bg-[#0D0D0D] border-[#333] text-white" />
-                                                    </div>
-                                                    <div className="rounded-lg border border-[#2f2f2f] bg-[#0f0f0f] p-3">
-                                                        <p className="text-[11px] uppercase tracking-wide text-[#9ca3af] mb-2">Category Image Preview</p>
-                                                        <div className="h-28 w-full max-w-[220px] rounded-md overflow-hidden border border-[#303030] bg-[#0D0D0D]">
-                                                            <img
-                                                                src={previewSrc(item.image || categoryPreviewFallback)}
-                                                                alt={item.name || `Category ${index + 1}`}
-                                                                className="w-full h-full object-cover"
-                                                                onError={(e) => {
-                                                                    (e.target as HTMLImageElement).src = categoryPreviewFallback
-                                                                }}
-                                                            />
+                                                    <div className="rounded-xl border border-[#2c2c2c] bg-[#101010] p-4 space-y-4">
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                            <div className="space-y-2">
+                                                                <p className="text-[11px] uppercase tracking-wide text-[#9ca3af]">Category name</p>
+                                                                <Input
+                                                                    value={item.name}
+                                                                    onChange={(e) => {
+                                                                        const name = e.target.value
+                                                                        setCategories((prev) => prev.map((c, i) => i === index ? { ...c, name } : c))
+                                                                        if (!categoryDraftProducts[index]?.category) {
+                                                                            updateDraftCategoryProduct(index, { category: name })
+                                                                        }
+                                                                    }}
+                                                                    placeholder="Rice Mills & Mini Rice Mills"
+                                                                    className="bg-[#0D0D0D] border-[#333] text-white"
+                                                                />
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                <p className="text-[11px] uppercase tracking-wide text-[#9ca3af]">Category image URL</p>
+                                                                <Input value={item.image} onChange={(e) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, image: e.target.value } : c))} placeholder="Paste category image URL" className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                            </div>
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <p className="text-[11px] uppercase tracking-wide text-[#9ca3af]">Category description</p>
+                                                            <Textarea value={item.description} onChange={(e) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, description: e.target.value } : c))} placeholder="Write a short category summary for the website card and category page." className="bg-[#0D0D0D] border-[#333] text-white min-h-[90px]" />
+                                                        </div>
+                                                        <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4 items-start">
+                                                            <div className="space-y-2">
+                                                                <p className="text-[11px] uppercase tracking-wide text-[#9ca3af]">Category image preview</p>
+                                                                <div className="h-32 w-full rounded-md overflow-hidden border border-[#303030] bg-[#0D0D0D]">
+                                                                    <img
+                                                                        src={previewSrc(item.image || categoryPreviewFallback)}
+                                                                        alt={item.name || `Category ${index + 1}`}
+                                                                        className="w-full h-full object-cover"
+                                                                        onError={(e) => {
+                                                                            (e.target as HTMLImageElement).src = categoryPreviewFallback
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div className="rounded-lg border border-[#232323] bg-[#0d0d0d] p-3 space-y-2">
+                                                                <p className="text-sm text-white font-medium">Upload category image</p>
+                                                                <p className="text-[11px] text-[#8c8c8c]">This upload is only for the category card image.</p>
+                                                                <input id={`category-upload-${index}`} type="file" className="hidden" accept="image/*" onChange={(e) => uploadImage(e, "category", index)} />
+                                                                <Button type="button" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => document.getElementById(`category-upload-${index}`)?.click()} disabled={uploading === `category-${index}`}>
+                                                                    {uploading === `category-${index}` ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                                                                    Upload Category Image
+                                                                </Button>
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                    <Textarea value={item.description} onChange={(e) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, description: e.target.value } : c))} placeholder="Description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[70px]" />
                                                     <div className="space-y-3 rounded-lg border border-[#2c2c2c] bg-[#101010] p-3">
                                                         <div className="flex items-center justify-between">
                                                             <p className="text-xs font-medium tracking-wide text-[#d7d7d7] uppercase">Products In This Category</p>
                                                             <span className="text-[11px] text-[#919191]">{categoryProducts.length} added</span>
                                                         </div>
-                                                        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
-                                                            <select
-                                                                value={categorySelectedProductIds[index] || ""}
-                                                                onChange={(e) => setCategorySelectedProductIds((prev) => ({ ...prev, [index]: e.target.value }))}
-                                                                className="h-10 rounded-md bg-[#0D0D0D] border border-[#333] px-3 text-sm text-white"
-                                                                disabled={isLoadingProductOptions}
-                                                            >
-                                                                <option value="">{isLoadingProductOptions ? "Loading products..." : "Select product to add"}</option>
-                                                                {availableProducts.map((product) => (
-                                                                    <option key={product._id} value={product._id}>
-                                                                        {product.name}{product.category ? ` (${product.category})` : ""}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                            <Button type="button" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => addProductToCategory(index)} disabled={isLoadingProductOptions || !categorySelectedProductIds[index]}>
-                                                                <Plus className="h-4 w-4 mr-2" />
-                                                                Add Product
-                                                            </Button>
-                                                        </div>
-                                                        {selectedProduct && (
-                                                            <div className="rounded-md border border-[#2d2d2d] bg-[#0f0f0f] p-2 flex items-center gap-2">
-                                                                <div className="w-12 h-12 rounded-md overflow-hidden border border-[#333] bg-[#0D0D0D] shrink-0">
-                                                                    <img
-                                                                        src={previewSrc(getPrimaryProductImage(selectedProduct) || productPreviewFallback)}
-                                                                        alt={selectedProduct.name}
-                                                                        className="w-full h-full object-cover"
-                                                                        onError={(e) => {
-                                                                            (e.target as HTMLImageElement).src = productPreviewFallback
-                                                                        }}
-                                                                    />
+                                                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
+                                                            <div className="rounded-lg border border-[#242424] bg-[#0d0d0d] p-3 space-y-3">
+                                                                <div>
+                                                                    <p className="text-sm text-white font-medium">Add existing product</p>
+                                                                    <p className="text-[11px] text-[#8c8c8c] mt-1">Pick a product from the main catalog and attach it to this category.</p>
                                                                 </div>
-                                                                <div className="min-w-0">
-                                                                    <p className="text-xs text-white font-medium line-clamp-1">{selectedProduct.name}</p>
-                                                                    <p className="text-[11px] text-[#9ca3af] line-clamp-1">{selectedProduct.category || "No category"} - SKU: {selectedProduct.sku || "N/A"}</p>
+                                                                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+                                                                    <select
+                                                                        value={categorySelectedProductIds[index] || ""}
+                                                                        onChange={(e) => setCategorySelectedProductIds((prev) => ({ ...prev, [index]: e.target.value }))}
+                                                                        className="h-10 rounded-md bg-[#0D0D0D] border border-[#333] px-3 text-sm text-white"
+                                                                        disabled={isLoadingProductOptions}
+                                                                    >
+                                                                        <option value="">{isLoadingProductOptions ? "Loading products..." : "Select product to add"}</option>
+                                                                        {availableProducts.map((product) => (
+                                                                            <option key={product._id} value={product._id}>
+                                                                                {product.name}{product.category ? ` (${product.category})` : ""}
+                                                                            </option>
+                                                                        ))}
+                                                                    </select>
+                                                                    <Button type="button" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => addProductToCategory(index)} disabled={isLoadingProductOptions || !categorySelectedProductIds[index]}>
+                                                                        <Plus className="h-4 w-4 mr-2" />
+                                                                        Add Existing
+                                                                    </Button>
                                                                 </div>
+                                                                {selectedProduct && (
+                                                                    <div className="rounded-md border border-[#2d2d2d] bg-[#0f0f0f] p-2 flex items-center gap-2">
+                                                                        <div className="w-12 h-12 rounded-md overflow-hidden border border-[#333] bg-[#0D0D0D] shrink-0">
+                                                                            <img
+                                                                                src={previewSrc(getPrimaryProductImage(selectedProduct) || productPreviewFallback)}
+                                                                                alt={selectedProduct.name}
+                                                                                className="w-full h-full object-cover"
+                                                                                onError={(e) => {
+                                                                                    (e.target as HTMLImageElement).src = productPreviewFallback
+                                                                                }}
+                                                                            />
+                                                                        </div>
+                                                                        <div className="min-w-0">
+                                                                            <p className="text-xs text-white font-medium line-clamp-1">{selectedProduct.name}</p>
+                                                                            <p className="text-[11px] text-[#9ca3af] line-clamp-1">{selectedProduct.category || "No category"} - SKU: {selectedProduct.sku || "N/A"}</p>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                             </div>
-                                                        )}
+                                                            <div className="rounded-lg border border-[#2d3324] bg-[#0d100b] p-3 space-y-3">
+                                                                <div>
+                                                                    <p className="text-sm text-white font-medium">Quick add product</p>
+                                                                    <p className="text-[11px] text-[#8c8c8c] mt-1">Create a simple product card for this category with its own image upload.</p>
+                                                                </div>
+                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                                    <Input value={draftProduct.name} onChange={(e) => updateDraftCategoryProduct(index, { name: e.target.value, category: item.name || draftProduct.category })} placeholder="Product name" className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                                    <Input value={draftProduct.sku} onChange={(e) => updateDraftCategoryProduct(index, { sku: e.target.value })} placeholder="SKU (optional)" className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                                    <Input value={draftProduct.image} onChange={(e) => updateDraftCategoryProduct(index, { image: e.target.value, images: e.target.value ? [e.target.value] : [] })} placeholder="Product image URL" className="bg-[#0D0D0D] border-[#333] text-white md:col-span-2" />
+                                                                    <Textarea value={draftProduct.shortDescription} onChange={(e) => updateDraftCategoryProduct(index, { shortDescription: e.target.value, description: draftProduct.description || e.target.value })} placeholder="Short product description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[80px] md:col-span-2" />
+                                                                </div>
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <input id={`draft-category-product-upload-${index}`} type="file" className="hidden" accept="image/*" onChange={(e) => uploadImage(e, "draft-category-product", index)} />
+                                                                    <Button type="button" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => document.getElementById(`draft-category-product-upload-${index}`)?.click()} disabled={uploading === `draft-category-product-${index}`}>
+                                                                        {uploading === `draft-category-product-${index}` ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                                                                        Upload Product Image
+                                                                    </Button>
+                                                                    <Button type="button" className="bg-[#86efac] text-black hover:opacity-95" onClick={() => addDraftProductToCategory(index)}>
+                                                                        <Plus className="h-4 w-4 mr-2" />
+                                                                        Add Quick Product
+                                                                    </Button>
+                                                                </div>
+                                                                {draftProduct.image && (
+                                                                    <div className="w-20 h-20 rounded-md overflow-hidden border border-[#333] bg-[#0D0D0D]">
+                                                                        <img
+                                                                            src={previewSrc(draftProduct.image || productPreviewFallback)}
+                                                                            alt={draftProduct.name || "Draft product"}
+                                                                            className="w-full h-full object-cover"
+                                                                            onError={(e) => {
+                                                                                (e.target as HTMLImageElement).src = productPreviewFallback
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
                                                         {categoryProducts.length === 0 && (
                                                             <p className="text-[11px] text-[#717171]">No products added yet.</p>
                                                         )}
@@ -692,22 +877,32 @@ export default function ManageWebsitePage() {
                                                                                 </div>
                                                                             ) : (
                                                                                 <div className="rounded-md border border-[#3b3020] bg-[#1b1610] px-3 py-2 text-[11px] text-[#facc15]">
-                                                                                    This entry is a manual category item, so it only exists inside website settings.
+                                                                                    This entry is a quick category product. You can edit its content and upload its image here.
                                                                                 </div>
                                                                             )}
-                                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-[#c7c7c7]">
-                                                                                <p><span className="text-[#8f8f8f]">Product ID:</span> {product.productId || "N/A"}</p>
-                                                                                <p><span className="text-[#8f8f8f]">Slug:</span> {product.slug || "N/A"}</p>
-                                                                                <p><span className="text-[#8f8f8f]">Category:</span> {product.category || "N/A"}</p>
-                                                                                <p><span className="text-[#8f8f8f]">Status:</span> {product.status || "N/A"}</p>
-                                                                                <p><span className="text-[#8f8f8f]">MRP:</span> {product.mrp}</p>
-                                                                                <p><span className="text-[#8f8f8f]">Retail Price:</span> {product.retailPrice}</p>
-                                                                                <p><span className="text-[#8f8f8f]">Wholesale Price:</span> {product.wholesalePrice}</p>
-                                                                                <p><span className="text-[#8f8f8f]">Stock:</span> {product.stock}</p>
-                                                                                <p className="md:col-span-2"><span className="text-[#8f8f8f]">Short Description:</span> {product.shortDescription || "N/A"}</p>
-                                                                                <p className="md:col-span-2"><span className="text-[#8f8f8f]">Description:</span> {product.description || "N/A"}</p>
-                                                                                <p className="md:col-span-2 break-all"><span className="text-[#8f8f8f]">Image:</span> {product.image || "N/A"}</p>
-                                                                            </div>
+                                                                            {product.productId ? (
+                                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-[#c7c7c7]">
+                                                                                    <p><span className="text-[#8f8f8f]">Product ID:</span> {product.productId || "N/A"}</p>
+                                                                                    <p><span className="text-[#8f8f8f]">Slug:</span> {product.slug || "N/A"}</p>
+                                                                                    <p><span className="text-[#8f8f8f]">Category:</span> {product.category || "N/A"}</p>
+                                                                                    <p><span className="text-[#8f8f8f]">Status:</span> {product.status || "N/A"}</p>
+                                                                                    <p><span className="text-[#8f8f8f]">MRP:</span> {product.mrp}</p>
+                                                                                    <p><span className="text-[#8f8f8f]">Retail Price:</span> {product.retailPrice}</p>
+                                                                                    <p><span className="text-[#8f8f8f]">Wholesale Price:</span> {product.wholesalePrice}</p>
+                                                                                    <p><span className="text-[#8f8f8f]">Stock:</span> {product.stock}</p>
+                                                                                    <p className="md:col-span-2"><span className="text-[#8f8f8f]">Short Description:</span> {product.shortDescription || "N/A"}</p>
+                                                                                    <p className="md:col-span-2"><span className="text-[#8f8f8f]">Description:</span> {product.description || "N/A"}</p>
+                                                                                    <p className="md:col-span-2 break-all"><span className="text-[#8f8f8f]">Image:</span> {product.image || "N/A"}</p>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                                                    <Input value={product.name} onChange={(e) => updateCategoryProduct(index, productIndex, { name: e.target.value })} placeholder="Product name" className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                                                    <Input value={product.sku} onChange={(e) => updateCategoryProduct(index, productIndex, { sku: e.target.value })} placeholder="SKU" className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                                                    <Input value={product.image} onChange={(e) => updateCategoryProduct(index, productIndex, { image: e.target.value, images: e.target.value ? [e.target.value] : [] })} placeholder="Image URL" className="bg-[#0D0D0D] border-[#333] text-white md:col-span-2" />
+                                                                                    <Textarea value={product.shortDescription} onChange={(e) => updateCategoryProduct(index, productIndex, { shortDescription: e.target.value })} placeholder="Short description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[80px] md:col-span-2" />
+                                                                                    <Textarea value={product.description} onChange={(e) => updateCategoryProduct(index, productIndex, { description: e.target.value })} placeholder="Full description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[90px] md:col-span-2" />
+                                                                                </div>
+                                                                            )}
                                                                             <div>
                                                                                 <p className="text-[11px] uppercase tracking-wide text-[#8f8f8f] mb-1">Product Image Preview</p>
                                                                                 <div className="flex items-center gap-2 overflow-x-auto">
@@ -724,21 +919,21 @@ export default function ManageWebsitePage() {
                                                                                         </div>
                                                                                     ))}
                                                                                 </div>
+                                                                                {!product.productId && (
+                                                                                    <div className="mt-2">
+                                                                                        <input id={`category-product-upload-${index}-${productIndex}`} type="file" className="hidden" accept="image/*" onChange={(e) => uploadImage(e, "category-product", index, productIndex)} />
+                                                                                        <Button type="button" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => document.getElementById(`category-product-upload-${index}-${productIndex}`)?.click()} disabled={uploading === `category-product-${index}-${productIndex}`}>
+                                                                                            {uploading === `category-product-${index}-${productIndex}` ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                                                                                            Upload Product Image
+                                                                                        </Button>
+                                                                                    </div>
+                                                                                )}
                                                                             </div>
                                                                         </div>
                                                                     )}
                                                                 </div>
                                                             )
                                                         })}
-                                                    </div>
-                                                    <div className="flex justify-end">
-                                                        <div className="flex items-center gap-2">
-                                                            <input id={`category-upload-${index}`} type="file" className="hidden" accept="image/*" onChange={(e) => uploadImage(e, "category", index)} />
-                                                            <Button type="button" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => document.getElementById(`category-upload-${index}`)?.click()} disabled={uploading === `category-${index}`}>
-                                                                {uploading === `category-${index}` ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-                                                                Upload Image
-                                                            </Button>
-                                                        </div>
                                                     </div>
                                                 </div>
                                             )}
