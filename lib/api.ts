@@ -14,6 +14,13 @@ interface FetchOptions extends RequestInit {
   skipAuth?: boolean
 }
 
+function createApiErrorResponse(message: string, status = 503): Response {
+  return new Response(JSON.stringify({ success: false, message }), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  })
+}
+
 async function refreshAccessToken(): Promise<string | null> {
   const refreshToken = localStorage.getItem('refreshToken')
   if (!refreshToken) return null
@@ -72,7 +79,7 @@ export async function apiFetch(endpoint: string, options: FetchOptions = {}): Pr
     })
   } catch (error) {
     if (error instanceof TypeError) {
-      throw new Error(`Unable to reach API at ${API_BASE}. Check backend server and NEXT_PUBLIC_API_BASE_URL.`)
+      return createApiErrorResponse(`Unable to reach API at ${API_BASE}. Check backend server and NEXT_PUBLIC_API_BASE_URL.`)
     }
     throw error
   }
@@ -82,10 +89,17 @@ export async function apiFetch(endpoint: string, options: FetchOptions = {}): Pr
     const newToken = await refreshAccessToken()
     if (newToken) {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${newToken}`
-      res = await fetch(buildApiUrl(endpoint), {
-        ...fetchOptions,
-        headers,
-      })
+      try {
+        res = await fetch(buildApiUrl(endpoint), {
+          ...fetchOptions,
+          headers,
+        })
+      } catch (error) {
+        if (error instanceof TypeError) {
+          return createApiErrorResponse(`Unable to reach API at ${API_BASE}. Check backend server and NEXT_PUBLIC_API_BASE_URL.`)
+        }
+        throw error
+      }
     }
   }
 

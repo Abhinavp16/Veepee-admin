@@ -154,13 +154,17 @@ const getCategoryProducts = (category: WebsiteCategory): WebsiteCategoryProduct[
     return normalizeList(category.products || []).map((name, index) => normalizeCategoryProduct(name, index))
 }
 const getCategoryProductNames = (category: WebsiteCategory): string[] => normalizeList(getCategoryProducts(category).map((product) => product.name))
+const hasDraftProductContent = (product?: WebsiteCategoryProduct | null): boolean => {
+    if (!product) return false
+    return Boolean(product.name?.trim() || product.shortDescription?.trim() || product.image?.trim() || product.sku?.trim())
+}
 const categoryPreviewFallback = "https://placehold.co/160x110/0f1115/8a93a3?text=Category"
 const productPreviewFallback = "https://placehold.co/120x120/0f1115/8a93a3?text=Product"
 const defaultCategoriesSection: SectionConfig = {
     eyebrow: "PRODUCT CATEGORIES",
     title: "The Heart of Modern Farming",
     description: "Our diverse range of agriculture and industrial machines stands at the core of modern farming practices. Each piece of equipment is designed with utmost precision.",
-    buttonText: "View Products",
+    buttonText: "View All products",
 }
 const defaultFeaturedSection: SectionConfig = {
     eyebrow: "PRECISION ENGINEERING",
@@ -315,6 +319,7 @@ export default function ManageWebsitePage() {
             }
         }))
         setCategorySelectedProductIds((prev) => ({ ...prev, [categoryIndex]: "" }))
+        setExpandedProductKey(null)
     }
 
     function updateDraftCategoryProduct(categoryIndex: number, updates: Partial<WebsiteCategoryProduct>) {
@@ -355,6 +360,7 @@ export default function ManageWebsitePage() {
             ...prev,
             [categoryIndex]: createEmptyCategoryProduct(categories[categoryIndex]?.name || ""),
         }))
+        setExpandedProductKey(null)
         toast.success("Product added to category")
     }
 
@@ -490,6 +496,7 @@ export default function ManageWebsitePage() {
             })
             const res = await apiFetch("/admin/website-settings", { method: "PUT", body: JSON.stringify({ productCategories, categoriesSection }) })
             if (!res.ok) throw new Error()
+            setExpandedProductKey(null)
             toast.success("Website product categories saved")
         } catch {
             toast.error("Failed to save product categories")
@@ -622,7 +629,6 @@ export default function ManageWebsitePage() {
                                         <Input value={categoriesSection.title || ""} onChange={(e) => setCategoriesSection((prev) => ({ ...prev, title: e.target.value }))} placeholder="Section title" className="bg-[#0D0D0D] border-[#333] text-white" />
                                     </div>
                                     <Textarea value={categoriesSection.description || ""} onChange={(e) => setCategoriesSection((prev) => ({ ...prev, description: e.target.value }))} placeholder="Section description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[70px]" />
-                                    <Input value={categoriesSection.buttonText || ""} onChange={(e) => setCategoriesSection((prev) => ({ ...prev, buttonText: e.target.value }))} placeholder="Card button text" className="bg-[#0D0D0D] border-[#333] text-white" />
                                 </div>
                                 <div className="flex justify-start">
                                     <Button
@@ -684,7 +690,7 @@ export default function ManageWebsitePage() {
                                                     <div className="flex justify-between items-center">
                                                         <div>
                                                             <p className="text-sm text-white font-medium">Category Setup</p>
-                                                            <p className="text-[11px] text-[#8c8c8c] mt-1">Fill the category details first, then add products below.</p>
+                                                            <p className="text-[11px] text-[#8c8c8c] mt-1">Set the category, then add products.</p>
                                                         </div>
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-xs text-[#919191]">Active</span>
@@ -718,10 +724,14 @@ export default function ManageWebsitePage() {
                                                             <p className="text-[11px] uppercase tracking-wide text-[#9ca3af]">Category description</p>
                                                             <Textarea value={item.description} onChange={(e) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, description: e.target.value } : c))} placeholder="Write a short category summary for the website card and category page." className="bg-[#0D0D0D] border-[#333] text-white min-h-[90px]" />
                                                         </div>
-                                                        <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-4 items-start">
-                                                            <div className="space-y-2">
+                                                        <div className="space-y-2">
+                                                            <p className="text-[11px] uppercase tracking-wide text-[#9ca3af]">Category button text</p>
+                                                            <Input value={categoriesSection.buttonText || "View All products"} onChange={(e) => setCategoriesSection((prev) => ({ ...prev, buttonText: e.target.value || "View All products" }))} placeholder="View All products" className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                        </div>
+                                                        <div className="grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)] gap-4 items-stretch">
+                                                            <div className="rounded-lg border border-[#232323] bg-[#0d0d0d] p-3 space-y-2 h-full">
                                                                 <p className="text-[11px] uppercase tracking-wide text-[#9ca3af]">Category image preview</p>
-                                                                <div className="h-32 w-full rounded-md overflow-hidden border border-[#303030] bg-[#0D0D0D]">
+                                                                <div className="h-[148px] w-full rounded-md overflow-hidden border border-[#303030] bg-[#0D0D0D]">
                                                                     <img
                                                                         src={previewSrc(item.image || categoryPreviewFallback)}
                                                                         alt={item.name || `Category ${index + 1}`}
@@ -732,9 +742,11 @@ export default function ManageWebsitePage() {
                                                                     />
                                                                 </div>
                                                             </div>
-                                                            <div className="rounded-lg border border-[#232323] bg-[#0d0d0d] p-3 space-y-2">
+                                                            <div className="rounded-lg border border-[#232323] bg-[#0d0d0d] p-3 flex flex-col justify-between min-h-[188px]">
+                                                                <div className="space-y-2">
                                                                 <p className="text-sm text-white font-medium">Upload category image</p>
                                                                 <p className="text-[11px] text-[#8c8c8c]">This upload is only for the category card image.</p>
+                                                                </div>
                                                                 <input id={`category-upload-${index}`} type="file" className="hidden" accept="image/*" onChange={(e) => uploadImage(e, "category", index)} />
                                                                 <Button type="button" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => document.getElementById(`category-upload-${index}`)?.click()} disabled={uploading === `category-${index}`}>
                                                                     {uploading === `category-${index}` ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
@@ -752,7 +764,7 @@ export default function ManageWebsitePage() {
                                                             <div className="rounded-lg border border-[#242424] bg-[#0d0d0d] p-3 space-y-3">
                                                                 <div>
                                                                     <p className="text-sm text-white font-medium">Add existing product</p>
-                                                                    <p className="text-[11px] text-[#8c8c8c] mt-1">Pick a product from the main catalog and attach it to this category.</p>
+                                                                    <p className="text-[11px] text-[#8c8c8c] mt-1">Attach a product from your catalog.</p>
                                                                 </div>
                                                                 <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
                                                                     <select
@@ -795,37 +807,26 @@ export default function ManageWebsitePage() {
                                                             <div className="rounded-lg border border-[#2d3324] bg-[#0d100b] p-3 space-y-3">
                                                                 <div>
                                                                     <p className="text-sm text-white font-medium">Quick add product</p>
-                                                                    <p className="text-[11px] text-[#8c8c8c] mt-1">Create a simple product card for this category with its own image upload.</p>
+                                                                    <p className="text-[11px] text-[#8c8c8c] mt-1">Create a simple category product.</p>
                                                                 </div>
-                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                                                    <Input value={draftProduct.name} onChange={(e) => updateDraftCategoryProduct(index, { name: e.target.value, category: item.name || draftProduct.category })} placeholder="Product name" className="bg-[#0D0D0D] border-[#333] text-white" />
-                                                                    <Input value={draftProduct.sku} onChange={(e) => updateDraftCategoryProduct(index, { sku: e.target.value })} placeholder="SKU (optional)" className="bg-[#0D0D0D] border-[#333] text-white" />
-                                                                    <Input value={draftProduct.image} onChange={(e) => updateDraftCategoryProduct(index, { image: e.target.value, images: e.target.value ? [e.target.value] : [] })} placeholder="Product image URL" className="bg-[#0D0D0D] border-[#333] text-white md:col-span-2" />
-                                                                    <Textarea value={draftProduct.shortDescription} onChange={(e) => updateDraftCategoryProduct(index, { shortDescription: e.target.value, description: draftProduct.description || e.target.value })} placeholder="Short product description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[80px] md:col-span-2" />
-                                                                </div>
-                                                                <div className="flex flex-wrap items-center gap-2">
-                                                                    <input id={`draft-category-product-upload-${index}`} type="file" className="hidden" accept="image/*" onChange={(e) => uploadImage(e, "draft-category-product", index)} />
-                                                                    <Button type="button" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => document.getElementById(`draft-category-product-upload-${index}`)?.click()} disabled={uploading === `draft-category-product-${index}`}>
-                                                                        {uploading === `draft-category-product-${index}` ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
-                                                                        Upload Product Image
-                                                                    </Button>
-                                                                    <Button type="button" className="bg-[#86efac] text-black hover:opacity-95" onClick={() => addDraftProductToCategory(index)}>
-                                                                        <Plus className="h-4 w-4 mr-2" />
-                                                                        Add Quick Product
-                                                                    </Button>
-                                                                </div>
-                                                                {draftProduct.image && (
-                                                                    <div className="w-20 h-20 rounded-md overflow-hidden border border-[#333] bg-[#0D0D0D]">
-                                                                        <img
-                                                                            src={previewSrc(draftProduct.image || productPreviewFallback)}
-                                                                            alt={draftProduct.name || "Draft product"}
-                                                                            className="w-full h-full object-cover"
-                                                                            onError={(e) => {
-                                                                                (e.target as HTMLImageElement).src = productPreviewFallback
-                                                                            }}
-                                                                        />
+                                                                <div className="space-y-3">
+                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                                        <Input value={draftProduct.name} onChange={(e) => updateDraftCategoryProduct(index, { name: e.target.value, category: item.name || draftProduct.category })} placeholder="Product name" className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                                        <Input value={draftProduct.image} onChange={(e) => updateDraftCategoryProduct(index, { image: e.target.value, images: e.target.value ? [e.target.value] : [] })} placeholder="Product image URL" className="bg-[#0D0D0D] border-[#333] text-white md:col-span-2" />
+                                                                        <Textarea value={draftProduct.shortDescription} onChange={(e) => updateDraftCategoryProduct(index, { shortDescription: e.target.value, description: e.target.value })} placeholder="Short product description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[96px] md:col-span-2" />
                                                                     </div>
-                                                                )}
+                                                                    <div className="flex flex-wrap items-center gap-2">
+                                                                        <input id={`draft-category-product-upload-${index}`} type="file" className="hidden" accept="image/*" onChange={(e) => uploadImage(e, "draft-category-product", index)} />
+                                                                        <Button type="button" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => document.getElementById(`draft-category-product-upload-${index}`)?.click()} disabled={uploading === `draft-category-product-${index}`}>
+                                                                            {uploading === `draft-category-product-${index}` ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}
+                                                                            Upload Product Image
+                                                                        </Button>
+                                                                        <Button type="button" className="bg-[#86efac] text-black hover:opacity-95" onClick={() => addDraftProductToCategory(index)}>
+                                                                            <Plus className="h-4 w-4 mr-2" />
+                                                                            Add Quick Product
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                         {categoryProducts.length === 0 && (
@@ -850,7 +851,7 @@ export default function ManageWebsitePage() {
                                                                             </div>
                                                                             <div className="min-w-0">
                                                                                 <p className="text-sm text-white font-medium line-clamp-1">{product.name}</p>
-                                                                                <p className="text-[11px] text-[#919191] line-clamp-1">SKU: {product.sku || "N/A"} - Stock: {product.stock}</p>
+                                                                                <p className="text-[11px] text-[#919191] line-clamp-1">{product.productId ? `SKU: ${product.sku || "N/A"} - Stock: ${product.stock}` : "Quick category product"}</p>
                                                                             </div>
                                                                         </div>
                                                                         <div className="flex items-center gap-2">
@@ -862,7 +863,7 @@ export default function ManageWebsitePage() {
                                                                                 </Link>
                                                                             )}
                                                                             <Button type="button" variant="outline" size="sm" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => setExpandedProductKey((prev) => prev === productKey ? null : productKey)}>
-                                                                                {showProductDetails ? "Hide Details" : "View Details"}
+                                                                                {showProductDetails ? "Close" : (product.productId ? "Details" : "Edit")}
                                                                             </Button>
                                                                             <Button type="button" variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8" onClick={() => removeCategoryProduct(index, productIndex)}>
                                                                                 <Trash2 className="h-4 w-4" />
@@ -881,26 +882,17 @@ export default function ManageWebsitePage() {
                                                                                 </div>
                                                                             )}
                                                                             {product.productId ? (
-                                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-[#c7c7c7]">
-                                                                                    <p><span className="text-[#8f8f8f]">Product ID:</span> {product.productId || "N/A"}</p>
-                                                                                    <p><span className="text-[#8f8f8f]">Slug:</span> {product.slug || "N/A"}</p>
+                                                                                <div className="space-y-2 text-xs text-[#c7c7c7]">
                                                                                     <p><span className="text-[#8f8f8f]">Category:</span> {product.category || "N/A"}</p>
-                                                                                    <p><span className="text-[#8f8f8f]">Status:</span> {product.status || "N/A"}</p>
-                                                                                    <p><span className="text-[#8f8f8f]">MRP:</span> {product.mrp}</p>
-                                                                                    <p><span className="text-[#8f8f8f]">Retail Price:</span> {product.retailPrice}</p>
-                                                                                    <p><span className="text-[#8f8f8f]">Wholesale Price:</span> {product.wholesalePrice}</p>
+                                                                                    <p><span className="text-[#8f8f8f]">SKU:</span> {product.sku || "N/A"}</p>
                                                                                     <p><span className="text-[#8f8f8f]">Stock:</span> {product.stock}</p>
-                                                                                    <p className="md:col-span-2"><span className="text-[#8f8f8f]">Short Description:</span> {product.shortDescription || "N/A"}</p>
-                                                                                    <p className="md:col-span-2"><span className="text-[#8f8f8f]">Description:</span> {product.description || "N/A"}</p>
-                                                                                    <p className="md:col-span-2 break-all"><span className="text-[#8f8f8f]">Image:</span> {product.image || "N/A"}</p>
+                                                                                    <p><span className="text-[#8f8f8f]">Short Description:</span> {product.shortDescription || "N/A"}</p>
                                                                                 </div>
                                                                             ) : (
-                                                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                                                <div className="grid grid-cols-1 gap-2">
                                                                                     <Input value={product.name} onChange={(e) => updateCategoryProduct(index, productIndex, { name: e.target.value })} placeholder="Product name" className="bg-[#0D0D0D] border-[#333] text-white" />
-                                                                                    <Input value={product.sku} onChange={(e) => updateCategoryProduct(index, productIndex, { sku: e.target.value })} placeholder="SKU" className="bg-[#0D0D0D] border-[#333] text-white" />
-                                                                                    <Input value={product.image} onChange={(e) => updateCategoryProduct(index, productIndex, { image: e.target.value, images: e.target.value ? [e.target.value] : [] })} placeholder="Image URL" className="bg-[#0D0D0D] border-[#333] text-white md:col-span-2" />
-                                                                                    <Textarea value={product.shortDescription} onChange={(e) => updateCategoryProduct(index, productIndex, { shortDescription: e.target.value })} placeholder="Short description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[80px] md:col-span-2" />
-                                                                                    <Textarea value={product.description} onChange={(e) => updateCategoryProduct(index, productIndex, { description: e.target.value })} placeholder="Full description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[90px] md:col-span-2" />
+                                                                                    <Input value={product.image} onChange={(e) => updateCategoryProduct(index, productIndex, { image: e.target.value, images: e.target.value ? [e.target.value] : [] })} placeholder="Image URL" className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                                                    <Textarea value={product.shortDescription} onChange={(e) => updateCategoryProduct(index, productIndex, { shortDescription: e.target.value, description: e.target.value })} placeholder="Short description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[80px]" />
                                                                                 </div>
                                                                             )}
                                                                             <div>
@@ -955,6 +947,47 @@ export default function ManageWebsitePage() {
                                         <p className="text-white text-xl font-bold mt-2">{categoriesSection.title || "The Heart of Modern Farming"}</p>
                                         <p className="text-[#a7b0bf] text-xs mt-2 line-clamp-3">{categoriesSection.description || "Section description"}</p>
                                     </div>
+                                    {expandedCategoryIndex !== null && categories[expandedCategoryIndex] && hasDraftProductContent(categoryDraftProducts[expandedCategoryIndex]) && (
+                                        <div className="rounded-2xl overflow-hidden border border-[#355028] bg-[#11160d]">
+                                            <div className="p-3 border-b border-[#2f4126]">
+                                                <p className="text-[11px] tracking-[0.18em] text-[#b7e08b] font-semibold uppercase">Draft Product Preview</p>
+                                                <p className="text-[#8fa17b] text-xs mt-1">This shows the quick product you are currently typing.</p>
+                                            </div>
+                                            <div className="relative h-32">
+                                                {(categoryDraftProducts[expandedCategoryIndex]?.image || "").trim() ? (
+                                                    <img
+                                                        src={previewSrc(categoryDraftProducts[expandedCategoryIndex]?.image || productPreviewFallback)}
+                                                        alt={categoryDraftProducts[expandedCategoryIndex]?.name || "Draft product"}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => {
+                                                            (e.target as HTMLImageElement).src = productPreviewFallback
+                                                        }}
+                                                    />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-xs text-[#666]">No Image</div>
+                                                )}
+                                                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
+                                                <div className="absolute top-2 right-2 rounded-full border border-[#4b6738] bg-[#182411] px-2 py-1 text-[10px] font-medium text-[#c3eca0]">
+                                                    Draft
+                                                </div>
+                                            </div>
+                                            <div className="p-3">
+                                                <p className="text-white text-base font-semibold line-clamp-2">
+                                                    {categoryDraftProducts[expandedCategoryIndex]?.name || "Product name"}
+                                                </p>
+                                                <p className="text-[#ff8a32] text-xs mt-1 line-clamp-2">
+                                                    {categoryDraftProducts[expandedCategoryIndex]?.shortDescription || "Short description"}
+                                                </p>
+                                                <div className="mt-3 flex items-center justify-between text-[11px] text-[#a5b097]">
+                                                    <span>Quick product</span>
+                                                    <span>{categories[expandedCategoryIndex]?.name || "Category"}</span>
+                                                </div>
+                                                <button className="mt-3 w-full py-2 rounded-lg border border-[#3c4d30] bg-[#171c23] text-[#d6dde8] text-xs font-semibold">
+                                                    Draft Product CTA
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                     {categories
                                         .filter((c) => c.isActive !== false)
                                         .sort((a, b) => (a.order || 0) - (b.order || 0))
