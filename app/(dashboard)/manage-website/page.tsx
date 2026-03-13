@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { apiFetch, buildApiUrl } from "@/lib/api"
 import { toast } from "sonner"
@@ -310,6 +311,7 @@ export default function ManageWebsitePage() {
                 products: normalizeList(nextProductDetails.map((product) => product.name)),
             }
         }))
+        setExpandedProductKey((prev) => prev === `${categoryIndex}-${productIndex}` ? null : prev)
     }
 
     function removeCategoryCard(indexToRemove: number) {
@@ -667,8 +669,15 @@ export default function ManageWebsitePage() {
                                                                             </div>
                                                                         </div>
                                                                         <div className="flex items-center gap-2">
+                                                                            {product.productId && (
+                                                                                <Link href={`/products/edit/${product.productId}`}>
+                                                                                    <Button type="button" variant="outline" size="sm" className="border-[#2d4771] bg-[#101722] text-[#cfe2ff] hover:bg-[#162033]">
+                                                                                        Edit Product
+                                                                                    </Button>
+                                                                                </Link>
+                                                                            )}
                                                                             <Button type="button" variant="outline" size="sm" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => setExpandedProductKey((prev) => prev === productKey ? null : productKey)}>
-                                                                                {showProductDetails ? "Hide Fields" : "Show Fields"}
+                                                                                {showProductDetails ? "Hide Details" : "View Details"}
                                                                             </Button>
                                                                             <Button type="button" variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8" onClick={() => removeCategoryProduct(index, productIndex)}>
                                                                                 <Trash2 className="h-4 w-4" />
@@ -677,6 +686,15 @@ export default function ManageWebsitePage() {
                                                                     </div>
                                                                     {showProductDetails && (
                                                                         <div className="space-y-2">
+                                                                            {product.productId ? (
+                                                                                <div className="rounded-md border border-[#244033] bg-[#102016] px-3 py-2 text-[11px] text-[#9fdfb6]">
+                                                                                    This card is linked to a real product. Use `Edit Product` to update the catalog item, or the trash icon to remove it from this category.
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div className="rounded-md border border-[#3b3020] bg-[#1b1610] px-3 py-2 text-[11px] text-[#facc15]">
+                                                                                    This entry is a manual category item, so it only exists inside website settings.
+                                                                                </div>
+                                                                            )}
                                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs text-[#c7c7c7]">
                                                                                 <p><span className="text-[#8f8f8f]">Product ID:</span> {product.productId || "N/A"}</p>
                                                                                 <p><span className="text-[#8f8f8f]">Slug:</span> {product.slug || "N/A"}</p>
