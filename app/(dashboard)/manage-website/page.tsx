@@ -142,7 +142,7 @@ const defaultCategoriesSection: SectionConfig = {
     eyebrow: "PRODUCT CATEGORIES",
     title: "The Heart of Modern Farming",
     description: "Our diverse range of agriculture and industrial machines stands at the core of modern farming practices. Each piece of equipment is designed with utmost precision.",
-    buttonText: "View all product",
+    buttonText: "View Products",
 }
 const defaultFeaturedSection: SectionConfig = {
     eyebrow: "PRECISION ENGINEERING",
@@ -505,8 +505,19 @@ export default function ManageWebsitePage() {
                     <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
                         <Card className="bg-[#161616] border-[#333] xl:col-span-8">
                             <CardHeader>
-                                <div className="flex items-center justify-between gap-4">
-                                    <div><CardTitle className="text-white">The Heart of Modern Farming</CardTitle></div>
+                                <CardTitle className="text-white">The Heart of Modern Farming</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div className="border border-[#333] rounded-lg p-4 space-y-3 bg-[#121212]">
+                                    <p className="text-sm font-semibold text-white">Section Content</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        <Input value={categoriesSection.eyebrow || ""} onChange={(e) => setCategoriesSection((prev) => ({ ...prev, eyebrow: e.target.value }))} placeholder="Eyebrow text" className="bg-[#0D0D0D] border-[#333] text-white" />
+                                        <Input value={categoriesSection.title || ""} onChange={(e) => setCategoriesSection((prev) => ({ ...prev, title: e.target.value }))} placeholder="Section title" className="bg-[#0D0D0D] border-[#333] text-white" />
+                                    </div>
+                                    <Textarea value={categoriesSection.description || ""} onChange={(e) => setCategoriesSection((prev) => ({ ...prev, description: e.target.value }))} placeholder="Section description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[70px]" />
+                                    <Input value={categoriesSection.buttonText || ""} onChange={(e) => setCategoriesSection((prev) => ({ ...prev, buttonText: e.target.value }))} placeholder="Card button text" className="bg-[#0D0D0D] border-[#333] text-white" />
+                                </div>
+                                <div className="flex justify-start">
                                     <Button
                                         onClick={() => {
                                             setCategories((prev) => {
@@ -521,17 +532,11 @@ export default function ManageWebsitePage() {
                                         <Plus className="h-4 w-4 mr-2" /> Add Category Card
                                     </Button>
                                 </div>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="border border-[#333] rounded-lg p-4 space-y-3 bg-[#121212]">
-                                    <p className="text-sm font-semibold text-white">Section Content</p>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                        <Input value={categoriesSection.eyebrow || ""} onChange={(e) => setCategoriesSection((prev) => ({ ...prev, eyebrow: e.target.value }))} placeholder="Eyebrow text" className="bg-[#0D0D0D] border-[#333] text-white" />
-                                        <Input value={categoriesSection.title || ""} onChange={(e) => setCategoriesSection((prev) => ({ ...prev, title: e.target.value }))} placeholder="Section title" className="bg-[#0D0D0D] border-[#333] text-white" />
+                                {categories.length === 0 && (
+                                    <div className="border border-dashed border-[#333] rounded-lg p-6 text-center text-sm text-[#919191]">
+                                        No category cards yet. Click `Add Category Card` to create one.
                                     </div>
-                                    <Textarea value={categoriesSection.description || ""} onChange={(e) => setCategoriesSection((prev) => ({ ...prev, description: e.target.value }))} placeholder="Section description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[70px]" />
-                                    <Input value={categoriesSection.buttonText || ""} onChange={(e) => setCategoriesSection((prev) => ({ ...prev, buttonText: e.target.value }))} placeholder="Card button text" className="bg-[#0D0D0D] border-[#333] text-white" />
-                                </div>
+                                )}
                                 {categories.map((item, index) => {
                                     const isExpanded = expandedCategoryIndex === index
                                     const categoryProducts = getCategoryProducts(item)
@@ -774,7 +779,7 @@ export default function ManageWebsitePage() {
                                                         )}
                                                     </ul>
                                                     <button className="mt-3 w-full py-2 rounded-lg border border-[#2f3742] bg-[#171c23] text-[#d6dde8] text-xs font-semibold">
-                                                        {categoriesSection.buttonText || "View all product"}
+                                                        {categoriesSection.buttonText || "View Products"}
                                                     </button>
                                                     <div className="mt-3 text-[11px] text-[#9aa3b2] flex items-center justify-between">
                                                         <span>Order: {item.order ?? i}</span>
