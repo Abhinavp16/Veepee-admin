@@ -234,7 +234,13 @@ export default function ManageWebsitePage() {
                 order: Number.isFinite(item?.order) ? item.order : index,
             }))
             setCategories(nextCategories)
-            setFeaturedProducts(data.data.featuredProducts || [])
+            // Ensure shortDescription exists for all products
+            const loadedFeaturedProducts = (data.data.featuredProducts || []).map((p: any) => ({
+                ...p,
+                shortDescription: p.shortDescription || '',
+                specs: Array.isArray(p.specs) ? p.specs : [],
+            }))
+            setFeaturedProducts(loadedFeaturedProducts)
             setCategoriesSection({ ...defaultCategoriesSection, ...(data.data.categoriesSection || {}) })
             setFeaturedSection({ ...defaultFeaturedSection, ...(data.data.featuredSection || {}) })
             const incoming = Array.isArray(data.data.heroCards) ? data.data.heroCards : []
