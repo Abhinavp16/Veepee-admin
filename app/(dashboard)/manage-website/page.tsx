@@ -772,11 +772,11 @@ export default function ManageWebsitePage() {
                                                                     <p className="text-sm text-white font-medium">Add existing product</p>
                                                                     <p className="text-[11px] text-[#8c8c8c] mt-1">Attach a product from your catalog.</p>
                                                                 </div>
-                                                                <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+                                                                <div className="grid grid-cols-1 2xl:grid-cols-[minmax(0,1fr)_auto] gap-2">
                                                                     <select
                                                                         value={categorySelectedProductIds[index] || ""}
                                                                         onChange={(e) => setCategorySelectedProductIds((prev) => ({ ...prev, [index]: e.target.value }))}
-                                                                        className="h-10 rounded-md bg-[#0D0D0D] border border-[#333] px-3 text-sm text-white"
+                                                                        className="h-10 w-full min-w-0 rounded-md bg-[#0D0D0D] border border-[#333] px-3 text-sm text-white"
                                                                         disabled={isLoadingProductOptions}
                                                                     >
                                                                         <option value="">{isLoadingProductOptions ? "Loading products..." : "Select product to add"}</option>
@@ -786,7 +786,7 @@ export default function ManageWebsitePage() {
                                                                             </option>
                                                                         ))}
                                                                     </select>
-                                                                    <Button type="button" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => addProductToCategory(index)} disabled={isLoadingProductOptions || !categorySelectedProductIds[index]}>
+                                                                    <Button type="button" variant="outline" className="w-full 2xl:w-auto border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A] whitespace-normal" onClick={() => addProductToCategory(index)} disabled={isLoadingProductOptions || !categorySelectedProductIds[index]}>
                                                                         <Plus className="h-4 w-4 mr-2" />
                                                                         Add Existing
                                                                     </Button>
