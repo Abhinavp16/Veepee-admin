@@ -54,6 +54,28 @@ export default function ProductsPage() {
         }
     }
 
+    async function deleteProduct(productId: string) {
+        const confirmed = window.confirm("Are you sure you want to archive this product? It will no longer be visible in the app.")
+        if (!confirmed) return
+
+        try {
+            const res = await apiFetch(`/admin/products/${productId}`, {
+                method: 'DELETE',
+            })
+            const data = await res.json()
+
+            if (res.ok) {
+                toast.success("Product archived successfully")
+                fetchProducts()
+            } else {
+                toast.error(data.message || "Failed to delete product")
+            }
+        } catch (error) {
+            console.error(error)
+            toast.error("Error connecting to server")
+        }
+    }
+
     async function convertMissingHindiNames() {
         const confirmed = window.confirm(
             "Convert missing Hindi names for all products that don't have Hindi text yet?"
@@ -191,7 +213,7 @@ export default function ProductsPage() {
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
                                             </Link>
-                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10">
+                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10" onClick={() => deleteProduct(product._id)}>
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>
                                         </div>
@@ -222,7 +244,7 @@ export default function ProductsPage() {
                                             <Pencil className="h-3.5 w-3.5" />
                                         </Button>
                                     </Link>
-                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-400/10">
+                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-400/10" onClick={() => deleteProduct(product._id)}>
                                         <Trash2 className="h-3.5 w-3.5" />
                                     </Button>
                                 </div>
