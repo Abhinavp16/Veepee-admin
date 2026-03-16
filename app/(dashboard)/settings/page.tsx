@@ -32,10 +32,10 @@ const settingsSchema = z.object({
     defaultBulkMinQuantity: z.coerce.number().optional(),
     negotiationExpiryDays: z.coerce.number().optional(),
     lowStockThreshold: z.coerce.number().optional(),
-    // Razorpay
-    razorpayKeyId: z.string().optional(),
-    razorpayKeySecret: z.string().optional(),
-    razorpayEnabled: z.boolean().optional(),
+    // [COMMENTED OUT RAZORPAY]
+    // razorpayKeyId: z.string().optional(),
+    // razorpayKeySecret: z.string().optional(),
+    // razorpayEnabled: z.boolean().optional(),
     // Bank Transfer
     bankName: z.string().optional(),
     bankAccountNumber: z.string().optional(),
@@ -62,9 +62,10 @@ export default function SettingsPage() {
             defaultBulkMinQuantity: 10,
             negotiationExpiryDays: 7,
             lowStockThreshold: 10,
-            razorpayKeyId: "",
-            razorpayKeySecret: "",
-            razorpayEnabled: false,
+            // [COMMENTED OUT RAZORPAY]
+            // razorpayKeyId: "",
+            // razorpayKeySecret: "",
+            // razorpayEnabled: false,
             bankName: "",
             bankAccountNumber: "",
             bankIfscCode: "",
@@ -282,7 +283,8 @@ export default function SettingsPage() {
 
                     {/* Razorpay Settings */}
                     <Card className="bg-[#161616] border-[#333]">
-                        <CardHeader>
+                        {/* [COMMENTED OUT RAZORPAY] */}
+                        {/* <CardHeader>
                             <CardTitle className="text-white flex items-center gap-2">
                                 <CreditCard className="h-5 w-5" /> Razorpay Payment Gateway
                             </CardTitle>
@@ -333,7 +335,8 @@ export default function SettingsPage() {
                                 />
                             </div>
                         </CardContent>
-                    </Card>
+                    </Card> */}
+                    {/* END COMMENTED OUT RAZORPAY */}
 
                     {/* Bank Transfer Settings */}
                     <Card className="bg-[#161616] border-[#333]">
