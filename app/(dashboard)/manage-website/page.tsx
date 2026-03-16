@@ -30,7 +30,7 @@ type WebsiteCategoryProduct = {
     order: number
 }
 type WebsiteCategory = { name: string; description: string; image: string; products: string[]; productDetails: WebsiteCategoryProduct[]; isActive: boolean; order: number }
-type WebsiteFeaturedProduct = { name: string; price: string; image: string; badge: string; specs: string[]; isActive: boolean; order: number }
+type WebsiteFeaturedProduct = { name: string; price: string; image: string; badge: string; specs: string[]; shortDescription: string; isActive: boolean; order: number }
 type WebsiteHeroCard = { image: string; order: number }
 type SectionConfig = { eyebrow: string; title: string; description?: string; sideText?: string; buttonText: string }
 type AdminProductImage = { url: string; isPrimary?: boolean; order?: number }
@@ -506,7 +506,7 @@ export default function ManageWebsitePage() {
     async function saveProducts() {
         setIsSavingProducts(true)
         try {
-            const featuredProductsPayload = featuredProducts.map((p, i) => ({ ...p, specs: normalizeList(p.specs || []), order: Number.isFinite(p.order) ? p.order : i }))
+            const featuredProductsPayload = featuredProducts.map((p, i) => ({ ...p, specs: normalizeList(p.specs || []), shortDescription: p.shortDescription || '', order: Number.isFinite(p.order) ? p.order : i }))
             const res = await apiFetch("/admin/website-settings", { method: "PUT", body: JSON.stringify({ featuredProducts: featuredProductsPayload, featuredSection }) })
             if (!res.ok) throw new Error()
             toast.success("Website featured products saved")
@@ -1043,7 +1043,7 @@ export default function ManageWebsitePage() {
                 <TabsContent value="featured" className="mt-4">
                     <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
                         <Card className="bg-[#161616] border-[#333] xl:col-span-8">
-                            <CardHeader><div className="flex items-center justify-between gap-4"><div><CardTitle className="text-white">Our Popular Product</CardTitle></div><Button onClick={() => setFeaturedProducts((prev) => [...prev, { name: "", price: "", image: "", badge: "", specs: [""], isActive: true, order: prev.length }])} variant="outline" className="border-[#333] text-white hover:bg-[#222]"><Plus className="h-4 w-4 mr-2" /> Add Product Card</Button></div></CardHeader>
+                            <CardHeader><div className="flex items-center justify-between gap-4"><div><CardTitle className="text-white">Our Popular Product</CardTitle></div><Button onClick={() => setFeaturedProducts((prev) => [...prev, { name: "", price: "", image: "", badge: "", specs: [""], shortDescription: "", isActive: true, order: prev.length }])} variant="outline" className="border-[#333] text-white hover:bg-[#222]"><Plus className="h-4 w-4 mr-2" /> Add Product Card</Button></div></CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="border border-[#333] rounded-lg p-4 space-y-3 bg-[#121212]">
                                     <p className="text-sm font-semibold text-white">Section Content</p>
@@ -1058,7 +1058,8 @@ export default function ManageWebsitePage() {
                                     <div key={index} className="border border-[#333] rounded-lg p-4 space-y-3">
                                         <div className="flex justify-between items-center"><p className="text-sm text-white font-medium">Card {index + 1}</p><div className="flex items-center gap-3"><span className="text-xs text-[#919191]">Active</span><Switch checked={item.isActive !== false} onCheckedChange={(v) => setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, isActive: v } : p))} /><Button type="button" variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8" onClick={() => setFeaturedProducts((prev) => prev.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button></div></div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3"><Input value={item.name} onChange={(e) => setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, name: e.target.value } : p))} placeholder="Product title" className="bg-[#0D0D0D] border-[#333] text-white" /><Input value={item.price} onChange={(e) => setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, price: e.target.value } : p))} placeholder="Price text" className="bg-[#0D0D0D] border-[#333] text-white" /><Input value={item.image} onChange={(e) => setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, image: e.target.value } : p))} placeholder="Image URL" className="bg-[#0D0D0D] border-[#333] text-white" /><Input value={item.badge} onChange={(e) => setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, badge: e.target.value } : p))} placeholder="Badge" className="bg-[#0D0D0D] border-[#333] text-white" /></div>
-                                        <Textarea value={(item.specs || []).join("\n")} onChange={(e) => setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, specs: e.target.value.split("\n") } : p))} placeholder="Specs (one per line)" className="bg-[#0D0D0D] border-[#333] text-white min-h-[90px]" />
+                                        <Textarea value={item.shortDescription || ""} onChange={(e) => setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, shortDescription: e.target.value } : p))} placeholder="Short description (shown instead of specs if provided)" className="bg-[#0D0D0D] border-[#333] text-white min-h-[60px]" />
+                                        <Textarea value={(item.specs || []).join("\n")} onChange={(e) => setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, specs: e.target.value.split("\n") } : p))} placeholder="Specs (one per line) - shown if no short description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[90px]" />
                                         <div className="flex justify-end"><div className="flex items-center gap-2"><input id={`featured-upload-${index}`} type="file" className="hidden" accept="image/*" onChange={(e) => uploadImage(e, "featured", index)} /><Button type="button" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => document.getElementById(`featured-upload-${index}`)?.click()} disabled={uploading === `featured-${index}`}>{uploading === `featured-${index}` ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}Upload Image</Button></div></div>
                                     </div>
                                 ))}
