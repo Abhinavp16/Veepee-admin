@@ -10,6 +10,15 @@ import { apiFetch, buildApiUrl } from "@/lib/api"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
+type BannerLinkType = "url" | "product"
+
+interface BannerProductOption {
+    _id: string
+    name: string
+    category?: string
+    slug?: string
+}
+
 interface Banner {
     _id?: string
     title: string
@@ -17,14 +26,60 @@ interface Banner {
     tag: string
     imageUrl: string
     linkUrl: string
+    linkType: BannerLinkType
+    linkedProductId: string
     isActive: boolean
     order: number
+}
+
+function buildProductLink(productId: string) {
+    return productId ? `/product/${productId}` : ""
+}
+
+function inferLinkedProductId(linkUrl: unknown) {
+    const value = String(linkUrl || "").trim()
+    const match = value.match(/^\/product\/([^/?#]+)/i)
+    return match?.[1] || ""
+}
+
+function createEmptyBanner(order: number): Banner {
+    return {
+        title: "",
+        subtitle: "",
+        tag: "",
+        imageUrl: "",
+        linkUrl: "",
+        linkType: "url",
+        linkedProductId: "",
+        isActive: true,
+        order,
+    }
+}
+
+function normalizeBanner(banner: any, index: number): Banner {
+    const linkedProductId = String(banner?.linkedProductId || inferLinkedProductId(banner?.linkUrl))
+    const linkType: BannerLinkType = banner?.linkType === "product" || linkedProductId ? "product" : "url"
+
+    return {
+        _id: typeof banner?._id === "string" ? banner._id : undefined,
+        title: String(banner?.title || ""),
+        subtitle: String(banner?.subtitle || ""),
+        tag: String(banner?.tag || ""),
+        imageUrl: String(banner?.imageUrl || ""),
+        linkUrl: String(banner?.linkUrl || (linkType === "product" ? buildProductLink(linkedProductId) : "")),
+        linkType,
+        linkedProductId,
+        isActive: banner?.isActive !== false,
+        order: Number.isFinite(banner?.order) ? banner.order : index,
+    }
 }
 
 export default function BannersPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [heroBanners, setHeroBanners] = useState<Banner[]>([])
     const [promoBanners, setPromoBanners] = useState<Banner[]>([])
+    const [availableProducts, setAvailableProducts] = useState<BannerProductOption[]>([])
+    const [isLoadingProductOptions, setIsLoadingProductOptions] = useState(false)
     const [isSavingHero, setIsSavingHero] = useState(false)
     const [isSavingPromo, setIsSavingPromo] = useState(false)
     const [uploadingIndex, setUploadingIndex] = useState<{ type: 'hero' | 'promo', index: number } | null>(null)
@@ -70,6 +125,7 @@ export default function BannersPage() {
 
     useEffect(() => {
         fetchBanners()
+        loadProductOptions()
     }, [])
 
     async function fetchBanners() {
@@ -78,10 +134,10 @@ export default function BannersPage() {
             const data = await res.json()
             if (res.ok && data.data) {
                 if (data.data.heroBanners) {
-                    setHeroBanners(data.data.heroBanners)
+                    setHeroBanners(data.data.heroBanners.map((banner: any, index: number) => normalizeBanner(banner, index)))
                 }
                 if (data.data.promoBanners) {
-                    setPromoBanners(data.data.promoBanners)
+                    setPromoBanners(data.data.promoBanners.map((banner: any, index: number) => normalizeBanner(banner, index)))
                 }
             }
         } catch (error) {
@@ -91,12 +147,45 @@ export default function BannersPage() {
         }
     }
 
+    async function loadProductOptions() {
+        setIsLoadingProductOptions(true)
+        try {
+            const collected: BannerProductOption[] = []
+            let page = 1
+            let hasNext = true
+
+            while (hasNext && page <= 20) {
+                const res = await apiFetch(`/admin/products?page=${page}&limit=50&status=active&sort=name:asc`)
+                const data = await res.json()
+                if (!res.ok) throw new Error("failed")
+
+                const items = Array.isArray(data?.data) ? data.data : []
+                collected.push(
+                    ...items
+                        .map((item: any) => ({
+                            _id: String(item?._id || ""),
+                            name: String(item?.name || ""),
+                            category: typeof item?.category === "string" ? item.category : "",
+                            slug: typeof item?.slug === "string" ? item.slug : "",
+                        }))
+                        .filter((item: BannerProductOption) => item._id && item.name)
+                )
+
+                hasNext = Boolean(data?.pagination?.hasNext)
+                page += 1
+            }
+
+            setAvailableProducts(collected)
+        } catch {
+            toast.error("Failed to load products for banner links")
+        } finally {
+            setIsLoadingProductOptions(false)
+        }
+    }
+
     // Hero Banners CRUD
     function addHeroBanner() {
-        setHeroBanners(prev => [...prev, {
-            title: "", subtitle: "", tag: "", imageUrl: "", linkUrl: "",
-            isActive: true, order: prev.length,
-        }])
+        setHeroBanners(prev => [...prev, createEmptyBanner(prev.length)])
     }
 
     function updateHeroBanner(index: number, field: keyof Banner, value: string | boolean | number) {
@@ -128,10 +217,7 @@ export default function BannersPage() {
 
     // Promo Banners CRUD
     function addPromoBanner() {
-        setPromoBanners(prev => [...prev, {
-            title: "", subtitle: "", tag: "", imageUrl: "", linkUrl: "",
-            isActive: true, order: prev.length,
-        }])
+        setPromoBanners(prev => [...prev, createEmptyBanner(prev.length)])
     }
 
     function updatePromoBanner(index: number, field: keyof Banner, value: string | boolean | number) {
@@ -168,7 +254,8 @@ export default function BannersPage() {
         updateFn: (index: number, field: keyof Banner, value: string | boolean | number) => void,
         removeFn: (index: number) => void
     ) {
-        const isUploading = uploadingIndex?.type === type && uploadingIndex?.index === index;
+        const isUploading = uploadingIndex?.type === type && uploadingIndex?.index === index
+        const selectedProduct = availableProducts.find((product) => product._id === banner.linkedProductId)
 
         return (
             <div key={index} className="border border-[#333] rounded-lg p-4 space-y-4 bg-[#0D0D0D]">
@@ -278,13 +365,60 @@ export default function BannersPage() {
                                 )}
                             </div>
                             <div>
-                                <label className="text-xs text-[#919191] mb-1 block">Link URL</label>
-                                <Input
-                                    className="bg-[#161616] border-[#333] text-white text-sm"
-                                    placeholder="e.g. /product/abc123"
-                                    value={banner.linkUrl}
-                                    onChange={(e) => updateFn(index, 'linkUrl', e.target.value)}
-                                />
+                                <label className="text-xs text-[#919191] mb-1 block">Link Type</label>
+                                <div className="space-y-2">
+                                    <select
+                                        className="h-10 w-full rounded-md border border-[#333] bg-[#161616] px-3 text-sm text-white"
+                                        value={banner.linkType}
+                                        onChange={(e) => {
+                                            const nextType = e.target.value as BannerLinkType
+                                            updateFn(index, 'linkType', nextType)
+                                            if (nextType === 'product') {
+                                                updateFn(index, 'linkUrl', buildProductLink(banner.linkedProductId))
+                                            }
+                                        }}
+                                    >
+                                        <option value="url">Custom URL</option>
+                                        <option value="product">Link Product</option>
+                                    </select>
+
+                                    {banner.linkType === 'product' ? (
+                                        <div className="space-y-2">
+                                            <select
+                                                className="h-10 w-full rounded-md border border-[#333] bg-[#161616] px-3 text-sm text-white"
+                                                value={banner.linkedProductId}
+                                                onChange={(e) => {
+                                                    const nextProductId = e.target.value
+                                                    updateFn(index, 'linkedProductId', nextProductId)
+                                                    updateFn(index, 'linkUrl', buildProductLink(nextProductId))
+                                                }}
+                                                disabled={isLoadingProductOptions}
+                                            >
+                                                <option value="">{isLoadingProductOptions ? "Loading products..." : "Select product to link"}</option>
+                                                {availableProducts.map((product) => (
+                                                    <option key={product._id} value={product._id}>
+                                                        {product.name}{product.category ? ` (${product.category})` : ""}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <p className="text-[10px] text-[#777]">
+                                                {selectedProduct
+                                                    ? `Product link: ${buildProductLink(selectedProduct._id)}`
+                                                    : "The banner will automatically use the selected product link."}
+                                            </p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            <Input
+                                                className="bg-[#161616] border-[#333] text-white text-sm"
+                                                placeholder="e.g. /product/abc123"
+                                                value={banner.linkUrl}
+                                                onChange={(e) => updateFn(index, 'linkUrl', e.target.value)}
+                                            />
+                                            <p className="text-[10px] text-[#777]">Use this if you want to enter a custom destination manually.</p>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </div>
