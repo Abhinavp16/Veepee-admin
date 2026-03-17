@@ -282,8 +282,6 @@ export default function SettingsPage() {
                     </Card>
 
                     {/* Razorpay Settings */}
-                    <Card className="bg-[#161616] border-[#333]">
-                        {/* [COMMENTED OUT RAZORPAY] */}
                         {/* <CardHeader>
                             <CardTitle className="text-white flex items-center gap-2">
                                 <CreditCard className="h-5 w-5" /> Razorpay Payment Gateway
@@ -336,7 +334,6 @@ export default function SettingsPage() {
                             </div>
                         </CardContent>
                     </Card> */}
-                    {/* END COMMENTED OUT RAZORPAY */}
 
                     {/* Bank Transfer Settings */}
                     <Card className="bg-[#161616] border-[#333]">
