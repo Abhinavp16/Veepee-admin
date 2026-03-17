@@ -27,6 +27,23 @@ interface Product {
     rating: number
 }
 
+function getProductRating(product: any): number | null {
+    const candidates = [
+        product?.rating,
+        product?.averageRating,
+        product?.ratings?.average,
+    ]
+
+    for (const candidate of candidates) {
+        const value = Number(candidate)
+        if (Number.isFinite(value)) {
+            return value
+        }
+    }
+
+    return null
+}
+
 export default function ProductsPage() {
     const [products, setProducts] = useState<Product[]>([])
     const [isLoading, setIsLoading] = useState(true)
@@ -42,7 +59,40 @@ export default function ProductsPage() {
             const res = await apiFetch('/admin/products')
             const data = await res.json()
             if (res.ok) {
-                setProducts(data.data || [])
+                const items = Array.isArray(data.data) ? data.data : []
+                const missingRatingIds = items
+                    .filter((product: any) => getProductRating(product) === null)
+                    .map((product: any) => String(product?._id || ""))
+                    .filter(Boolean)
+
+                let ratingsById: Record<string, number> = {}
+
+                if (missingRatingIds.length > 0) {
+                    const detailResults = await Promise.all(
+                        missingRatingIds.map(async (productId) => {
+                            try {
+                                const detailRes = await apiFetch(`/admin/products/${productId}`)
+                                const detailData = await detailRes.json()
+                                if (!detailRes.ok) return null
+                                const detailedProduct = detailData?.data
+                                const rating = getProductRating(detailedProduct)
+                                return rating === null ? null : { productId, rating }
+                            } catch {
+                                return null
+                            }
+                        })
+                    )
+
+                    ratingsById = detailResults.reduce((acc, item) => {
+                        if (item) acc[item.productId] = item.rating
+                        return acc
+                    }, {} as Record<string, number>)
+                }
+
+                setProducts(items.map((product: any) => ({
+                    ...product,
+                    rating: getProductRating(product) ?? ratingsById[String(product?._id || "")] ?? 0,
+                })))
             } else {
                 toast.error("Failed to fetch products")
             }
@@ -193,7 +243,7 @@ export default function ProductsPage() {
                                     <TableCell className="text-center">
                                         <div className="flex items-center justify-center gap-1 text-yellow-500">
                                             <Star className="h-3 w-3 fill-current" />
-                                            <span className="text-xs">{product.rating || '4.5'}</span>
+                                            <span className="text-xs">{product.rating > 0 ? product.rating : "-"}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-center">
@@ -262,7 +312,7 @@ export default function ProductsPage() {
                                 </Badge>
                                 <div className="flex items-center gap-1 text-yellow-500">
                                     <Star className="h-3 w-3 fill-current" />
-                                    <span className="text-xs font-medium">{product.rating || '4.5'}</span>
+                                    <span className="text-xs font-medium">{product.rating > 0 ? product.rating : "-"}</span>
                                 </div>
                             </div>
                             <div className="flex items-center justify-between pt-3 border-t border-[#333]">

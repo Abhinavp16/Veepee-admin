@@ -179,7 +179,7 @@ export default function AddProductPage() {
                 company: product.company?._id || product.company || "none",
                 videoUrl: product.videoUrl || "",
                 shippingTerms: product.shippingTerms || "",
-                rating: String(product.rating || "4.5"),
+                rating: String(product.rating ?? "4.5"),
                 purchaseCountMin: String(product.purchaseCountMin || "0"),
                 purchaseCountMax: String(product.purchaseCountMax || "0"),
             })
