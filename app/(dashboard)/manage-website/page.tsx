@@ -297,7 +297,33 @@ export default function ManageWebsitePage() {
         }
     }
 
-    function addProductToCategory(categoryIndex: number) {
+    async function persistCategories(nextCategories: WebsiteCategory[], nextCategoriesSection = categoriesSection) {
+        const productCategories = nextCategories.map((category, index) => {
+            const productDetails = getCategoryProducts(category).map((product, productIndex) => ({
+                ...product,
+                category: product.category || category.name,
+                images: product.image ? [product.image] : normalizeList(product.images || []),
+                order: productIndex,
+            }))
+            return {
+                ...category,
+                products: normalizeList(productDetails.map((product) => product.name)),
+                productDetails,
+                order: Number.isFinite(category.order) ? category.order : index,
+            }
+        })
+
+        const res = await apiFetch("/admin/website-settings", {
+            method: "PUT",
+            body: JSON.stringify({ productCategories, categoriesSection: nextCategoriesSection }),
+        })
+
+        if (!res.ok) {
+            throw new Error("failed")
+        }
+    }
+
+    async function addProductToCategory(categoryIndex: number) {
         const selectedProductId = categorySelectedProductIds[categoryIndex]
         if (!selectedProductId) return
 
@@ -307,25 +333,46 @@ export default function ManageWebsitePage() {
             return
         }
 
-        setCategories((prev) => prev.map((category, index) => {
-            if (index !== categoryIndex) return category
-            const productDetails = getCategoryProducts(category)
-            const alreadyAdded = productDetails.some((product) =>
-                product.productId
-                    ? product.productId === selectedProduct._id
-                    : product.name.toLowerCase() === selectedProduct.name.toLowerCase()
-            )
-            if (alreadyAdded) return category
+        const currentCategory = categories[categoryIndex]
+        if (!currentCategory) return
 
-            const nextProductDetails = [...productDetails, mapAdminProductToWebsiteProduct(selectedProduct, productDetails.length)]
-            return {
-                ...category,
-                productDetails: nextProductDetails,
-                products: normalizeList(nextProductDetails.map((product) => product.name)),
-            }
-        }))
+        const productDetails = getCategoryProducts(currentCategory)
+        const alreadyAdded = productDetails.some((product) =>
+            product.productId
+                ? product.productId === selectedProduct._id
+                : product.name.toLowerCase() === selectedProduct.name.toLowerCase()
+        )
+
+        if (alreadyAdded) {
+            toast.error("This product is already in the category")
+            return
+        }
+
+        const nextProductDetails = [...productDetails, mapAdminProductToWebsiteProduct(selectedProduct, productDetails.length)]
+        const nextCategories = categories.map((category, index) =>
+            index === categoryIndex
+                ? {
+                    ...category,
+                    productDetails: nextProductDetails,
+                    products: normalizeList(nextProductDetails.map((product) => product.name)),
+                }
+                : category
+        )
+
+        setCategories(nextCategories)
         setCategorySelectedProductIds((prev) => ({ ...prev, [categoryIndex]: "" }))
         setExpandedProductKey(null)
+
+        try {
+            setIsSavingCategories(true)
+            await persistCategories(nextCategories)
+            toast.success("Product added and saved")
+        } catch {
+            setCategories(categories)
+            toast.error("Product was added locally, but saving failed")
+        } finally {
+            setIsSavingCategories(false)
+        }
     }
 
     function updateDraftCategoryProduct(categoryIndex: number, updates: Partial<WebsiteCategoryProduct>) {
@@ -336,38 +383,59 @@ export default function ManageWebsitePage() {
         })
     }
 
-    function addDraftProductToCategory(categoryIndex: number) {
+    async function addDraftProductToCategory(categoryIndex: number) {
         const draftProduct = categoryDraftProducts[categoryIndex] || createEmptyCategoryProduct(categories[categoryIndex]?.name || "")
         if (!draftProduct.name.trim()) {
             toast.error("Product name is required")
             return
         }
 
-        setCategories((prev) => prev.map((category, index) => {
-            if (index !== categoryIndex) return category
-            const productDetails = getCategoryProducts(category)
-            const nextProduct: WebsiteCategoryProduct = {
-                ...draftProduct,
-                name: draftProduct.name.trim(),
-                category: draftProduct.category || category.name,
-                image: draftProduct.image.trim(),
-                images: draftProduct.image ? [draftProduct.image.trim()] : [],
-                order: productDetails.length,
-            }
+        const currentCategory = categories[categoryIndex]
+        if (!currentCategory) return
 
-            const nextProductDetails = [...productDetails, nextProduct]
-            return {
-                ...category,
-                productDetails: nextProductDetails,
-                products: normalizeList(nextProductDetails.map((product) => product.name)),
-            }
-        }))
+        const productDetails = getCategoryProducts(currentCategory)
+        const nextProduct: WebsiteCategoryProduct = {
+            ...draftProduct,
+            name: draftProduct.name.trim(),
+            category: draftProduct.category || currentCategory.name,
+            image: draftProduct.image.trim(),
+            images: draftProduct.image ? [draftProduct.image.trim()] : [],
+            order: productDetails.length,
+        }
+
+        const nextProductDetails = [...productDetails, nextProduct]
+        const nextCategories = categories.map((category, index) =>
+            index === categoryIndex
+                ? {
+                    ...category,
+                    productDetails: nextProductDetails,
+                    products: normalizeList(nextProductDetails.map((product) => product.name)),
+                }
+                : category
+        )
+
+        const nextDraftProduct = createEmptyCategoryProduct(categories[categoryIndex]?.name || "")
+        setCategories(nextCategories)
         setCategoryDraftProducts((prev) => ({
             ...prev,
-            [categoryIndex]: createEmptyCategoryProduct(categories[categoryIndex]?.name || ""),
+            [categoryIndex]: nextDraftProduct,
         }))
         setExpandedProductKey(null)
-        toast.success("Product added to category")
+
+        try {
+            setIsSavingCategories(true)
+            await persistCategories(nextCategories)
+            toast.success("Quick product added and saved")
+        } catch {
+            setCategories(categories)
+            setCategoryDraftProducts((prev) => ({
+                ...prev,
+                [categoryIndex]: draftProduct,
+            }))
+            toast.error("Quick product was added locally, but saving failed")
+        } finally {
+            setIsSavingCategories(false)
+        }
     }
 
     function updateCategoryProduct(categoryIndex: number, productIndex: number, updates: Partial<WebsiteCategoryProduct>) {
@@ -389,8 +457,8 @@ export default function ManageWebsitePage() {
         }))
     }
 
-    function removeCategoryProduct(categoryIndex: number, productIndex: number) {
-        setCategories((prev) => prev.map((category, index) => {
+    async function removeCategoryProduct(categoryIndex: number, productIndex: number) {
+        const nextCategories = categories.map((category, index) => {
             if (index !== categoryIndex) return category
             const nextProductDetails = getCategoryProducts(category)
                 .filter((_, idx) => idx !== productIndex)
@@ -400,8 +468,21 @@ export default function ManageWebsitePage() {
                 productDetails: nextProductDetails,
                 products: normalizeList(nextProductDetails.map((product) => product.name)),
             }
-        }))
+        })
+
+        setCategories(nextCategories)
         setExpandedProductKey((prev) => prev === `${categoryIndex}-${productIndex}` ? null : prev)
+
+        try {
+            setIsSavingCategories(true)
+            await persistCategories(nextCategories)
+            toast.success("Product removed and saved")
+        } catch {
+            setCategories(categories)
+            toast.error("Product was removed locally, but saving failed")
+        } finally {
+            setIsSavingCategories(false)
+        }
     }
 
     function removeCategoryCard(indexToRemove: number) {
@@ -486,22 +567,7 @@ export default function ManageWebsitePage() {
     async function saveCategories() {
         setIsSavingCategories(true)
         try {
-            const productCategories = categories.map((category, index) => {
-                const productDetails = getCategoryProducts(category).map((product, productIndex) => ({
-                    ...product,
-                    category: product.category || category.name,
-                    images: product.image ? [product.image] : normalizeList(product.images || []),
-                    order: productIndex,
-                }))
-                return {
-                    ...category,
-                    products: normalizeList(productDetails.map((product) => product.name)),
-                    productDetails,
-                    order: Number.isFinite(category.order) ? category.order : index,
-                }
-            })
-            const res = await apiFetch("/admin/website-settings", { method: "PUT", body: JSON.stringify({ productCategories, categoriesSection }) })
-            if (!res.ok) throw new Error()
+            await persistCategories(categories)
             setExpandedProductKey(null)
             toast.success("Website product categories saved")
         } catch {
