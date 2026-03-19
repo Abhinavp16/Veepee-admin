@@ -10,6 +10,18 @@ export const metadata: Metadata = {
   title: 'OXON Admin',
   description: 'OXON Admin Dashboard - Manage products, orders, and negotiations',
   generator: 'v0.app',
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+      'max-video-preview': -1,
+      'max-image-preview': 'none',
+      'max-snippet': -1,
+    },
+  },
   icons: {
     icon: [
       {
