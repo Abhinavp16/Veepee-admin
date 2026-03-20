@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Plus, Pencil, Trash2, Building2, Loader2, ImageIcon, LayoutGrid, List, Upload, Link } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { Plus, Pencil, Trash2, Building2, Loader2, ImageIcon, LayoutGrid, List, Upload, Link, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -36,12 +36,20 @@ interface Company {
 export default function BrandsPage() {
     const [companies, setCompanies] = useState<Company[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const [isLoadingMore, setIsLoadingMore] = useState(false)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [editingCompany, setEditingCompany] = useState<Company | null>(null)
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
     const [viewMode, setViewMode] = useState<'list' | 'card'>('list')
-    
+
+    // Search & Pagination state
+    const [searchQuery, setSearchQuery] = useState("")
+    const [page, setPage] = useState(1)
+    const [totalPages, setTotalPages] = useState(1)
+    const [totalBrands, setTotalBrands] = useState(0)
+    const [hasMore, setHasMore] = useState(false)
+
     // Form state
     const [name, setName] = useState("")
     const [description, setDescription] = useState("")
@@ -51,23 +59,62 @@ export default function BrandsPage() {
     const [isUploadingLogo, setIsUploadingLogo] = useState(false)
 
     useEffect(() => {
-        fetchCompanies()
+        fetchCompanies(1, true)
     }, [])
 
-    async function fetchCompanies() {
+    async function fetchCompanies(pageNum: number = 1, reset: boolean = false) {
+        if (reset) {
+            setIsLoading(true)
+            setPage(1)
+        } else {
+            setIsLoadingMore(true)
+        }
+
         try {
-            const res = await apiFetch("/companies", { skipAuth: true })
+            const params = new URLSearchParams()
+            params.append('page', pageNum.toString())
+            params.append('limit', '20')
+            if (searchQuery.trim()) {
+                params.append('search', searchQuery.trim())
+            }
+
+            const res = await apiFetch(`/companies?${params.toString()}`, { skipAuth: true })
             if (res.ok) {
                 const data = await res.json()
-                setCompanies(data.data || [])
+                const items = data.data || []
+                const pagination = data.pagination || {}
+
+                if (reset || pageNum === 1) {
+                    setCompanies(items)
+                } else {
+                    setCompanies(prev => [...prev, ...items])
+                }
+
+                setTotalPages(pagination.totalPages || 1)
+                setTotalBrands(pagination.total || items.length)
+                setHasMore((pagination.page || 1) < (pagination.totalPages || 1))
             }
         } catch (error) {
             console.error("Failed to fetch companies:", error)
             toast.error("Failed to load brands")
         } finally {
             setIsLoading(false)
+            setIsLoadingMore(false)
         }
     }
+
+    const handleSearch = useCallback((e: React.FormEvent) => {
+        e.preventDefault()
+        fetchCompanies(1, true)
+    }, [searchQuery])
+
+    const loadMore = useCallback(() => {
+        if (hasMore && !isLoadingMore) {
+            const nextPage = page + 1
+            setPage(nextPage)
+            fetchCompanies(nextPage, false)
+        }
+    }, [hasMore, isLoadingMore, page])
 
     function openCreateDialog() {
         setEditingCompany(null)
@@ -188,7 +235,10 @@ export default function BrandsPage() {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <Building2 className="h-8 w-8 text-[#86efac]" />
-                    <h1 className="text-3xl font-bold text-white">Brands</h1>
+                    <div>
+                        <h1 className="text-3xl font-bold text-white">Brands</h1>
+                        <p className="text-gray-400 text-sm">{totalBrands > 0 && `(${totalBrands} brands)`}</p>
+                    </div>
                 </div>
                 <div className="flex items-center gap-3">
                     {/* View Toggle */}
@@ -215,6 +265,40 @@ export default function BrandsPage() {
                     </Button>
                 </div>
             </div>
+
+            {/* Search Bar */}
+            <form onSubmit={handleSearch} className="flex items-center gap-3">
+                <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                        type="text"
+                        placeholder="Search brands by name..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 bg-[#161616] border-[#333] text-white placeholder:text-gray-500 focus-visible:ring-[#86efac]"
+                    />
+                </div>
+                <Button
+                    type="submit"
+                    variant="outline"
+                    className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
+                >
+                    Search
+                </Button>
+                {searchQuery && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                            setSearchQuery("")
+                            fetchCompanies(1, true)
+                        }}
+                        className="text-gray-400 hover:text-white"
+                    >
+                        Clear
+                    </Button>
+                )}
+            </form>
 
             {/* Brands Content */}
             {isLoading ? (
@@ -525,6 +609,27 @@ export default function BrandsPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Load More Button */}
+            {hasMore && companies.length > 0 && (
+                <div className="flex justify-center pt-4">
+                    <Button
+                        onClick={loadMore}
+                        disabled={isLoadingMore}
+                        variant="outline"
+                        className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A] min-w-[200px]"
+                    >
+                        {isLoadingMore ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading...
+                            </>
+                        ) : (
+                            `Load More (${companies.length}/${totalBrands})`
+                        )}
+                    </Button>
+                </div>
+            )}
         </div>
     )
 }
