@@ -1,8 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { Plus, Loader2, Pencil, Trash2, Eye, LayoutGrid, List, Package, Star, Languages } from "lucide-react"
-import { useEffect, useState } from "react"
+import { Plus, Loader2, Pencil, Trash2, Eye, LayoutGrid, List, Package, Star, Languages, Search } from "lucide-react"
+import { useEffect, useState, useCallback } from "react"
 import {
     Table,
     TableBody,
@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
 
@@ -47,52 +48,123 @@ function getProductRating(product: any): number | null {
 export default function ProductsPage() {
     const [products, setProducts] = useState<Product[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const [isLoadingMore, setIsLoadingMore] = useState(false)
     const [viewMode, setViewMode] = useState<'list' | 'card'>('list')
     const [isConvertingHindi, setIsConvertingHindi] = useState(false)
 
+    // Pagination & Search state
+    const [searchQuery, setSearchQuery] = useState("")
+    const [page, setPage] = useState(1)
+    const [totalPages, setTotalPages] = useState(1)
+    const [totalProducts, setTotalProducts] = useState(0)
+    const [hasMore, setHasMore] = useState(false)
+
     useEffect(() => {
-        fetchProducts()
+        fetchProducts(1, true)
     }, [])
 
-    async function fetchProducts() {
+    async function fetchProducts(pageNum: number = 1, reset: boolean = false) {
+        if (reset) {
+            setIsLoading(true)
+            setPage(1)
+        } else {
+            setIsLoadingMore(true)
+        }
+
         try {
-            const res = await apiFetch('/admin/products')
+            // Build query params
+            const params = new URLSearchParams()
+            params.append('page', pageNum.toString())
+            params.append('limit', '20')
+            if (searchQuery.trim()) {
+                params.append('search', searchQuery.trim())
+            }
+
+            const res = await apiFetch(`/admin/products?${params.toString()}`)
             const data = await res.json()
             if (res.ok) {
                 const items = Array.isArray(data.data) ? data.data : []
-                const missingRatingIds = items
-                    .filter((product: any) => getProductRating(product) === null)
-                    .map((product: any) => String(product?._id || ""))
-                    .filter(Boolean)
+                const pagination = data.pagination || {}
 
-                let ratingsById: Record<string, number> = {}
+                // Only fetch ratings for first page or when resetting to avoid too many API calls
+                if (reset || pageNum === 1) {
+                    const missingRatingIds = items
+                        .filter((product: any) => getProductRating(product) === null)
+                        .map((product: any) => String(product?._id || ""))
+                        .filter(Boolean)
 
-                if (missingRatingIds.length > 0) {
-                    const detailResults = await Promise.all(
-                        missingRatingIds.map(async (productId) => {
-                            try {
-                                const detailRes = await apiFetch(`/admin/products/${productId}`)
-                                const detailData = await detailRes.json()
-                                if (!detailRes.ok) return null
-                                const detailedProduct = detailData?.data
-                                const rating = getProductRating(detailedProduct)
-                                return rating === null ? null : { productId, rating }
-                            } catch {
-                                return null
-                            }
-                        })
-                    )
+                    let ratingsById: Record<string, number> = {}
 
-                    ratingsById = detailResults.reduce((acc, item) => {
-                        if (item) acc[item.productId] = item.rating
-                        return acc
-                    }, {} as Record<string, number>)
+                    if (missingRatingIds.length > 0) {
+                        const detailResults = await Promise.all(
+                            missingRatingIds.map(async (productId) => {
+                                try {
+                                    const detailRes = await apiFetch(`/admin/products/${productId}`)
+                                    const detailData = await detailRes.json()
+                                    if (!detailRes.ok) return null
+                                    const detailedProduct = detailData?.data
+                                    const rating = getProductRating(detailedProduct)
+                                    return rating === null ? null : { productId, rating }
+                                } catch {
+                                    return null
+                                }
+                            })
+                        )
+
+                        ratingsById = detailResults.reduce((acc, item) => {
+                            if (item) acc[item.productId] = item.rating
+                            return acc
+                        }, {} as Record<string, number>)
+                    }
+
+                    const productsWithRatings = items.map((product: any) => ({
+                        ...product,
+                        rating: getProductRating(product) ?? ratingsById[String(product?._id || "")] ?? 0,
+                    }))
+
+                    setProducts(productsWithRatings)
+                } else {
+                    // Append new products for load more
+                    const missingRatingIds = items
+                        .filter((product: any) => getProductRating(product) === null)
+                        .map((product: any) => String(product?._id || ""))
+                        .filter(Boolean)
+
+                    let ratingsById: Record<string, number> = {}
+
+                    if (missingRatingIds.length > 0) {
+                        const detailResults = await Promise.all(
+                            missingRatingIds.map(async (productId) => {
+                                try {
+                                    const detailRes = await apiFetch(`/admin/products/${productId}`)
+                                    const detailData = await detailRes.json()
+                                    if (!detailRes.ok) return null
+                                    const detailedProduct = detailData?.data
+                                    const rating = getProductRating(detailedProduct)
+                                    return rating === null ? null : { productId, rating }
+                                } catch {
+                                    return null
+                                }
+                            })
+                        )
+
+                        ratingsById = detailResults.reduce((acc, item) => {
+                            if (item) acc[item.productId] = item.rating
+                            return acc
+                        }, {} as Record<string, number>)
+                    }
+
+                    const newProducts = items.map((product: any) => ({
+                        ...product,
+                        rating: getProductRating(product) ?? ratingsById[String(product?._id || "")] ?? 0,
+                    }))
+
+                    setProducts(prev => [...prev, ...newProducts])
                 }
 
-                setProducts(items.map((product: any) => ({
-                    ...product,
-                    rating: getProductRating(product) ?? ratingsById[String(product?._id || "")] ?? 0,
-                })))
+                setTotalPages(pagination.totalPages || 1)
+                setTotalProducts(pagination.total || items.length)
+                setHasMore((pagination.page || 1) < (pagination.totalPages || 1))
             } else {
                 toast.error("Failed to fetch products")
             }
@@ -101,8 +173,22 @@ export default function ProductsPage() {
             toast.error("Error connecting to server")
         } finally {
             setIsLoading(false)
+            setIsLoadingMore(false)
         }
     }
+
+    const handleSearch = useCallback((e: React.FormEvent) => {
+        e.preventDefault()
+        fetchProducts(1, true)
+    }, [searchQuery])
+
+    const loadMore = useCallback(() => {
+        if (hasMore && !isLoadingMore) {
+            const nextPage = page + 1
+            setPage(nextPage)
+            fetchProducts(nextPage, false)
+        }
+    }, [hasMore, isLoadingMore, page])
 
     async function deleteProduct(productId: string) {
         const confirmed = window.confirm("Are you sure you want to archive this product? It will no longer be visible in the app.")
@@ -163,7 +249,7 @@ export default function ProductsPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-white">Products</h1>
-                    <p className="text-gray-400">Manage your product catalog.</p>
+                    <p className="text-gray-400">Manage your product catalog. {totalProducts > 0 && `(${totalProducts} products)`}</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <Button
@@ -200,6 +286,40 @@ export default function ProductsPage() {
                     </Link>
                 </div>
             </div>
+
+            {/* Search Bar */}
+            <form onSubmit={handleSearch} className="flex items-center gap-3">
+                <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                        type="text"
+                        placeholder="Search products by name or SKU..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 bg-[#161616] border-[#333] text-white placeholder:text-gray-500 focus-visible:ring-[#86efac]"
+                    />
+                </div>
+                <Button
+                    type="submit"
+                    variant="outline"
+                    className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
+                >
+                    Search
+                </Button>
+                {searchQuery && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                            setSearchQuery("")
+                            fetchProducts(1, true)
+                        }}
+                        className="text-gray-400 hover:text-white"
+                    >
+                        Clear
+                    </Button>
+                )}
+            </form>
 
             {/* Products Content */}
             {isLoading ? (
@@ -326,6 +446,27 @@ export default function ProductsPage() {
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* Load More Button */}
+            {hasMore && products.length > 0 && (
+                <div className="flex justify-center pt-4">
+                    <Button
+                        onClick={loadMore}
+                        disabled={isLoadingMore}
+                        variant="outline"
+                        className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A] min-w-[200px]"
+                    >
+                        {isLoadingMore ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading...
+                            </>
+                        ) : (
+                            `Load More (${products.length}/${totalProducts})`
+                        )}
+                    </Button>
                 </div>
             )}
         </div>
