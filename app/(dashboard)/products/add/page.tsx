@@ -239,10 +239,11 @@ export default function AddProductPage() {
 
     async function fetchCompanies() {
         try {
-            const response = await apiFetch("/companies", { skipAuth: true })
+            const response = await apiFetch("/companies?page=1&limit=500", { skipAuth: true })
             if (response.ok) {
                 const data = await response.json()
-                setCompanies(data.data || [])
+                const nextCompanies = Array.isArray(data.data) ? data.data : []
+                setCompanies(nextCompanies)
             }
         } catch (error) {
             console.error("Failed to fetch companies:", error)
@@ -1236,21 +1237,61 @@ export default function AddProductPage() {
                                                     Company / Brand
                                                 </FormLabel>
                                                 <div className="flex gap-2">
-                                                    <Select onValueChange={field.onChange} value={field.value}>
-                                                        <FormControl>
-                                                            <SelectTrigger className="bg-[#0D0D0D] border-[#333] text-white flex-1">
-                                                                <SelectValue placeholder={isLoadingCompanies ? "Loading..." : "Select company"} />
-                                                            </SelectTrigger>
-                                                        </FormControl>
-                                                        <SelectContent className="bg-[#0D0D0D] border-[#333]">
-                                                            <SelectItem value="none">No Company</SelectItem>
-                                                            {companies.map((company) => (
-                                                                <SelectItem key={company._id} value={company._id}>
-                                                                    {company.name}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <FormControl>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    className="flex-1 justify-between border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
+                                                                >
+                                                                    <span className="truncate">
+                                                                        {field.value && field.value !== "none"
+                                                                            ? companies.find((company) => company._id === field.value)?.name || field.value
+                                                                            : isLoadingCompanies
+                                                                                ? "Loading brands..."
+                                                                                : "Select brand"}
+                                                                    </span>
+                                                                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-[#8d8d8d]" />
+                                                                </Button>
+                                                            </FormControl>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent align="start" className="w-[360px] border-[#333] bg-[#111] p-0 text-white">
+                                                            <Command className="bg-[#111] text-white">
+                                                                <CommandInput
+                                                                    placeholder="Search brands..."
+                                                                    className="text-white placeholder:text-[#7d7d7d]"
+                                                                />
+                                                                <CommandList>
+                                                                    <CommandEmpty className="text-[#8d8d8d]">No brand found.</CommandEmpty>
+                                                                    <CommandItem
+                                                                        value="No Company"
+                                                                        onSelect={() => field.onChange("none")}
+                                                                        className="flex items-center justify-between rounded-none px-3 py-2 text-white aria-selected:bg-[#1A1A1A]"
+                                                                    >
+                                                                        <div className="min-w-0">
+                                                                            <p className="truncate text-sm font-medium">No Company</p>
+                                                                            <p className="truncate text-xs text-[#7d7d7d]">Use product without a linked brand</p>
+                                                                        </div>
+                                                                        <Check className={`h-4 w-4 ${!field.value || field.value === "none" ? "text-[#86efac]" : "text-transparent"}`} />
+                                                                    </CommandItem>
+                                                                    {companies.map((company) => (
+                                                                        <CommandItem
+                                                                            key={company._id}
+                                                                            value={company.name}
+                                                                            onSelect={() => field.onChange(company._id)}
+                                                                            className="flex items-center justify-between rounded-none px-3 py-2 text-white aria-selected:bg-[#1A1A1A]"
+                                                                        >
+                                                                            <div className="min-w-0">
+                                                                                <p className="truncate text-sm font-medium">{company.name}</p>
+                                                                            </div>
+                                                                            <Check className={`h-4 w-4 ${field.value === company._id ? "text-[#86efac]" : "text-transparent"}`} />
+                                                                        </CommandItem>
+                                                                    ))}
+                                                                </CommandList>
+                                                            </Command>
+                                                        </PopoverContent>
+                                                    </Popover>
                                                     <Dialog open={showNewCompanyDialog} onOpenChange={setShowNewCompanyDialog}>
                                                         <DialogTrigger asChild>
                                                             <Button type="button" variant="outline" size="icon" className="border-[#333] bg-[#1A1A1A] text-white hover:bg-[#333]">
@@ -1321,7 +1362,7 @@ export default function AddProductPage() {
                                                     </Dialog>
                                                 </div>
                                                 <FormDescription className="text-gray-500">
-                                                    Select the manufacturer or brand
+                                                    Search and select from all created brands.
                                                 </FormDescription>
                                                 <FormMessage />
                                             </FormItem>
