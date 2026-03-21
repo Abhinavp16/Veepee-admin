@@ -25,6 +25,7 @@ import { toast } from "sonner"
 type LabelSourceType = "image" | "icon"
 
 type WebsiteLabel = {
+    id: string
     title: string
     sourceType: LabelSourceType
     image: string
@@ -47,6 +48,7 @@ const iconMap = Object.fromEntries(ICON_OPTIONS.map((item) => [item.value, item.
 
 function createEmptyLabel(order = 0): WebsiteLabel {
     return {
+        id: "",
         title: "",
         sourceType: "icon",
         image: "",
@@ -60,6 +62,7 @@ function normalizeLabel(value: any, order: number): WebsiteLabel {
     const sourceType: LabelSourceType = value?.sourceType === "image" ? "image" : "icon"
 
     return {
+        id: String(value?.id || "").trim(),
         title: String(value?.title || "").trim(),
         sourceType,
         image: String(value?.image || "").trim(),
@@ -171,6 +174,7 @@ export default function LabelsPage() {
     async function persistLabels(nextLabels: WebsiteLabel[]) {
         const payload = nextLabels
             .map((item, index) => ({
+                id: item.id || undefined,
                 title: item.title.trim(),
                 sourceType: item.sourceType,
                 image: item.image.trim(),
@@ -192,7 +196,12 @@ export default function LabelsPage() {
                 throw new Error(data?.message || "Failed to save labels")
             }
 
-            setLabels(payload.map((item, index) => normalizeLabel(item, index)))
+            const data = await res.json().catch(() => ({}))
+            const nextLabels = Array.isArray(data?.data?.labels)
+                ? data.data.labels.map((item: any, index: number) => normalizeLabel(item, index))
+                : payload.map((item, index) => normalizeLabel(item, index))
+
+            setLabels(nextLabels)
             toast.success("Labels saved successfully")
             return true
         } catch (error: any) {

@@ -4,11 +4,12 @@ import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, Plus, Trash2, Building2, Flame, Star, ImagePlus, X, GripVertical, Crown, Upload, Link, ArrowLeft, FolderPlus, Youtube, Truck } from "lucide-react"
+import { Loader2, Plus, Trash2, Building2, Flame, Star, ImagePlus, X, GripVertical, Crown, Upload, Link, ArrowLeft, FolderPlus, Youtube, Truck, ChevronDown, Tags } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import NextLink from "next/link"
 
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
     Form,
     FormControl,
@@ -19,6 +20,7 @@ import {
     FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Textarea } from "@/components/ui/textarea"
 import {
     Select,
@@ -54,6 +56,17 @@ interface Company {
     slug: string
 }
 
+interface ProductLabelOption {
+    id: string
+    title: string
+    sourceType: "image" | "icon"
+}
+
+function labelMatches(value: string, label: ProductLabelOption) {
+    const normalizedValue = String(value || "").trim()
+    return normalizedValue === label.id || normalizedValue === label.title
+}
+
 type UploadStatus = 'idle' | 'converting' | 'uploading' | 'done'
 
 interface ProductImage {
@@ -84,6 +97,7 @@ const productSchema = z.object({
     company: z.string().optional(),
     videoUrl: z.string().optional(),
     shippingTerms: z.string().optional(),
+    labelIds: z.array(z.string()).default([]),
     rating: z.string().refine((val) => !isNaN(Number(val)), "Must be a number").default("4.5"),
     purchaseCountMin: z.string().refine((val) => !isNaN(Number(val)), "Must be a number").default("0"),
     purchaseCountMax: z.string().refine((val) => !isNaN(Number(val)), "Must be a number").default("0"),
@@ -99,8 +113,10 @@ export default function AddProductPage() {
     const [isLoadingProduct, setIsLoadingProduct] = useState(false)
     const [companies, setCompanies] = useState<Company[]>([])
     const [categories, setCategories] = useState<Category[]>([])
+    const [availableLabels, setAvailableLabels] = useState<ProductLabelOption[]>([])
     const [isLoadingCompanies, setIsLoadingCompanies] = useState(true)
     const [isLoadingCategories, setIsLoadingCategories] = useState(true)
+    const [isLoadingLabels, setIsLoadingLabels] = useState(true)
     const [showNewCompanyDialog, setShowNewCompanyDialog] = useState(false)
     const [showNewCategoryDialog, setShowNewCategoryDialog] = useState(false)
     const [newCompanyName, setNewCompanyName] = useState("")
@@ -135,6 +151,7 @@ export default function AddProductPage() {
             company: "",
             videoUrl: "",
             shippingTerms: "Free shipping on orders above ₹5,000. Standard delivery within 5-7 business days. Express delivery available at additional cost.\n\nReturn Policy: Products can be returned within 7 days of delivery if unused and in original packaging. Damaged or defective items will be replaced free of charge. Refunds are processed within 5-7 business days after the returned item is received and inspected.",
+            labelIds: [],
             rating: "4.5",
             purchaseCountMin: "0",
             purchaseCountMax: "0",
@@ -144,6 +161,7 @@ export default function AddProductPage() {
     useEffect(() => {
         fetchCompanies()
         fetchCategories()
+        fetchLabels()
         if (isEditMode && editId) {
             fetchProduct(editId)
         }
@@ -179,6 +197,7 @@ export default function AddProductPage() {
                 company: product.company?._id || product.company || "none",
                 videoUrl: product.videoUrl || "",
                 shippingTerms: product.shippingTerms || "",
+                labelIds: Array.isArray(product.labelIds) ? product.labelIds.map((item: any) => String(item)).filter(Boolean) : [],
                 rating: String(product.rating ?? "4.5"),
                 purchaseCountMin: String(product.purchaseCountMin || "0"),
                 purchaseCountMax: String(product.purchaseCountMax || "0"),
@@ -227,6 +246,32 @@ export default function AddProductPage() {
             console.error("Failed to fetch companies:", error)
         } finally {
             setIsLoadingCompanies(false)
+        }
+    }
+
+    async function fetchLabels() {
+        try {
+            const response = await apiFetch("/admin/website-settings")
+            if (!response.ok) {
+                throw new Error("Failed to load labels")
+            }
+
+            const data = await response.json()
+            const nextLabels = Array.isArray(data?.data?.labels)
+                ? data.data.labels
+                    .map((item: any, index: number) => ({
+                        id: String(item?.id || item?.title || `label-${index}`).trim(),
+                        title: String(item?.title || "").trim(),
+                        sourceType: item?.sourceType === "image" ? "image" : "icon",
+                    }))
+                    .filter((item: ProductLabelOption) => item.title)
+                : []
+
+            setAvailableLabels(nextLabels)
+        } catch (error) {
+            console.error("Failed to fetch labels:", error)
+        } finally {
+            setIsLoadingLabels(false)
         }
     }
 
@@ -460,6 +505,7 @@ export default function AddProductPage() {
                 isFeatured: values.isFeatured,
                 isHot: values.isHot,
                 company: values.company && values.company !== 'none' ? values.company : null,
+                labelIds: values.labelIds,
                 images: images,
                 specifications: validBulletPoints.map((point, index) => ({
                     key: `feature_${index + 1}`,
@@ -1244,6 +1290,108 @@ export default function AddProductPage() {
                                                 <FormMessage />
                                             </FormItem>
                                         )}
+                                    />
+
+                                    <FormField
+                                        control={form.control}
+                                        name="labelIds"
+                                        render={({ field }) => {
+                                            const selectedIds = Array.isArray(field.value) ? field.value : []
+                                            const selectedLabels = availableLabels.filter((label) =>
+                                                selectedIds.some((value) => labelMatches(value, label))
+                                            )
+
+                                            const toggleLabel = (labelId: string, checked: boolean) => {
+                                                const targetLabel = availableLabels.find((label) => label.id === labelId)
+                                                const nextValue = checked
+                                                    ? targetLabel && selectedIds.some((value) => labelMatches(value, targetLabel))
+                                                        ? selectedIds
+                                                        : [...selectedIds, labelId]
+                                                    : targetLabel
+                                                        ? selectedIds.filter((item) => !labelMatches(item, targetLabel))
+                                                        : selectedIds.filter((item) => item !== labelId)
+                                                field.onChange(nextValue)
+                                            }
+
+                                            return (
+                                                <FormItem>
+                                                    <FormLabel className="text-white flex items-center gap-2">
+                                                        <Tags className="h-4 w-4 text-[#86efac]" />
+                                                        Product Labels
+                                                    </FormLabel>
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <FormControl>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    className="w-full justify-between border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
+                                                                >
+                                                                    <span className="truncate text-left">
+                                                                        {isLoadingLabels
+                                                                            ? "Loading labels..."
+                                                                            : selectedLabels.length > 0
+                                                                                ? selectedLabels.map((label) => label.title).join(", ")
+                                                                                : availableLabels.length > 0
+                                                                                    ? "Select product labels"
+                                                                                    : "No labels created yet"}
+                                                                    </span>
+                                                                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-[#8d8d8d]" />
+                                                                </Button>
+                                                            </FormControl>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent align="start" className="w-[340px] border-[#333] bg-[#111] p-2 text-white">
+                                                            {availableLabels.length === 0 ? (
+                                                                <p className="px-2 py-3 text-sm text-[#8d8d8d]">
+                                                                    Create labels first in the Labels page, then come back here to assign them.
+                                                                </p>
+                                                            ) : (
+                                                                <div className="max-h-72 space-y-1 overflow-y-auto">
+                                                                    {availableLabels.map((label) => {
+                                                                        const isChecked = selectedIds.some((value) => labelMatches(value, label))
+
+                                                                        return (
+                                                                            <label
+                                                                                key={label.id}
+                                                                                className="flex cursor-pointer items-start gap-3 rounded-xl border border-transparent px-3 py-2 transition-colors hover:border-[#2d2d2d] hover:bg-[#1A1A1A]"
+                                                                            >
+                                                                                <Checkbox
+                                                                                    checked={isChecked}
+                                                                                    onCheckedChange={(checked) => toggleLabel(label.id, checked === true)}
+                                                                                    className="mt-0.5 border-[#4d4d4d] data-[state=checked]:border-[#86efac] data-[state=checked]:bg-[#86efac] data-[state=checked]:text-black"
+                                                                                />
+                                                                                <div className="min-w-0">
+                                                                                    <p className="truncate text-sm font-medium text-white">{label.title}</p>
+                                                                                    <p className="text-xs text-[#7d7d7d]">
+                                                                                        {label.sourceType === "image" ? "Image label" : "Icon label"}
+                                                                                    </p>
+                                                                                </div>
+                                                                            </label>
+                                                                        )
+                                                                    })}
+                                                                </div>
+                                                            )}
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                    <FormDescription className="text-gray-500">
+                                                        Selected labels will be available on the product detail page in the app.
+                                                    </FormDescription>
+                                                    {selectedLabels.length > 0 && (
+                                                        <div className="flex flex-wrap gap-2 pt-1">
+                                                            {selectedLabels.map((label) => (
+                                                                <span
+                                                                    key={label.id}
+                                                                    className="rounded-full border border-[#2f4f39] bg-[#132117] px-2.5 py-1 text-xs font-medium text-[#86efac]"
+                                                                >
+                                                                    {label.title}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )
+                                        }}
                                     />
 
                                     {/* Featured & Hot Product Toggles */}
