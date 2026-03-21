@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import {
     Table,
     TableBody,
@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, MessageSquare, Check, X, Send } from "lucide-react"
+import { Loader2, MessageSquare, Check, X, Send, Search } from "lucide-react"
 import { toast } from "sonner"
 import {
     Sheet,
@@ -59,6 +59,7 @@ interface NegotiationDetail {
 export default function NegotiationsPage() {
     const [negotiations, setNegotiations] = useState<NegotiationList[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const [isLoadingMore, setIsLoadingMore] = useState(false)
     const [selectedNegotiation, setSelectedNegotiation] = useState<NegotiationDetail | null>(null)
     const [isSheetOpen, setIsSheetOpen] = useState(false)
 
@@ -67,16 +68,48 @@ export default function NegotiationsPage() {
     const [counterMessage, setCounterMessage] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
 
+    // Search & Pagination state
+    const [searchQuery, setSearchQuery] = useState("")
+    const [page, setPage] = useState(1)
+    const [totalPages, setTotalPages] = useState(1)
+    const [totalNegotiations, setTotalNegotiations] = useState(0)
+    const [hasMore, setHasMore] = useState(false)
+
     useEffect(() => {
-        fetchNegotiations()
+        fetchNegotiations(1, true)
     }, [])
 
-    async function fetchNegotiations() {
+    async function fetchNegotiations(pageNum: number = 1, reset: boolean = false) {
+        if (reset) {
+            setIsLoading(true)
+            setPage(1)
+        } else {
+            setIsLoadingMore(true)
+        }
+
         try {
-            const res = await apiFetch('/admin/negotiations')
+            const params = new URLSearchParams()
+            params.append('page', pageNum.toString())
+            params.append('limit', '20')
+            if (searchQuery.trim()) {
+                params.append('search', searchQuery.trim())
+            }
+
+            const res = await apiFetch(`/admin/negotiations?${params.toString()}`)
             const data = await res.json()
             if (res.ok) {
-                setNegotiations(data.data || [])
+                const items = data.data || []
+                const pagination = data.pagination || {}
+
+                if (reset || pageNum === 1) {
+                    setNegotiations(items)
+                } else {
+                    setNegotiations(prev => [...prev, ...items])
+                }
+
+                setTotalPages(pagination.totalPages || 1)
+                setTotalNegotiations(pagination.total || items.length)
+                setHasMore((pagination.page || 1) < (pagination.totalPages || 1))
             } else {
                 toast.error("Failed to fetch negotiations")
             }
@@ -85,8 +118,22 @@ export default function NegotiationsPage() {
             toast.error("Error connecting to server")
         } finally {
             setIsLoading(false)
+            setIsLoadingMore(false)
         }
     }
+
+    const handleSearch = useCallback((e: React.FormEvent) => {
+        e.preventDefault()
+        fetchNegotiations(1, true)
+    }, [searchQuery])
+
+    const loadMore = useCallback(() => {
+        if (hasMore && !isLoadingMore) {
+            const nextPage = page + 1
+            setPage(nextPage)
+            fetchNegotiations(nextPage, false)
+        }
+    }, [hasMore, isLoadingMore, page])
 
     async function fetchNegotiationDetails(id: string) {
         try {
@@ -158,7 +205,47 @@ export default function NegotiationsPage() {
 
     return (
         <div className="flex flex-col gap-6">
-            <h1 className="text-3xl font-bold text-white">Negotiations</h1>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-white">Negotiations</h1>
+                    <p className="text-gray-400 text-sm">{totalNegotiations > 0 && `(${totalNegotiations} negotiations)`}</p>
+                </div>
+            </div>
+
+            {/* Search Bar */}
+            <form onSubmit={handleSearch} className="flex items-center gap-3">
+                <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                        type="text"
+                        placeholder="Search negotiations..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 bg-[#161616] border-[#333] text-white placeholder:text-gray-500 focus-visible:ring-[#86efac]"
+                    />
+                </div>
+                <Button
+                    type="submit"
+                    variant="outline"
+                    className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
+                >
+                    Search
+                </Button>
+                {searchQuery && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                            setSearchQuery("")
+                            fetchNegotiations(1, true)
+                        }}
+                        className="text-gray-400 hover:text-white"
+                    >
+                        Clear
+                    </Button>
+                )}
+            </form>
+
             <Card className="bg-[#161616] border-[#333]">
                 <CardHeader>
                     <CardTitle className="text-white">Active Requests</CardTitle>
@@ -322,6 +409,27 @@ export default function NegotiationsPage() {
                     )}
                 </SheetContent>
             </Sheet>
+
+            {/* Load More Button */}
+            {hasMore && negotiations.length > 0 && (
+                <div className="flex justify-center pt-4">
+                    <Button
+                        onClick={loadMore}
+                        disabled={isLoadingMore}
+                        variant="outline"
+                        className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A] min-w-[200px]"
+                    >
+                        {isLoadingMore ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading...
+                            </>
+                        ) : (
+                            `Load More (${negotiations.length}/${totalNegotiations})`
+                        )}
+                    </Button>
+                </div>
+            )}
         </div>
     )
 }
