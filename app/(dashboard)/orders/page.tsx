@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import {
     Table,
     TableBody,
@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Eye, Truck, CheckCircle2, XCircle, Package, MapPin } from "lucide-react"
+import { Loader2, Eye, Truck, CheckCircle2, XCircle, Package, MapPin, Search } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
@@ -51,6 +51,7 @@ interface Order {
 export default function OrdersPage() {
     const [orders, setOrders] = useState<Order[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const [isLoadingMore, setIsLoadingMore] = useState(false)
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
     const [isdetailsOpen, setIsDetailsOpen] = useState(false)
     const [isVerifying, setIsVerifying] = useState(false)
@@ -61,16 +62,48 @@ export default function OrdersPage() {
     const [courierName, setCourierName] = useState("")
     const [isShipping, setIsShipping] = useState(false)
 
+    // Search & Pagination state
+    const [searchQuery, setSearchQuery] = useState("")
+    const [page, setPage] = useState(1)
+    const [totalPages, setTotalPages] = useState(1)
+    const [totalOrders, setTotalOrders] = useState(0)
+    const [hasMore, setHasMore] = useState(false)
+
     useEffect(() => {
-        fetchOrders()
+        fetchOrders(1, true)
     }, [])
 
-    async function fetchOrders() {
+    async function fetchOrders(pageNum: number = 1, reset: boolean = false) {
+        if (reset) {
+            setIsLoading(true)
+            setPage(1)
+        } else {
+            setIsLoadingMore(true)
+        }
+
         try {
-            const res = await apiFetch('/admin/orders')
+            const params = new URLSearchParams()
+            params.append('page', pageNum.toString())
+            params.append('limit', '20')
+            if (searchQuery.trim()) {
+                params.append('search', searchQuery.trim())
+            }
+
+            const res = await apiFetch(`/admin/orders?${params.toString()}`)
             const data = await res.json()
             if (res.ok) {
-                setOrders(data.data || [])
+                const items = data.data || []
+                const pagination = data.pagination || {}
+
+                if (reset || pageNum === 1) {
+                    setOrders(items)
+                } else {
+                    setOrders(prev => [...prev, ...items])
+                }
+
+                setTotalPages(pagination.totalPages || 1)
+                setTotalOrders(pagination.total || items.length)
+                setHasMore((pagination.page || 1) < (pagination.totalPages || 1))
             } else {
                 toast.error("Failed to fetch orders")
             }
@@ -79,8 +112,22 @@ export default function OrdersPage() {
             toast.error("Error connecting to server")
         } finally {
             setIsLoading(false)
+            setIsLoadingMore(false)
         }
     }
+
+    const handleSearch = useCallback((e: React.FormEvent) => {
+        e.preventDefault()
+        fetchOrders(1, true)
+    }, [searchQuery])
+
+    const loadMore = useCallback(() => {
+        if (hasMore && !isLoadingMore) {
+            const nextPage = page + 1
+            setPage(nextPage)
+            fetchOrders(nextPage, false)
+        }
+    }, [hasMore, isLoadingMore, page])
 
     async function fetchOrderDetails(id: string) {
         try {
@@ -206,7 +253,46 @@ export default function OrdersPage() {
 
     return (
         <div className="flex flex-col gap-6">
-            <h1 className="text-3xl font-bold text-white">Orders</h1>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold text-white">Orders</h1>
+                    <p className="text-gray-400 text-sm">{totalOrders > 0 && `(${totalOrders} orders)`}</p>
+                </div>
+            </div>
+
+            {/* Search Bar */}
+            <form onSubmit={handleSearch} className="flex items-center gap-3">
+                <div className="relative flex-1 max-w-md">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input
+                        type="text"
+                        placeholder="Search by order number, customer name, phone..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 bg-[#161616] border-[#333] text-white placeholder:text-gray-500 focus-visible:ring-[#86efac]"
+                    />
+                </div>
+                <Button
+                    type="submit"
+                    variant="outline"
+                    className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
+                >
+                    Search
+                </Button>
+                {searchQuery && (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => {
+                            setSearchQuery("")
+                            fetchOrders(1, true)
+                        }}
+                        className="text-gray-400 hover:text-white"
+                    >
+                        Clear
+                    </Button>
+                )}
+            </form>
 
             <Card className="bg-[#161616] border-[#333]">
                 <CardHeader>
@@ -503,6 +589,27 @@ export default function OrdersPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Load More Button */}
+            {hasMore && orders.length > 0 && (
+                <div className="flex justify-center pt-4">
+                    <Button
+                        onClick={loadMore}
+                        disabled={isLoadingMore}
+                        variant="outline"
+                        className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A] min-w-[200px]"
+                    >
+                        {isLoadingMore ? (
+                            <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Loading...
+                            </>
+                        ) : (
+                            `Load More (${orders.length}/${totalOrders})`
+                        )}
+                    </Button>
+                </div>
+            )}
         </div>
     )
 }
