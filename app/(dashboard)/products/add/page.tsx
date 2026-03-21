@@ -68,6 +68,18 @@ function labelMatches(value: string, label: ProductLabelOption) {
     return normalizedValue === label.id || normalizedValue === label.title
 }
 
+function normalizeSelectedLabelIds(values: string[], labels: ProductLabelOption[]) {
+    return [...new Set(
+        values
+            .map((value) => {
+                const normalizedValue = String(value || "").trim()
+                const match = labels.find((label) => labelMatches(normalizedValue, label))
+                return match?.id || normalizedValue
+            })
+            .filter(Boolean)
+    )]
+}
+
 type UploadStatus = 'idle' | 'converting' | 'uploading' | 'done'
 
 interface ProductImage {
@@ -491,6 +503,7 @@ export default function AddProductPage() {
 
             // Filter out empty bullet points
             const validBulletPoints = bulletPoints.filter(bp => bp.trim() !== "")
+            const normalizedLabelIds = normalizeSelectedLabelIds(values.labelIds, availableLabels)
 
             // Construct payload matching backend expectation
             const payload = {
@@ -508,7 +521,7 @@ export default function AddProductPage() {
                 isFeatured: values.isFeatured,
                 isHot: values.isHot,
                 company: values.company && values.company !== 'none' ? values.company : null,
-                labelIds: values.labelIds,
+                labelIds: normalizedLabelIds,
                 images: images,
                 specifications: validBulletPoints.map((point, index) => ({
                     key: `feature_${index + 1}`,
