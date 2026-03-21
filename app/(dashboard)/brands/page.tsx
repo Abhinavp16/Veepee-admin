@@ -41,7 +41,7 @@ export default function BrandsPage() {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [editingCompany, setEditingCompany] = useState<Company | null>(null)
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-    const [viewMode, setViewMode] = useState<'list' | 'card'>('list')
+    const [viewMode, setViewMode] = useState<'list' | 'card'>('card')
 
     // Search & Pagination state
     const [searchQuery, setSearchQuery] = useState("")

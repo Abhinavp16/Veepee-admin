@@ -55,7 +55,7 @@ export default function CategoriesPage() {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [editingCategory, setEditingCategory] = useState<Category | null>(null)
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-    const [viewMode, setViewMode] = useState<'list' | 'card'>('list')
+    const [viewMode, setViewMode] = useState<'list' | 'card'>('card')
 
     // Search & Pagination state
     const [searchQuery, setSearchQuery] = useState("")

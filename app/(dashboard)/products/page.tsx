@@ -49,7 +49,7 @@ export default function ProductsPage() {
     const [products, setProducts] = useState<Product[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [isLoadingMore, setIsLoadingMore] = useState(false)
-    const [viewMode, setViewMode] = useState<'list' | 'card'>('list')
+    const [viewMode, setViewMode] = useState<'list' | 'card'>('card')
     const [isConvertingHindi, setIsConvertingHindi] = useState(false)
 
     // Pagination & Search state
