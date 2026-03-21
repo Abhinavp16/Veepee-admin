@@ -4,12 +4,13 @@ import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, Plus, Trash2, Building2, Flame, Star, ImagePlus, X, GripVertical, Crown, Upload, Link, ArrowLeft, FolderPlus, Youtube, Truck, ChevronDown, Tags } from "lucide-react"
+import { Loader2, Plus, Trash2, Building2, Flame, Star, ImagePlus, X, GripVertical, Crown, Upload, Link, ArrowLeft, FolderPlus, Youtube, Truck, ChevronDown, Tags, Check } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import NextLink from "next/link"
 
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import {
     Form,
     FormControl,
@@ -223,10 +224,11 @@ export default function AddProductPage() {
 
     async function fetchCategories() {
         try {
-            const response = await apiFetch("/categories", { skipAuth: true })
+            const response = await apiFetch("/categories?page=1&limit=500", { skipAuth: true })
             if (response.ok) {
                 const data = await response.json()
-                setCategories(data.data || [])
+                const nextCategories = Array.isArray(data.data) ? data.data : []
+                setCategories(nextCategories)
             }
         } catch (error) {
             console.error("Failed to fetch categories:", error)
@@ -616,28 +618,59 @@ export default function AddProductPage() {
                                         )}
                                     />
 
-                                    <div className="grid grid-cols-2 gap-4 mt-4">
+                                    <div className="grid gap-4 mt-4">
                                         <FormField
                                             control={form.control}
-                                            name="category"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel className="text-white">Category</FormLabel>
-                                                    <div className="flex gap-2">
-                                                        <Select onValueChange={field.onChange} value={field.value}>
+                                        name="category"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-white">Category</FormLabel>
+                                                <div className="flex gap-2">
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
                                                             <FormControl>
-                                                                <SelectTrigger className="bg-[#0D0D0D] border-[#333] text-white flex-1">
-                                                                    <SelectValue placeholder={isLoadingCategories ? "Loading..." : "Select category"} />
-                                                                </SelectTrigger>
+                                                                <Button
+                                                                    type="button"
+                                                                    variant="outline"
+                                                                    className="flex-1 justify-between border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
+                                                                >
+                                                                    <span className="truncate">
+                                                                        {field.value
+                                                                            ? categories.find((category) => category.slug === field.value)?.name || field.value
+                                                                            : isLoadingCategories
+                                                                                ? "Loading categories..."
+                                                                                : "Select category"}
+                                                                    </span>
+                                                                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-[#8d8d8d]" />
+                                                                </Button>
                                                             </FormControl>
-                                                            <SelectContent className="bg-[#0D0D0D] border-[#333]">
-                                                                {categories.map((category) => (
-                                                                    <SelectItem key={category._id} value={category.slug}>
-                                                                        {category.name}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent align="start" className="w-[360px] border-[#333] bg-[#111] p-0 text-white">
+                                                            <Command className="bg-[#111] text-white">
+                                                                <CommandInput
+                                                                    placeholder="Search categories..."
+                                                                    className="text-white placeholder:text-[#7d7d7d]"
+                                                                />
+                                                                <CommandList>
+                                                                    <CommandEmpty className="text-[#8d8d8d]">No category found.</CommandEmpty>
+                                                                    {categories.map((category) => (
+                                                                        <CommandItem
+                                                                            key={category._id}
+                                                                            value={`${category.name} ${category.slug}`}
+                                                                            onSelect={() => field.onChange(category.slug)}
+                                                                            className="flex items-center justify-between rounded-none px-3 py-2 text-white aria-selected:bg-[#1A1A1A]"
+                                                                        >
+                                                                            <div className="min-w-0">
+                                                                                <p className="truncate text-sm font-medium">{category.name}</p>
+                                                                                <p className="truncate text-xs text-[#7d7d7d]">{category.slug}</p>
+                                                                            </div>
+                                                                            <Check className={`h-4 w-4 ${field.value === category.slug ? "text-[#86efac]" : "text-transparent"}`} />
+                                                                        </CommandItem>
+                                                                    ))}
+                                                                </CommandList>
+                                                            </Command>
+                                                        </PopoverContent>
+                                                    </Popover>
                                                         <Dialog open={showNewCategoryDialog} onOpenChange={setShowNewCategoryDialog}>
                                                             <DialogTrigger asChild>
                                                                 <Button type="button" variant="outline" size="icon" className="border-[#333] bg-[#1A1A1A] text-white hover:bg-[#333]">
@@ -680,6 +713,9 @@ export default function AddProductPage() {
                                                             </DialogContent>
                                                         </Dialog>
                                                     </div>
+                                                    <FormDescription className="text-gray-500">
+                                                        Search by category name and pick from all created categories.
+                                                    </FormDescription>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
