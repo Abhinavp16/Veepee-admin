@@ -40,6 +40,10 @@ export function Sidebar() {
           <FolderTree className="h-6 w-6" />
           <span className="text-sm font-medium tracking-wide">CATEGORIES</span>
         </Link>
+        <Link href="/labels" className={`flex items-center gap-4 transition-colors ${isActive('/labels')}`}>
+          <BadgeCheck className="h-6 w-6" />
+          <span className="text-sm font-medium tracking-wide">LABELS</span>
+        </Link>
         <Link href="/orders" className={`flex items-center gap-4 transition-colors ${isActive('/orders')}`}>
           <ShoppingCart className="h-6 w-6" />
           <span className="text-sm font-medium tracking-wide">ORDERS</span>
