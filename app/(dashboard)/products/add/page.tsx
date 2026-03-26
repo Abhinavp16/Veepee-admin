@@ -124,6 +124,7 @@ export default function AddProductPage() {
 
     const [isLoading, setIsLoading] = useState(false)
     const [isLoadingProduct, setIsLoadingProduct] = useState(false)
+    const [isInitialLoading, setIsInitialLoading] = useState(true)
     const [companies, setCompanies] = useState<Company[]>([])
     const [categories, setCategories] = useState<Category[]>([])
     const [availableLabels, setAvailableLabels] = useState<ProductLabelOption[]>([])
@@ -172,12 +173,26 @@ export default function AddProductPage() {
     })
 
     useEffect(() => {
-        fetchCompanies()
-        fetchCategories()
-        fetchLabels()
-        if (isEditMode && editId) {
-            fetchProduct(editId)
+        const initData = async () => {
+            setIsInitialLoading(true)
+
+            // Fetch labels first - needed to display selected labels correctly
+            await fetchLabels()
+
+            // Fetch companies and categories in parallel
+            await Promise.all([
+                fetchCompanies(),
+                fetchCategories(),
+            ])
+
+            // Fetch product if in edit mode
+            if (isEditMode && editId) {
+                await fetchProduct(editId)
+            }
+
+            setIsInitialLoading(false)
         }
+        initData()
     }, [editId, isEditMode])
 
     async function fetchProduct(id: string) {
@@ -274,11 +289,15 @@ export default function AddProductPage() {
             const data = await response.json()
             const nextLabels = Array.isArray(data?.data?.labels)
                 ? data.data.labels
-                    .map((item: any, index: number) => ({
-                        id: String(item?.id || item?.title || `label-${index}`).trim(),
-                        title: String(item?.title || "").trim(),
-                        sourceType: item?.sourceType === "image" ? "image" : "icon",
-                    }))
+                    .map((item: any, index: number) => {
+                        const labelId = String(item?.id || "").trim();
+                        return {
+                            // Only use actual ID, not title as fallback
+                            id: labelId || `label-${index}`,
+                            title: String(item?.title || "").trim(),
+                            sourceType: item?.sourceType === "image" ? "image" : "icon",
+                        };
+                    })
                     .filter((item: ProductLabelOption) => item.title)
                 : []
 
@@ -557,7 +576,7 @@ export default function AddProductPage() {
         }
     }
 
-    if (isLoadingProduct) {
+    if (isInitialLoading) {
         return (
             <div className="flex justify-center items-center h-[400px]">
                 <Loader2 className="h-8 w-8 animate-spin text-[#86efac]" />
