@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Eye, User, ShoppingBag, TrendingUp, Search } from "lucide-react"
+import { Loader2, Eye, User, ShoppingBag, TrendingUp, Search, Bell, Send, CheckSquare, Square, X } from "lucide-react"
 import { toast } from "sonner"
 import {
     Dialog,
@@ -22,6 +22,7 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { apiFetch } from "@/lib/api"
 
 interface Customer {
@@ -57,6 +58,12 @@ export default function CustomersPage() {
     const [isLoadingMore, setIsLoadingMore] = useState(false)
     const [selectedCustomer, setSelectedCustomer] = useState<CustomerDetails | null>(null)
     const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+
+    // Selection & Notification state
+    const [selectedIds, setSelectedIds] = useState<string[]>([])
+    const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false)
+    const [isSending, setIsSending] = useState(false)
+    const [notificationData, setNotificationData] = useState({ title: "", body: "" })
 
     // Search & Pagination state
     const [searchQuery, setSearchQuery] = useState("")
@@ -130,15 +137,62 @@ export default function CustomersPage() {
             const res = await apiFetch(`/admin/customers/${id}`)
             const data = await res.json()
             if (res.ok) {
-                // Backend returns data flattened with stats?
-                // The controller spreads ...customer (which is an object with _doc or similar if lean() wasn't used properly on findById)
-                // Wait, getCustomerById does NOT use .lean(). So ...customer might include Mongoose internals if not careful.
-                // But res.json handles it usually.
                 setSelectedCustomer(data.data)
                 setIsDetailsOpen(true)
             }
         } catch (error) {
             toast.error("Failed to load details")
+        }
+    }
+
+    const toggleSelect = (id: string) => {
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        )
+    }
+
+    const toggleSelectAll = () => {
+        if (selectedIds.length === customers.length && customers.length > 0) {
+            setSelectedIds([])
+        } else {
+            setSelectedIds(customers.map(c => c._id))
+        }
+    }
+
+    const toggleDraftingHeader = () => {
+        setIsNotifyModalOpen(prev => !prev)
+    }
+
+    async function handleSendNotification() {
+        if (!notificationData.title || !notificationData.body) {
+            toast.error("Please fill in both title and message")
+            return
+        }
+
+        setIsSending(true)
+        try {
+            const res = await apiFetch("/admin/customers/notifications", {
+                method: "POST",
+                body: JSON.stringify({
+                    userIds: selectedIds,
+                    title: notificationData.title,
+                    body: notificationData.body
+                })
+            })
+
+            const data = await res.json()
+            if (res.ok) {
+                toast.success(data.message || "Notification sent successfully")
+                setIsNotifyModalOpen(false)
+                setNotificationData({ title: "", body: "" })
+                setSelectedIds([])
+            } else {
+                toast.error(data.message || "Failed to send notification")
+            }
+        } catch (error) {
+            toast.error("Error connecting to server")
+        } finally {
+            setIsSending(false)
         }
     }
 
@@ -149,7 +203,107 @@ export default function CustomersPage() {
                     <h1 className="text-3xl font-bold text-white">Customers</h1>
                     <p className="text-gray-400 text-sm">{totalCustomers > 0 && `(${totalCustomers} customers)`}</p>
                 </div>
+                <Button
+                    onClick={toggleDraftingHeader}
+                    className={`${isNotifyModalOpen ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-[#86efac] text-black hover:bg-[#6ee7b7]"} font-bold gap-2`}
+                >
+                    {isNotifyModalOpen ? "Cancel Draft" : <><Bell className="w-4 h-4" /> Custom Notification</>}
+                    {selectedIds.length > 0 && `(${selectedIds.length})`}
+                </Button>
             </div>
+
+            {isNotifyModalOpen && (
+                <div className="relative animate-in fade-in slide-in-from-top-4 duration-500 ease-out mb-8">
+                    {/* Glowing Top Border Accent */}
+                    <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-[#86efac]/50 to-transparent" />
+                    
+                    <Card className="bg-[#111111] border-[#333] shadow-2xl overflow-hidden">
+                        <CardHeader className="pb-4 bg-gradient-to-b from-[#1a1a1a]/50 to-transparent border-b border-[#333]/50">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-xl font-bold flex items-center gap-3 text-white">
+                                    <div className="p-2 rounded-lg bg-[#86efac]/10 border border-[#86efac]/20">
+                                        <Send className="w-5 h-5 text-[#86efac]" />
+                                    </div>
+                                    Draft Custom Notification
+                                </CardTitle>
+                                <div className="flex items-center gap-4">
+                                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold
+                                        ${selectedIds.length > 0 
+                                            ? "bg-[#86efac]/10 border-[#86efac]/30 text-[#86efac]" 
+                                            : "bg-yellow-500/5 border-yellow-500/20 text-yellow-500/70 italic"
+                                        }`}>
+                                        <User className="w-3.5 h-3.5" />
+                                        {selectedIds.length} {selectedIds.length === 1 ? "Customer" : "Customers"} Targetted
+                                        {selectedIds.length === 0 && " — Select from list"}
+                                    </div>
+                                    <Button 
+                                        variant="ghost" 
+                                        size="sm" 
+                                        onClick={toggleDraftingHeader}
+                                        className="text-gray-500 hover:text-white hover:bg-white/5 h-8 w-8 p-0"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="p-6 space-y-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <div className="lg:col-span-2 space-y-5">
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] uppercase text-gray-400 font-bold tracking-[0.1em] ml-1">
+                                            Notification Title
+                                        </label>
+                                        <Input
+                                            placeholder="Write a clear, punchy title..."
+                                            value={notificationData.title}
+                                            onChange={(e) => setNotificationData(prev => ({ ...prev, title: e.target.value }))}
+                                            className="bg-[#0D0D0D] border-[#333] text-white focus-visible:ring-1 focus-visible:ring-[#86efac]/50 h-11 transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[11px] uppercase text-gray-400 font-bold tracking-[0.1em] ml-1">
+                                            Message Content
+                                        </label>
+                                        <Textarea
+                                            placeholder="What do you want to tell your customers?"
+                                            value={notificationData.body}
+                                            onChange={(e) => setNotificationData(prev => ({ ...prev, body: e.target.value }))}
+                                            className="bg-[#0D0D0D] border-[#333] text-white focus-visible:ring-1 focus-visible:ring-[#86efac]/50 min-h-[140px] transition-all resize-none"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col justify-between p-5 rounded-xl bg-[#0a0a0a] border border-[#333]/50">
+                                    <div className="space-y-4">
+                                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Delivery Preview</h4>
+                                        <div className="space-y-3 opacity-60 pointer-events-none scale-95 origin-top">
+                                            <div className="bg-[#161616] p-3 rounded-lg border border-[#333]">
+                                                <div className="h-2 w-20 bg-[#333] rounded mb-2" />
+                                                <div className="h-3 w-32 bg-[#444] rounded" />
+                                            </div>
+                                        </div>
+                                        <p className="text-[11px] text-gray-500 leading-relaxed italic">
+                                            Customers will receive this as a push notification on their registered devices.
+                                        </p>
+                                    </div>
+                                    
+                                    <div className="pt-6 border-t border-[#333]/50 mt-6">
+                                        <Button
+                                            onClick={handleSendNotification}
+                                            disabled={isSending || !notificationData.title || !notificationData.body || selectedIds.length === 0}
+                                            className="w-full bg-[#86efac] text-black hover:bg-[#a7f3d0] font-black h-14 gap-3 shadow-[0_0_20px_-5px_rgba(134,239,172,0.3)] transition-all active:scale-[0.98]"
+                                        >
+                                            {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                                            Disfuse Now
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
 
             <form onSubmit={handleSearch} className="flex items-center gap-3">
                 <div className="relative flex-1 max-w-md">
@@ -181,6 +335,20 @@ export default function CustomersPage() {
                                     <TableHead className="text-gray-400">Business</TableHead>
                                     <TableHead className="text-gray-400 text-right">Joined</TableHead>
                                     <TableHead className="text-gray-400 text-right">Actions</TableHead>
+                                    <TableHead className="text-gray-400 text-right w-10">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="h-8 w-8 p-0 hover:bg-[#333]"
+                                            onClick={toggleSelectAll}
+                                        >
+                                            {selectedIds.length === customers.length && customers.length > 0 ? (
+                                                <CheckSquare className="h-4 w-4 text-[#86efac]" />
+                                            ) : (
+                                                <Square className="h-4 w-4" />
+                                            )}
+                                        </Button>
+                                    </TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -217,6 +385,20 @@ export default function CustomersPage() {
                                                 onClick={() => fetchCustomerDetails(cust._id)}
                                             >
                                                 <Eye className="h-4 w-4" />
+                                            </Button>
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 w-8 p-0 hover:bg-[#333]"
+                                                onClick={() => toggleSelect(cust._id)}
+                                            >
+                                                {selectedIds.includes(cust._id) ? (
+                                                    <CheckSquare className="h-4 w-4 text-[#86efac]" />
+                                                ) : (
+                                                    <Square className="h-4 w-4" />
+                                                )}
                                             </Button>
                                         </TableCell>
                                     </TableRow>
@@ -301,6 +483,8 @@ export default function CustomersPage() {
                     )}
                 </DialogContent>
             </Dialog>
+
+            {/* Customer Details Modal remains the same */}
 
             {hasMore && customers.length > 0 && (
                 <div className="flex justify-center pt-4">
