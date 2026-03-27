@@ -35,6 +35,7 @@ interface Customer {
         businessAddress?: string
         contactPerson?: string
         verified: boolean
+        proofImages?: string[]
     }
     createdAt: string
 }
@@ -259,6 +260,32 @@ export default function AccountUpgradesPage() {
                                         </div>
                                     </div>
                                 </div>
+
+                                {selectedCustomer.businessInfo?.proofImages && selectedCustomer.businessInfo.proofImages.length > 0 && (
+                                    <div className="col-span-2 pt-4 border-t border-[#333] mt-2">
+                                        <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
+                                            Document Proofs
+                                            <Badge variant="outline" className="text-xs bg-[#1A1A1A] text-gray-400 border-[#333]">
+                                                {selectedCustomer.businessInfo.proofImages.length}
+                                            </Badge>
+                                        </h3>
+                                        <div className="flex flex-wrap gap-3">
+                                            {selectedCustomer.businessInfo.proofImages.map((url, i) => (
+                                                <a href={url} target="_blank" rel="noopener noreferrer" key={i} className="group relative block overflow-hidden rounded-md border border-[#333] hover:border-blue-500/50 transition-colors">
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img 
+                                                        src={url} 
+                                                        alt={`Business proof ${i + 1}`} 
+                                                        className="h-28 w-28 object-cover group-hover:scale-105 transition-transform duration-300"
+                                                    />
+                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <Eye className="w-5 h-5 text-white" />
+                                                    </div>
+                                                </a>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#333]">
