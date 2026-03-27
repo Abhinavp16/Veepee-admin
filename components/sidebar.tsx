@@ -1,6 +1,6 @@
 "use client"
 
-import { LayoutDashboard, Package, ShoppingCart, Users, MessageSquareMore, BarChart3, Settings, LogOut, Building2, FolderTree, UserSearch, Image, TicketPercent, ChevronDown, ChevronRight, User, Store, BadgeCheck, Star, Globe } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingCart, Users, MessageSquareMore, BarChart3, Settings, LogOut, Building2, FolderTree, UserSearch, Image, TicketPercent, ChevronDown, ChevronRight, User, Store, BadgeCheck, Star, Globe, UserPlus } from 'lucide-react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -55,6 +55,10 @@ export function Sidebar() {
         <Link href="/customers" className={`flex items-center gap-4 transition-colors ${isActive('/customers')}`}>
           <Users className="h-6 w-6" />
           <span className="text-sm font-medium tracking-wide">CUSTOMERS</span>
+        </Link>
+        <Link href="/account-upgrades" className={`flex items-center gap-4 transition-colors ${isActive('/account-upgrades')}`}>
+          <UserPlus className="h-6 w-6" />
+          <span className="text-sm font-medium tracking-wide">ACCOUNT UPGRADES</span>
         </Link>
 
         <div className="flex flex-col gap-4">
