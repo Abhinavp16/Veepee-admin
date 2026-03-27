@@ -163,31 +163,14 @@ export default function AccountUpgradesPage() {
                                                 <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    className="h-8 w-8 p-0 text-white hover:bg-[#333]"
+                                                    className="h-8 px-2.5 text-gray-300 hover:text-white hover:bg-[#333] flex items-center gap-2"
                                                     onClick={() => {
                                                         setSelectedCustomer(cust)
                                                         setIsDetailsOpen(true)
                                                     }}
                                                 >
                                                     <Eye className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-8 w-8 p-0 text-green-400 hover:text-green-300 hover:bg-green-400/10"
-                                                    disabled={isProcessing === cust._id}
-                                                    onClick={() => handleAction(cust._id, 'accept')}
-                                                >
-                                                    {isProcessing === cust._id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-8 w-8 p-0 text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                                                    disabled={isProcessing === cust._id}
-                                                    onClick={() => handleAction(cust._id, 'reject')}
-                                                >
-                                                    {isProcessing === cust._id ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                                                    <span className="text-xs font-medium">View Details</span>
                                                 </Button>
                                             </div>
                                         </TableCell>
