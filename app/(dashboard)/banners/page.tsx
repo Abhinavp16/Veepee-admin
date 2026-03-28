@@ -4,11 +4,47 @@ import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Loader2, Save, Plus, Trash2, GripVertical, Image as ImageIcon, Upload } from "lucide-react"
+import { 
+    Loader2, Save, Plus, Trash2, GripVertical, Image as ImageIcon, Upload, Search, 
+    icons 
+} from "lucide-react"
 import { toast } from "sonner"
 import { apiFetch, buildApiUrl } from "@/lib/api"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command"
+
+// Generate a searchable list of all Lucide icons
+const ALL_LUCIDE_ICONS = Object.keys(icons).map(name => ({
+    label: name.replace(/([A-Z])/g, ' $1').trim(),
+    value: name
+}))
+
+const ICON_OPTIONS = [
+    { label: "Ticket (Offer)", value: "Ticket" },
+    { label: "Discount / %", value: "BadgePercent" },
+    { label: "Deal Tag", value: "Tag" },
+    { label: "Shopping Bag", value: "ShoppingBag" },
+    { label: "Market Cart", value: "ShoppingCart" },
+    { label: "Gift Box", value: "Gift" },
+    { label: "Flash Sale", value: "Zap" },
+    { label: "Package", value: "Package" },
+]
+
+const BUTTON_TEXT_SUGGESTIONS = [
+    "Shop Now",
+    "Explore",
+    "View More",
+    "Buy Now"
+]
+
+function getIconComponent(iconName: string) {
+    if (iconName === 'none') return null
+    const IconComponent = (icons as any)[iconName]
+    if (!IconComponent) return null
+    return <IconComponent className="h-4 w-4" />
+}
 
 type BannerLinkType = "url" | "product"
 
@@ -28,6 +64,8 @@ interface Banner {
     linkUrl: string
     linkType: BannerLinkType
     linkedProductId: string
+    buttonText: string
+    buttonIcon: string
     isActive: boolean
     order: number
 }
@@ -51,6 +89,8 @@ function createEmptyBanner(order: number): Banner {
         linkUrl: "",
         linkType: "url",
         linkedProductId: "",
+        buttonText: "Shop Now",
+        buttonIcon: "ArrowRight",
         isActive: true,
         order,
     }
@@ -69,9 +109,102 @@ function normalizeBanner(banner: any, index: number): Banner {
         linkUrl: String(banner?.linkUrl || (linkType === "product" ? buildProductLink(linkedProductId) : "")),
         linkType,
         linkedProductId,
+        buttonText: String(banner?.buttonText || "Shop Now"),
+        buttonIcon: String(banner?.buttonIcon || "ArrowRight"),
         isActive: banner?.isActive !== false,
         order: Number.isFinite(banner?.order) ? banner.order : index,
     }
+}
+
+function BannerIconPicker({ value, onSelect }: { value: string, onSelect: (val: string) => void }) {
+    const [open, setOpen] = useState(false)
+    const [search, setSearch] = useState("")
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full justify-between bg-[#161616] border-[#333] text-white hover:bg-[#222]"
+                >
+                    <div className="flex items-center gap-2">
+                        {getIconComponent(value)}
+                        <span>{ICON_OPTIONS.find(opt => opt.value === value)?.label || 
+                              ALL_LUCIDE_ICONS.find(opt => opt.value === value)?.label || 
+                              "Select icon"}</span>
+                    </div>
+                    <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent side="bottom" align="start" className="w-[300px] p-0 bg-[#161616] border-[#333] z-[100]">
+                <Command className="bg-[#161616] text-white" shouldFilter={false}>
+                    <CommandInput
+                        placeholder="Type to search all icons..."
+                        className="text-white"
+                        onValueChange={setSearch}
+                    />
+                    <CommandEmpty>No icon found.</CommandEmpty>
+
+                    <div className="max-h-[300px] overflow-y-auto min-h-[300px]">
+                        {/* Show suggestions only when NOT searching */}
+                        {!search && (
+                            <CommandGroup heading="Product & Offers" className="text-[#919191]">
+                                {ICON_OPTIONS.map((opt) => (
+                                    <CommandItem
+                                        key={opt.value}
+                                        value={opt.value}
+                                        onSelect={(val) => {
+                                            // Directly select the value from ICON_OPTIONS finding logic
+                                            const original = ICON_OPTIONS.find(o => o.value.toLowerCase() === val.toLowerCase())?.value || val
+                                            onSelect(original)
+                                            setOpen(false)
+                                            setSearch("")
+                                        }}
+                                        className="hover:bg-[#333] cursor-pointer text-white"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            {getIconComponent(opt.value)}
+                                            <span>{opt.label}</span>
+                                        </div>
+                                    </CommandItem>
+                                ))}
+                            </CommandGroup>
+                        )}
+
+                        {/* Show results only when searching */}
+                        {search && (
+                            <CommandGroup heading="Search Results" className="text-[#919191]">
+                                {ALL_LUCIDE_ICONS.filter(opt =>
+                                    opt.label.toLowerCase().includes(search.toLowerCase()) ||
+                                    opt.value.toLowerCase().includes(search.toLowerCase()) ||
+                                    opt.value === value // keep current icon visible if possible
+                                ).slice(0, 50).map((opt) => (
+                                    <CommandItem
+                                        key={opt.value}
+                                        value={opt.value}
+                                        onSelect={(val) => {
+                                            const originalValue = ALL_LUCIDE_ICONS.find(i => i.value.toLowerCase() === val.toLowerCase())?.value || val
+                                            onSelect(originalValue)
+                                            setOpen(false)
+                                            setSearch("")
+                                        }}
+                                        className="hover:bg-[#333] cursor-pointer text-white"
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            {getIconComponent(opt.value)}
+                                            <span>{opt.label}</span>
+                                        </div>
+                                    </CommandItem>
+                                ))}
+                            </CommandGroup>
+                        )}
+                    </div>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    )
 }
 
 export default function BannersPage() {
@@ -419,6 +552,45 @@ export default function BannersPage() {
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Button and Icon Customization */}
+                        <div className="grid grid-cols-2 gap-3 pt-2 border-t border-[#333]">
+                            <div>
+                                <label className="text-xs text-[#919191] mb-1 block">Button Text</label>
+                                <div className="space-y-2">
+                                    <Input
+                                        className="bg-[#161616] border-[#333] text-white text-sm"
+                                        placeholder="e.g. Shop Now"
+                                        value={banner.buttonText}
+                                        onChange={(e) => updateFn(index, 'buttonText', e.target.value)}
+                                        list={`suggestions-${type}-${index}`}
+                                    />
+                                    <datalist id={`suggestions-${type}-${index}`}>
+                                        {BUTTON_TEXT_SUGGESTIONS.map(s => <option key={s} value={s} />)}
+                                    </datalist>
+                                    <div className="flex flex-wrap gap-1">
+                                        {BUTTON_TEXT_SUGGESTIONS.map(suggestion => (
+                                            <button
+                                                key={suggestion}
+                                                type="button"
+                                                onClick={() => updateFn(index, 'buttonText', suggestion)}
+                                                className="text-[10px] px-2 py-1 rounded bg-[#333] text-white hover:bg-[#444] transition-colors"
+                                            >
+                                                {suggestion}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-xs text-[#919191] mb-1 block">Button Icon</label>
+                                <BannerIconPicker
+                                    value={banner.buttonIcon}
+                                    onSelect={(val) => updateFn(index, 'buttonIcon', val)}
+                                />
+                                <p className="text-[10px] text-[#555] mt-1">Select an icon for the button. Only top 4 suggested by default.</p>
                             </div>
                         </div>
                     </div>
