@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { 
-    Loader2, Save, Plus, Trash2, GripVertical, Image as ImageIcon, Upload, Search, 
-    icons 
+    Loader2, Save, Plus, Trash2, GripVertical, Image as ImageIcon, Upload, Search,
+    ArrowRight
 } from "lucide-react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import * as HugeIconsFree from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { apiFetch, buildApiUrl } from "@/lib/api"
 import { Switch } from "@/components/ui/switch"
@@ -16,21 +18,26 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command"
 
 // Generate a searchable list of all Lucide icons
-const ALL_LUCIDE_ICONS = Object.keys(icons).map(name => ({
-    label: name.replace(/([A-Z])/g, ' $1').trim(),
-    value: name
-}))
-
 const ICON_OPTIONS = [
-    { label: "Ticket (Offer)", value: "Ticket" },
-    { label: "Discount / %", value: "BadgePercent" },
-    { label: "Deal Tag", value: "Tag" },
-    { label: "Shopping Bag", value: "ShoppingBag" },
-    { label: "Market Cart", value: "ShoppingCart" },
-    { label: "Gift Box", value: "Gift" },
-    { label: "Flash Sale", value: "Zap" },
-    { label: "Package", value: "Package" },
+    { label: "Ticket (Offer)", value: "Ticket01Icon" },
+    { label: "Discount / %", value: "Percent01Icon" },
+    { label: "Deal Tag", value: "Tag01Icon" },
+    { label: "Shopping Bag", value: "ShoppingBag01Icon" },
+    { label: "Market Cart", value: "ShoppingCart01Icon" },
+    { label: "Gift Box", value: "GiftIcon" },
+    { label: "Flash Sale", value: "FlashIcon" },
+    { label: "Truck / Delivery", value: "DeliveryBox01Icon" },
+    { label: "Arrow Right", value: "ArrowRight01Icon" },
+    { label: "Sparkles", value: "SparklesIcon" },
 ]
+
+// Filter and prepare ALL available HugeIcons
+const ALL_HUGE_ICONS = Object.keys(HugeIconsFree)
+    .filter(key => key.endsWith('Icon'))
+    .map(key => ({
+        label: key.replace('Icon', '').replace(/([A-Z])/g, ' $1').trim(),
+        value: key
+    }))
 
 const BUTTON_TEXT_SUGGESTIONS = [
     "Shop Now",
@@ -40,10 +47,22 @@ const BUTTON_TEXT_SUGGESTIONS = [
 ]
 
 function getIconComponent(iconName: string) {
-    if (iconName === 'none') return null
-    const IconComponent = (icons as any)[iconName]
-    if (!IconComponent) return null
-    return <IconComponent className="h-4 w-4" />
+    if (!iconName || iconName === 'none') return <ArrowRight className="h-4 w-4 text-white" />
+    
+    // Find the icon in the HugeIcons collection
+    const IconData = (HugeIconsFree as any)[iconName]
+    if (IconData) {
+        return (
+            <HugeiconsIcon 
+                icon={IconData} 
+                size={16} 
+                color="currentColor" 
+                strokeWidth={2}
+            />
+        )
+    }
+    
+    return <ArrowRight className="h-4 w-4 text-white" />
 }
 
 type BannerLinkType = "url" | "product"
@@ -132,7 +151,7 @@ function BannerIconPicker({ value, onSelect }: { value: string, onSelect: (val: 
                     <div className="flex items-center gap-2">
                         {getIconComponent(value)}
                         <span>{ICON_OPTIONS.find(opt => opt.value === value)?.label || 
-                              ALL_LUCIDE_ICONS.find(opt => opt.value === value)?.label || 
+                              ALL_HUGE_ICONS.find(opt => opt.value === value)?.label || 
                               "Select icon"}</span>
                     </div>
                     <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -176,16 +195,16 @@ function BannerIconPicker({ value, onSelect }: { value: string, onSelect: (val: 
                         {/* Show results only when searching */}
                         {search && (
                             <CommandGroup heading="Search Results" className="text-[#919191]">
-                                {ALL_LUCIDE_ICONS.filter(opt =>
+                                {ALL_HUGE_ICONS.filter(opt =>
                                     opt.label.toLowerCase().includes(search.toLowerCase()) ||
                                     opt.value.toLowerCase().includes(search.toLowerCase()) ||
                                     opt.value === value // keep current icon visible if possible
-                                ).slice(0, 50).map((opt) => (
+                                ).slice(0, 50).map((opt: any) => (
                                     <CommandItem
                                         key={opt.value}
                                         value={opt.value}
                                         onSelect={(val) => {
-                                            const originalValue = ALL_LUCIDE_ICONS.find(i => i.value.toLowerCase() === val.toLowerCase())?.value || val
+                                            const originalValue = ALL_HUGE_ICONS.find(i => i.value.toLowerCase() === val.toLowerCase())?.value || val
                                             onSelect(originalValue)
                                             setOpen(false)
                                             setSearch("")
