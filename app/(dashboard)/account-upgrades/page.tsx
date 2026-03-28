@@ -67,17 +67,17 @@ export default function AccountUpgradesPage() {
             if (res.ok) {
                 // Filter customers who applied for wholesale (have business info but aren't wholesalers yet)
                 // or you can rely on a specific backend route that returns only these requests.
-                const items = data.data || []
-                
+                const items: Customer[] = data.data || []
+
                 // Applicants are those with status 'pending' or those who have businessName but no status yet (migration fallback)
-                const pendingRequests = items.filter((c: Customer) => 
+                const pendingRequests = items.filter((c: Customer) =>
                     c.businessInfo?.status === 'pending' || (c.role !== 'wholesaler' && c.businessInfo?.businessName && !c.businessInfo?.status)
                 )
-                
-                const historyRequests = items.filter((c: Customer) => 
+
+                const historyRequests = items.filter((c: Customer) =>
                     c.businessInfo?.status === 'accepted' || c.businessInfo?.status === 'rejected'
-                ).sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-                
+                ).sort((a: Customer, b: Customer) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+
                 setPending(pendingRequests)
                 setHistory(historyRequests)
             } else {
@@ -99,7 +99,7 @@ export default function AccountUpgradesPage() {
                 method: 'PUT',
                 body: JSON.stringify({ action })
             })
-            
+
             if (res.ok) {
                 toast.success(`Application ${action === 'accept' ? 'accepted' : 'rejected'} successfully`)
                 setIsDetailsOpen(false)
@@ -225,13 +225,12 @@ export default function AccountUpgradesPage() {
                                                 <div className="text-xs text-gray-400">{cust.name}</div>
                                             </TableCell>
                                             <TableCell className="py-3">
-                                                <Badge 
-                                                    variant="outline" 
-                                                    className={`text-[10px] uppercase font-bold ${
-                                                        cust.businessInfo?.status === 'accepted' 
-                                                        ? "text-green-400 border-green-500/20 bg-green-500/5" 
-                                                        : "text-red-400 border-red-500/20 bg-red-500/5"
-                                                    }`}
+                                                <Badge
+                                                    variant="outline"
+                                                    className={`text-[10px] uppercase font-bold ${cust.businessInfo?.status === 'accepted'
+                                                            ? "text-green-400 border-green-500/20 bg-green-500/5"
+                                                            : "text-red-400 border-red-500/20 bg-red-500/5"
+                                                        }`}
                                                 >
                                                     {cust.businessInfo?.status}
                                                 </Badge>
@@ -256,7 +255,7 @@ export default function AccountUpgradesPage() {
                                     ))}
                                 </TableBody>
                             </Table>
-                            
+
                             {history.length > 5 && (
                                 <div className="flex justify-center mt-4">
                                     <Button
@@ -352,9 +351,9 @@ export default function AccountUpgradesPage() {
                                             {selectedCustomer.businessInfo.proofImages.map((url, i) => (
                                                 <a href={url} target="_blank" rel="noopener noreferrer" key={i} className="group relative block overflow-hidden rounded-md border border-[#333] hover:border-blue-500/50 transition-colors">
                                                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img 
-                                                        src={url} 
-                                                        alt={`Business proof ${i + 1}`} 
+                                                    <img
+                                                        src={url}
+                                                        alt={`Business proof ${i + 1}`}
                                                         className="h-28 w-28 object-cover group-hover:scale-105 transition-transform duration-300"
                                                     />
                                                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -368,8 +367,8 @@ export default function AccountUpgradesPage() {
                             </div>
 
                             <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#333]">
-                                <Button 
-                                    variant="outline" 
+                                <Button
+                                    variant="outline"
                                     className="border-[#333] bg-transparent text-white hover:bg-[#333]"
                                     onClick={() => setIsDetailsOpen(false)}
                                 >
