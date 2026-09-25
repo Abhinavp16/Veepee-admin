@@ -72,9 +72,9 @@ export function RecentOrders() {
     }
 
     return (
-        <div className="bg-[#0D0D0D] rounded-2xl p-6">
+        <section className="rounded-2xl border border-[#242724] bg-[#101210] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.24)] sm:p-6">
             <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-white">Recent Orders</h3>
+                <div><h3 className="text-xl font-semibold text-white">Recent Orders</h3><p className="mt-1 text-sm text-[#737B75]">Latest activity across customer orders</p></div>
                 <Link href="/orders" className="text-sm text-[#86efac] flex items-center gap-1 hover:underline">
                     View All <ArrowUpRight className="h-4 w-4" />
                 </Link>
@@ -87,9 +87,10 @@ export function RecentOrders() {
             ) : orders.length === 0 ? (
                 <div className="text-center py-10 text-gray-500 text-sm">No orders yet</div>
             ) : (
-                <table className="w-full">
+                <div className="overflow-x-auto rounded-xl border border-[#1D211D] bg-[#0B0D0B]">
+                <table className="w-full min-w-[840px]">
                     <thead>
-                        <tr className="text-[#919191] text-sm border-b border-[#1F1F1F]">
+                        <tr className="border-b border-[#242724] bg-[#111411] text-sm text-[#919991]">
                             <th className="pb-4 text-left font-medium pl-2">Order ID</th>
                             <th className="pb-4 text-left font-medium">Customer</th>
                             <th className="pb-4 text-left font-medium">Date</th>
@@ -104,7 +105,7 @@ export function RecentOrders() {
                             return (
                                 <tr
                                     key={order._id}
-                                    className="group hover:bg-[#1A1A1A] transition-colors border-b border-[#1F1F1F] last:border-0"
+                                    className="group border-b border-[#1F1F1F] transition-colors last:border-0 hover:bg-[#151915]"
                                 >
                                     <td className="py-4 pl-2 text-white font-medium">{order.orderNumber}</td>
                                     <td className="py-4 text-[#E7E7E7]">{order.customerSnapshot?.name || '—'}</td>
@@ -135,7 +136,8 @@ export function RecentOrders() {
                         })}
                     </tbody>
                 </table>
+                </div>
             )}
-        </div>
+        </section>
     )
 }

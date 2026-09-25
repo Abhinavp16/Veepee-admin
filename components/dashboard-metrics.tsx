@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from 'react'
-import { Wallet, ShoppingCart, Users, Handshake, Loader2 } from 'lucide-react'
+import { Wallet, ShoppingCart, Users, Handshake, Loader2, ReceiptIndianRupee } from 'lucide-react'
 import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 
@@ -57,7 +57,7 @@ export function DashboardMetrics() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center p-6 bg-[#0D0D0D] rounded-2xl h-28">
+      <div className="flex h-36 items-center justify-center rounded-2xl border border-[#242724] bg-[#101210] p-6 shadow-[0_16px_45px_rgba(0,0,0,0.24)]">
         <Loader2 className="h-6 w-6 animate-spin text-[#86efac]" />
       </div>
     )
@@ -67,39 +67,47 @@ export function DashboardMetrics() {
   const today = data?.today
 
   return (
-    <div className="flex flex-col xl:flex-row gap-8 xl:items-center justify-between p-6 bg-[#0D0D0D] rounded-2xl">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2 text-gray-400">
-          <Wallet className="h-5 w-5" />
-          <span className="text-lg">Total Revenue</span>
+    <section className="grid gap-4 xl:grid-cols-[1.35fr_2fr]" aria-label="Dashboard overview">
+      <div className="relative overflow-hidden rounded-2xl border border-[#284132] bg-[linear-gradient(135deg,#142019_0%,#101410_52%,#0d0f0d_100%)] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+        <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-[#86efac]/10 blur-3xl" />
+        <div className="relative flex h-full min-h-36 flex-col justify-between gap-7">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5 text-[#B7C0B9]">
+              <span className="rounded-lg border border-[#86efac]/15 bg-[#86efac]/10 p-2 text-[#86efac]"><Wallet className="h-5 w-5" /></span>
+              <span className="text-sm font-medium uppercase tracking-[0.12em]">Total Revenue</span>
+            </div>
+            <span className="rounded-full border border-[#86efac]/15 bg-[#86efac]/5 px-3 py-1 text-[11px] font-medium text-[#86efac]">Paid orders</span>
+          </div>
+          <div>
+            <div className="text-4xl font-bold tracking-tight text-white sm:text-5xl">{formatCurrency(overview?.totalRevenue ?? 0)}</div>
+            <p className="mt-2 text-sm text-[#7F8982]">Verified revenue across the marketplace</p>
+            {today && today.revenue > 0 && <span className="mt-3 inline-block text-xs font-medium text-[#86efac]">+{formatCurrency(today.revenue)} today</span>}
+          </div>
         </div>
-        <div className="text-5xl md:text-4xl lg:text-5xl font-bold text-white">{formatCurrency(overview?.totalRevenue ?? 0)}</div>
-        {today && today.revenue > 0 && (
-          <span className="text-xs text-[#86efac]">+{formatCurrency(today.revenue)} today</span>
-        )}
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-8 xl:gap-16">
-        <div className="flex flex-col gap-1">
-          <span className="text-gray-400 text-sm flex items-center gap-2"><ShoppingCart className="w-4 h-4" /> Total Orders</span>
-          <span className="text-2xl md:text-xl lg:text-2xl font-semibold text-white">{(overview?.totalOrders ?? 0).toLocaleString()}</span>
-          {today && today.orders > 0 && (
-            <span className="text-xs text-[#86efac]">+{today.orders} today</span>
-          )}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="rounded-2xl border border-[#242724] bg-[#101210] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.2)] transition-colors hover:border-[#343934]">
+          <span className="flex items-center gap-2 text-sm text-[#929A94]"><ShoppingCart className="h-4 w-4 text-white" /> Total Orders</span>
+          <span className="mt-4 block text-3xl font-semibold text-white">{(overview?.totalOrders ?? 0).toLocaleString()}</span>
+          <span className="mt-1 block min-h-4 text-xs text-[#86efac]">{today && today.orders > 0 ? `+${today.orders} today` : "All recorded orders"}</span>
         </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-gray-400 text-sm flex items-center gap-2"><Users className="w-4 h-4" /> Customers</span>
-          <span className="text-2xl md:text-xl lg:text-2xl font-semibold text-[#86efac]">{(overview?.totalCustomers ?? 0).toLocaleString()}</span>
+        <div className="rounded-2xl border border-[#242724] bg-[#101210] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.2)] transition-colors hover:border-[#343934]">
+          <span className="flex items-center gap-2 text-sm text-[#929A94]"><Users className="h-4 w-4 text-[#86efac]" /> Customers</span>
+          <span className="mt-4 block text-3xl font-semibold text-[#86efac]">{(overview?.totalCustomers ?? 0).toLocaleString()}</span>
+          <span className="mt-1 block text-xs text-[#68706A]">Active buyer accounts</span>
         </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-gray-400 text-sm flex items-center gap-2"><Handshake className="w-4 h-4" /> Negotiations</span>
-          <span className="text-2xl md:text-xl lg:text-2xl font-semibold text-[#fbbf24]">{overview?.activeNegotiations ?? 0}</span>
+        <div className="rounded-2xl border border-[#242724] bg-[#101210] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.2)] transition-colors hover:border-[#343934]">
+          <span className="flex items-center gap-2 text-sm text-[#929A94]"><Handshake className="h-4 w-4 text-[#fbbf24]" /> Negotiations</span>
+          <span className="mt-4 block text-3xl font-semibold text-[#fbbf24]">{overview?.activeNegotiations ?? 0}</span>
+          <span className="mt-1 block text-xs text-[#68706A]">Awaiting resolution</span>
         </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-gray-400 text-sm">Pending Payments</span>
-          <span className="text-2xl md:text-xl lg:text-2xl font-semibold text-orange-400">{overview?.pendingPayments ?? 0}</span>
+        <div className="rounded-2xl border border-[#302A22] bg-[#12110F] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.2)] transition-colors hover:border-[#493B27]">
+          <span className="flex items-center gap-2 text-sm text-[#929A94]"><ReceiptIndianRupee className="h-4 w-4 text-orange-400" /> Pending Payments</span>
+          <span className="mt-4 block text-3xl font-semibold text-orange-400">{overview?.pendingPayments ?? 0}</span>
+          <span className="mt-1 block text-xs text-[#746A5C]">Needs verification</span>
         </div>
       </div>
-    </div>
+    </section>
   )
 }
