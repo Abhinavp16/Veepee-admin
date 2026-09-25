@@ -1,7 +1,9 @@
 "use client"
 
 import { Fragment, useState, useEffect } from "react"
-import { Plus, Pencil, Trash2, FolderTree, Loader2, LayoutGrid, List, Upload, Link, Package, Search, GripVertical, ArrowUp, ArrowDown } from "lucide-react"
+import { Plus, Pencil, Trash2, FolderTree, Loader2, LayoutGrid, List, Upload, Link, Package, Search, GripVertical, ArrowUp, ArrowDown, Unlink } from "lucide-react"
+import NextLink from "next/link"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -44,14 +46,26 @@ interface Category {
     order?: number
     isActive: boolean
     productCount: number
+    directProductCount?: number
+    recursiveProductCount?: number
     createdAt: string
+}
+
+interface Company {
+    _id: string
+    name: string
+    slug: string
 }
 
 type UploadStatus = 'idle' | 'converting' | 'uploading' | 'done'
 
 export default function CategoriesPage() {
+    const searchParams = useSearchParams()
+    const companyId = searchParams.get("companyId")
     const isAdmin = useDashboardUser()?.role === 'admin'
     const [categories, setCategories] = useState<Category[]>([])
+    const [scopedCategories, setScopedCategories] = useState<Category[]>([])
+    const [company, setCompany] = useState<Company | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -64,6 +78,10 @@ export default function CategoriesPage() {
     const [totalCategories, setTotalCategories] = useState(0)
     const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null)
     const [isReordering, setIsReordering] = useState(false)
+    const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false)
+    const [linkSearch, setLinkSearch] = useState("")
+    const [isLinking, setIsLinking] = useState<string | null>(null)
+    const [unlinkCategory, setUnlinkCategory] = useState<Category | null>(null)
 
     // Form state
     const [name, setName] = useState("")
@@ -79,14 +97,28 @@ export default function CategoriesPage() {
 
     useEffect(() => {
         fetchCategories()
-    }, [])
+    }, [companyId])
 
     async function fetchCategories() {
         setIsLoading(true)
         try {
-            const items = await fetchAllCategories() as Category[]
+            const [items, scopedResponse] = await Promise.all([
+                fetchAllCategories() as Promise<Category[]>,
+                companyId ? apiFetch(`/companies/${companyId}/categories`) : Promise.resolve(null),
+            ])
             setCategories(items)
-            setTotalCategories(items.length)
+            if (scopedResponse) {
+                const payload = await scopedResponse.json().catch(() => null)
+                if (!scopedResponse.ok) throw new Error(payload?.message || "Failed to load brand categories")
+                setCompany(payload?.data?.company || null)
+                const associated = Array.isArray(payload?.data?.categories) ? payload.data.categories : []
+                setScopedCategories(associated)
+                setTotalCategories(associated.length)
+            } else {
+                setCompany(null)
+                setScopedCategories([])
+                setTotalCategories(items.length)
+            }
         } catch (error) {
             console.error("Failed to fetch categories:", error)
             toast.error("Failed to load categories")
@@ -221,7 +253,9 @@ export default function CategoriesPage() {
 
             const endpoint = editingCategory
                 ? `/categories/${editingCategory._id}`
-                : "/categories"
+                : companyId
+                    ? `/companies/${companyId}/categories`
+                    : "/categories"
 
             const res = await apiFetch(endpoint, {
                 method: editingCategory ? "PUT" : "POST",
@@ -262,6 +296,40 @@ export default function CategoriesPage() {
         }
     }
 
+    async function handleLink(category: Category) {
+        if (!companyId) return
+        setIsLinking(category._id)
+        try {
+            const response = await apiFetch(`/companies/${companyId}/categories/${category._id}`, { method: "PUT" })
+            const payload = await response.json().catch(() => null)
+            if (!response.ok) throw new Error(payload?.message || "Failed to link category")
+            toast.success(`${category.name} linked to ${company?.name || "brand"}`)
+            await fetchCategories()
+        } catch (error: any) {
+            toast.error(error.message || "Failed to link category")
+        } finally {
+            setIsLinking(null)
+        }
+    }
+
+    async function handleUnlink() {
+        if (!companyId || !unlinkCategory) return
+        try {
+            const response = await apiFetch(`/companies/${companyId}/categories/${unlinkCategory._id}`, { method: "DELETE" })
+            const payload = await response.json().catch(() => null)
+            if (!response.ok) {
+                throw new Error(response.status === 409
+                    ? payload?.message || "This category cannot be removed while brand products still use it."
+                    : payload?.message || "Failed to remove category from brand")
+            }
+            toast.success(`${unlinkCategory.name} removed from ${company?.name || "brand"}`)
+            setUnlinkCategory(null)
+            await fetchCategories()
+        } catch (error: any) {
+            toast.error(error.message || "Failed to remove category from brand")
+        }
+    }
+
     // Get parent categories for the dropdown (exclude the category being edited)
     const parentOptions = categories.filter(c => 
         !editingCategory || c._id !== editingCategory._id
@@ -270,10 +338,15 @@ export default function CategoriesPage() {
     const compareCategories = (a: Category, b: Category) =>
         (a.order || 0) - (b.order || 0) || a.name.localeCompare(b.name)
     const normalizedSearch = searchQuery.trim().toLowerCase()
+    const displayedCategories = companyId ? scopedCategories : categories
     const visibleCategories = normalizedSearch
-        ? categories.filter((category) => category.name.toLowerCase().includes(normalizedSearch) || category.slug.toLowerCase().includes(normalizedSearch))
-        : categories
+        ? displayedCategories.filter((category) => category.name.toLowerCase().includes(normalizedSearch) || category.slug.toLowerCase().includes(normalizedSearch))
+        : displayedCategories
     const parentById = new Map(categories.map((category) => [category._id, category]))
+    const linkedIds = new Set(scopedCategories.map((category) => category._id))
+    const linkOptions = categories.filter((category) => !linkedIds.has(category._id) && (
+        !linkSearch.trim() || `${category.name} ${category.slug}`.toLowerCase().includes(linkSearch.trim().toLowerCase())
+    ))
     const parentIds = [...new Set(visibleCategories.map(getCategoryParentId).filter((id): id is string => Boolean(id)))]
     const categoryGroups = [
         {
@@ -310,7 +383,7 @@ export default function CategoriesPage() {
     }
 
     function reorderCategory(categoryId: string, targetId: string, placeAfter = false) {
-        if (categoryId === targetId || normalizedSearch || isReordering) return
+        if (companyId || categoryId === targetId || normalizedSearch || isReordering) return
         const category = categories.find((item) => item._id === categoryId)
         const target = categories.find((item) => item._id === targetId)
         if (!category || !target || getCategoryParentId(category) !== getCategoryParentId(target)) return
@@ -335,9 +408,9 @@ export default function CategoriesPage() {
     }
 
     function ReorderControls({ category, index, count }: { category: Category; index: number; count: number }) {
-        const disabled = Boolean(normalizedSearch) || isReordering
+        const disabled = Boolean(companyId) || Boolean(normalizedSearch) || isReordering
         return (
-            <div className="flex items-center" title={normalizedSearch ? "Clear search to reorder complete sibling groups" : undefined}>
+            <div className="flex items-center" title={companyId ? "Ordering is disabled in brand view because this is not a complete global sibling list" : normalizedSearch ? "Clear search to reorder complete sibling groups" : undefined}>
                 <button
                     type="button"
                     tabIndex={disabled ? -1 : 0}
@@ -371,13 +444,22 @@ export default function CategoriesPage() {
 
     return (
         <div className="space-y-6">
+            {companyId && (
+                <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-gray-400">
+                    <NextLink href="/brands" className="hover:text-white">Brands</NextLink>
+                    <span aria-hidden="true">/</span>
+                    <span className="text-gray-300">{company?.name || "Brand"}</span>
+                    <span aria-hidden="true">/</span>
+                    <span aria-current="page" className="text-white">Categories</span>
+                </nav>
+            )}
             {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-wrap items-center gap-3">
                     <FolderTree className="h-8 w-8 text-[#86efac]" />
                     <div>
-                        <h1 className="text-3xl font-bold text-white">Categories</h1>
-                        <p className="text-gray-400 text-sm">{totalCategories > 0 && `(${totalCategories} categories)`}</p>
+                        <h1 className="text-3xl font-bold text-white">{company ? `${company.name} Categories` : "Categories"}</h1>
+                        <p className="text-gray-400 text-sm">{totalCategories > 0 && `(${totalCategories} ${companyId ? "linked " : ""}categories)`}</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -396,7 +478,15 @@ export default function CategoriesPage() {
                             <LayoutGrid className="h-4 w-4" />
                         </button>
                     </div>
-                    <Button 
+                    {companyId && <Button
+                        onClick={() => setIsLinkDialogOpen(true)}
+                        variant="outline"
+                        className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
+                    >
+                        <Link className="h-4 w-4 mr-2" />
+                        Link existing category
+                    </Button>}
+                    <Button
                         onClick={openCreateDialog}
                         className="bg-[#86efac] text-black hover:bg-[#86efac]/90"
                     >
@@ -439,7 +529,9 @@ export default function CategoriesPage() {
                 )}
             </form>
             <p className="text-xs text-gray-500">
-                Drag categories or use the arrow buttons to reorder within each sibling group. Clear search to enable ordering.
+                {companyId
+                    ? "Ordering is disabled in brand view because linked categories may not include every global sibling. Edit category details here changes the shared category everywhere."
+                    : "Drag categories or use the arrow buttons to reorder within each sibling group. Clear search to enable ordering."}
             </p>
 
             {/* Categories Content */}
@@ -506,8 +598,10 @@ export default function CategoriesPage() {
                                         </div>
                                     </TableCell>
                                     <TableCell className="font-medium text-white">
+                                        <NextLink href={`/products?${companyId ? `companyId=${encodeURIComponent(companyId)}&` : ""}categoryId=${encodeURIComponent(category._id)}&includeDescendants=true`} className="block hover:text-[#86efac] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86efac]">
                                         <div>{category.name}</div>
                                         <div className="text-xs font-normal text-gray-600">Position {index + 1}</div>
+                                        </NextLink>
                                     </TableCell>
                                     <TableCell className="text-gray-400">
                                         {category.slug}
@@ -520,7 +614,7 @@ export default function CategoriesPage() {
                                     <TableCell>
                                         <span className="flex items-center gap-1 text-gray-400">
                                             <Package className="h-3 w-3" />
-                                            {category.productCount}
+                                            {companyId ? `${category.directProductCount ?? 0} direct / ${category.recursiveProductCount ?? category.directProductCount ?? 0} total` : category.productCount}
                                         </span>
                                     </TableCell>
                                     <TableCell>
@@ -534,19 +628,33 @@ export default function CategoriesPage() {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex justify-end gap-2">
-                                            <Button 
+                                            <Button
                                                 size="icon" 
                                                 variant="ghost" 
                                                 className="h-8 w-8 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10"
                                                 onClick={() => openEditDialog(category)}
+                                                 aria-label={`Edit shared category ${category.name}`}
+                                                 title={companyId ? "Edit shared category globally" : "Edit category"}
                                             >
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
+                                            {isAdmin && companyId && <Button
+                                                 size="icon"
+                                                 variant="ghost"
+                                                 className="h-8 w-8 text-orange-400 hover:text-orange-300 hover:bg-orange-400/10"
+                                                 onClick={() => setUnlinkCategory(category)}
+                                                 aria-label={`Remove ${category.name} from brand`}
+                                                 title="Remove from brand only"
+                                             >
+                                                 <Unlink className="h-4 w-4" />
+                                             </Button>}
                                             {isAdmin && <Button
                                                 size="icon" 
                                                 variant="ghost" 
                                                 className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10"
                                                 onClick={() => setDeleteConfirmId(category._id)}
+                                                 aria-label={`Delete shared category ${category.name} globally`}
+                                                 title="Delete category globally"
                                             >
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>}
@@ -580,12 +688,17 @@ export default function CategoriesPage() {
                                 const sourceId = event.dataTransfer.getData("text/plain") || draggedCategoryId
                                 if (sourceId) reorderCategory(sourceId, category._id)
                             }}
-                            className={`bg-[#161616] rounded-xl border p-4 hover:border-[#444] transition-colors ${draggedCategoryId === category._id ? "opacity-50" : ""} ${
+                            className={`group relative bg-[#161616] rounded-xl border p-4 hover:border-[#444] transition-colors ${draggedCategoryId === category._id ? "opacity-50" : ""} ${
                                 category.isActive ? 'border-[#333]' : 'border-[#333] opacity-60'
                             }`}
                         >
+                            <NextLink
+                                href={`/products?${companyId ? `companyId=${encodeURIComponent(companyId)}&` : ""}categoryId=${encodeURIComponent(category._id)}&includeDescendants=true`}
+                                className="absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86efac]"
+                                aria-label={`View products in ${category.name}`}
+                            />
                             <div className="flex items-start justify-between mb-3">
-                                <div className="flex items-start gap-1">
+                                <div className="relative z-10 flex items-start gap-1">
                                 <ReorderControls category={category} index={index} count={group.items.length} />
                                 {category.image?.url ? (
                                     <img 
@@ -599,7 +712,7 @@ export default function CategoriesPage() {
                                     </div>
                                 )}
                                 </div>
-                                <div className="flex gap-1">
+                                <div className="relative z-10 flex gap-1">
                                     <Button 
                                         size="icon" 
                                         variant="ghost" 
@@ -608,7 +721,17 @@ export default function CategoriesPage() {
                                     >
                                         <Pencil className="h-4 w-4" />
                                     </Button>
-                                    {isAdmin && <Button
+                                     {isAdmin && companyId && <Button
+                                         size="icon"
+                                         variant="ghost"
+                                         className="h-8 w-8 text-orange-400 hover:text-orange-300 hover:bg-orange-400/10"
+                                         onClick={() => setUnlinkCategory(category)}
+                                         aria-label={`Remove ${category.name} from brand`}
+                                         title="Remove from brand only"
+                                     >
+                                         <Unlink className="h-4 w-4" />
+                                     </Button>}
+                                     {isAdmin && <Button
                                         size="icon" 
                                         variant="ghost" 
                                         className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10"
@@ -618,8 +741,10 @@ export default function CategoriesPage() {
                                     </Button>}
                                 </div>
                             </div>
-                            <h3 className="font-semibold text-white text-lg mb-1">{category.name}</h3>
+                            <div>
+                            <h3 className="font-semibold text-white text-lg mb-1 group-hover:text-[#86efac]">{category.name}</h3>
                             <p className="text-gray-500 text-sm mb-2">/{category.slug} - Position {index + 1}</p>
+                            </div>
                             <div className="flex items-center gap-3 text-xs">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${
                                     category.isActive 
@@ -630,7 +755,7 @@ export default function CategoriesPage() {
                                 </span>
                                 <span className="flex items-center gap-1 text-gray-400">
                                     <Package className="h-3 w-3" />
-                                    {category.productCount} products
+                                    {companyId ? `${category.directProductCount ?? 0} direct / ${category.recursiveProductCount ?? category.directProductCount ?? 0} total` : `${category.productCount} products`}
                                 </span>
                             </div>
                             {getCategoryParentId(category) && (
@@ -652,12 +777,12 @@ export default function CategoriesPage() {
                 <DialogContent className="bg-[#161616] border-[#333] max-w-lg">
                     <DialogHeader>
                         <DialogTitle className="text-white">
-                            {editingCategory ? "Edit Category" : "Add New Category"}
+                            {editingCategory ? `Edit Shared Category${company ? ` for ${company.name}` : ""}` : `Add New Category${company ? ` to ${company.name}` : ""}`}
                         </DialogTitle>
                         <DialogDescription className="text-gray-400">
                             {editingCategory 
-                                ? "Update the category information below."
-                                : "Create a new category to organize your products."
+                                ? "Changes apply globally anywhere this shared category is used."
+                                : company ? "Create a category and link it to this brand." : "Create a new category to organize your products."
                             }
                         </DialogDescription>
                     </DialogHeader>
@@ -889,6 +1014,53 @@ export default function CategoriesPage() {
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             {editingCategory ? "Update Category" : "Create Category"}
                         </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isLinkDialogOpen} onOpenChange={setIsLinkDialogOpen}>
+                <DialogContent className="bg-[#161616] border-[#333]">
+                    <DialogHeader>
+                        <DialogTitle className="text-white">Link existing category</DialogTitle>
+                        <DialogDescription className="text-gray-400">
+                            Link a shared category to {company?.name || "this brand"}. The category itself is not changed.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Input
+                        value={linkSearch}
+                        onChange={(event) => setLinkSearch(event.target.value)}
+                        placeholder="Search categories..."
+                        className="bg-[#0D0D0D] border-[#333] text-white"
+                    />
+                    <div className="max-h-72 space-y-1 overflow-y-auto">
+                        {linkOptions.map((category) => (
+                            <button
+                                key={category._id}
+                                type="button"
+                                onClick={() => handleLink(category)}
+                                disabled={Boolean(isLinking)}
+                                className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-white hover:bg-[#222] disabled:opacity-50"
+                            >
+                                <span><span className="block font-medium">{category.name}</span><span className="block text-xs text-gray-500">/{category.slug}</span></span>
+                                {isLinking === category._id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link className="h-4 w-4 text-[#86efac]" />}
+                            </button>
+                        ))}
+                        {linkOptions.length === 0 && <p className="py-8 text-center text-sm text-gray-500">No unlinked categories found.</p>}
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={Boolean(unlinkCategory)} onOpenChange={(open) => !open && setUnlinkCategory(null)}>
+                <DialogContent className="bg-[#161616] border-[#333]">
+                    <DialogHeader>
+                        <DialogTitle className="text-white">Remove from brand</DialogTitle>
+                        <DialogDescription className="text-gray-400">
+                            Remove {unlinkCategory?.name} from {company?.name || "this brand"}? The shared category will remain available globally. This may be blocked while brand products use it.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setUnlinkCategory(null)} className="border-[#333] bg-[#1A1A1A] text-gray-300">Cancel</Button>
+                        <Button onClick={handleUnlink} className="bg-orange-600 text-white hover:bg-orange-700">Remove from brand</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

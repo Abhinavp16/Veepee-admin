@@ -24,6 +24,7 @@ import {
 import { apiFetch } from "@/lib/api"
 import { toast } from "sonner"
 import { useDashboardUser } from "@/components/dashboard-context"
+import NextLink from "next/link"
 
 interface Company {
     _id: string
@@ -343,7 +344,9 @@ export default function BrandsPage() {
                                         )}
                                     </TableCell>
                                     <TableCell className="font-medium text-white">
-                                        {company.name}
+                                        <NextLink className="hover:text-[#86efac] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86efac]" href={`/categories?companyId=${encodeURIComponent(company._id)}`}>
+                                            {company.name}
+                                        </NextLink>
                                     </TableCell>
                                     <TableCell className="text-gray-400">
                                         {company.slug}
@@ -382,8 +385,13 @@ export default function BrandsPage() {
                     {companies.map((company) => (
                         <div 
                             key={company._id} 
-                            className="bg-[#161616] rounded-xl border border-[#333] p-4 hover:border-[#444] transition-colors"
+                            className="group relative bg-[#161616] rounded-xl border border-[#333] p-4 hover:border-[#444] transition-colors"
                         >
+                            <NextLink
+                                href={`/categories?companyId=${encodeURIComponent(company._id)}`}
+                                className="absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86efac]"
+                                aria-label={`View categories for ${company.name}`}
+                            />
                             <div className="flex items-start justify-between mb-4">
                                 {company.logo?.url ? (
                                     <img 
@@ -396,7 +404,7 @@ export default function BrandsPage() {
                                         <Building2 className="h-8 w-8 text-gray-500" />
                                     </div>
                                 )}
-                                <div className="flex gap-1">
+                                <div className="relative z-10 flex gap-1">
                                     <Button 
                                         size="icon" 
                                         variant="ghost" 
@@ -415,11 +423,13 @@ export default function BrandsPage() {
                                     </Button>}
                                 </div>
                             </div>
-                            <h3 className="font-semibold text-white text-lg mb-1">{company.name}</h3>
-                            <p className="text-gray-500 text-sm mb-2">/{company.slug}</p>
-                            {company.description && (
-                                <p className="text-gray-400 text-sm line-clamp-2">{company.description}</p>
-                            )}
+                            <div>
+                                <h3 className="font-semibold text-white text-lg mb-1 group-hover:text-[#86efac]">{company.name}</h3>
+                                <p className="text-gray-500 text-sm mb-2">/{company.slug}</p>
+                                {company.description && (
+                                    <p className="text-gray-400 text-sm line-clamp-2">{company.description}</p>
+                                )}
+                            </div>
                         </div>
                     ))}
                 </div>
