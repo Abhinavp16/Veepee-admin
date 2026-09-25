@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { Plus, Loader2, Pencil, Trash2, Eye, LayoutGrid, List, Package, Star, Languages, Search } from "lucide-react"
+import { Plus, Loader2, Pencil, Trash2, LayoutGrid, List, Package, Star, Languages, Search } from "lucide-react"
 import { useEffect, useState, useCallback } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
     Table,
     TableBody,
@@ -17,6 +18,8 @@ import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
 import { useDashboardUser } from "@/components/dashboard-context"
+import { productFormHref } from "@/lib/admin-context"
+import { fetchAllCategories } from "@/lib/categories"
 
 interface Product {
     _id: string
@@ -80,6 +83,12 @@ function getProductRating(product: any): number | null {
 }
 
 export default function ProductsPage() {
+    const router = useRouter()
+    const pathname = usePathname()
+    const searchParams = useSearchParams()
+    const companyId = searchParams.get("companyId")
+    const categoryId = searchParams.get("categoryId")
+    const includeDescendants = searchParams.get("includeDescendants") === "true"
     const isAdmin = useDashboardUser()?.role === 'admin'
     const [products, setProducts] = useState<Product[]>([])
     const [isLoading, setIsLoading] = useState(true)
@@ -93,15 +102,47 @@ export default function ProductsPage() {
     const [totalPages, setTotalPages] = useState(1)
     const [totalProducts, setTotalProducts] = useState(0)
     const [hasMore, setHasMore] = useState(false)
+    const [contextCompany, setContextCompany] = useState<{ _id: string; name: string } | null>(null)
+    const [contextCategory, setContextCategory] = useState<{ _id: string; name: string } | null>(null)
 
     useEffect(() => {
-        fetchProducts(1, true)
-    }, [])
+        const requestedPage = Math.max(1, Number(searchParams.get("page")) || 1)
+        const requestedSearch = searchParams.get("search") || ""
+        setSearchQuery(requestedSearch)
+        setPage(requestedPage)
+        void fetchProducts(requestedPage, true, requestedSearch)
+        void fetchContext()
+    }, [searchParams])
+
+    async function fetchContext() {
+        try {
+            if (companyId) {
+                const response = await apiFetch(`/companies/${companyId}/categories`)
+                const payload = await response.json().catch(() => null)
+                if (response.ok) {
+                    setContextCompany(payload?.data?.company || null)
+                    const associated = Array.isArray(payload?.data?.categories) ? payload.data.categories : []
+                    setContextCategory(associated.find((category: any) => category._id === categoryId) || null)
+                    return
+                }
+            }
+            setContextCompany(null)
+            if (categoryId) {
+                const allCategories = await fetchAllCategories()
+                setContextCategory(allCategories.find((category) => category._id === categoryId) || null)
+            } else {
+                setContextCategory(null)
+            }
+        } catch {
+            setContextCompany(null)
+            setContextCategory(null)
+        }
+    }
 
     async function fetchProducts(pageNum: number = 1, reset: boolean = false, query: string = searchQuery) {
         if (reset) {
             setIsLoading(true)
-            setPage(1)
+            setPage(pageNum)
         } else {
             setIsLoadingMore(true)
         }
@@ -111,6 +152,9 @@ export default function ProductsPage() {
             const params = new URLSearchParams()
             params.append('page', pageNum.toString())
             params.append('limit', '20')
+            if (companyId) params.append('companyId', companyId)
+            if (categoryId) params.append('categoryId', categoryId)
+            if (includeDescendants) params.append('includeDescendants', 'true')
             if (query.trim()) {
                 params.append('search', query.trim())
             }
@@ -214,16 +258,31 @@ export default function ProductsPage() {
 
     const handleSearch = useCallback((e: React.FormEvent) => {
         e.preventDefault()
-        fetchProducts(1, true)
-    }, [searchQuery])
+        const next = new URLSearchParams(searchParams.toString())
+        if (searchQuery.trim()) next.set("search", searchQuery.trim())
+        else next.delete("search")
+        next.set("page", "1")
+        router.push(`${pathname}?${next.toString()}`)
+    }, [pathname, router, searchParams, searchQuery])
 
     const loadMore = useCallback(() => {
         if (hasMore && !isLoadingMore) {
             const nextPage = page + 1
-            setPage(nextPage)
-            fetchProducts(nextPage, false)
+            const next = new URLSearchParams(searchParams.toString())
+            next.set("page", String(nextPage))
+            router.push(`${pathname}?${next.toString()}`)
         }
-    }, [hasMore, isLoadingMore, page, searchQuery])
+    }, [hasMore, isLoadingMore, page, pathname, router, searchParams])
+
+    function goToPage(nextPage: number) {
+        const next = new URLSearchParams(searchParams.toString())
+        next.set("page", String(nextPage))
+        router.push(`${pathname}?${next.toString()}`)
+    }
+
+    const currentQuery = new URLSearchParams(searchParams.toString())
+    const addProductHref = productFormHref(null, currentQuery)
+    const editProductHref = (id: string) => productFormHref(id, currentQuery)
 
     async function deleteProduct(productId: string) {
         const confirmed = window.confirm("Are you sure you want to archive this product? It will no longer be visible in the app.")
@@ -281,12 +340,20 @@ export default function ProductsPage() {
 
     return (
         <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between">
+            {(companyId || categoryId) && (
+                <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-gray-400">
+                    {companyId ? <Link href="/brands" className="hover:text-white">Brands</Link> : <Link href="/categories" className="hover:text-white">Categories</Link>}
+                    {companyId && <><span aria-hidden="true">/</span><Link href={`/categories?companyId=${encodeURIComponent(companyId)}`} className="hover:text-white">{contextCompany?.name || "Brand"}</Link></>}
+                    {categoryId && <><span aria-hidden="true">/</span><span className="text-gray-300">{contextCategory?.name || "Category"}</span></>}
+                    <span aria-hidden="true">/</span><span aria-current="page" className="text-white">Products</span>
+                </nav>
+            )}
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold text-white">Products</h1>
-                    <p className="text-gray-400">Manage your product catalog. {totalProducts > 0 && `(${totalProducts} products)`}</p>
+                    <h1 className="text-3xl font-bold text-white">{contextCategory ? `${contextCategory.name} Products` : contextCompany ? `${contextCompany.name} Products` : "Products"}</h1>
+                    <p className="text-gray-400">{includeDescendants && categoryId ? "Including descendant categories. " : "Manage your product catalog. "}{totalProducts > 0 && `(${totalProducts} products)`}</p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                     {isAdmin && <Button
                         type="button"
                         onClick={convertMissingHindiNames}
@@ -316,7 +383,7 @@ export default function ProductsPage() {
                             <LayoutGrid className="h-4 w-4" />
                         </button>
                     </div>
-                    {isAdmin && <Link href="/products/add" className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-[#86efac] text-black hover:bg-[#86efac]/90 h-10 px-4 py-2">
+                    {isAdmin && <Link href={addProductHref} className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-[#86efac] text-black hover:bg-[#86efac]/90 h-10 px-4 py-2">
                         <Plus className="mr-2 h-4 w-4" /> Add Product
                     </Link>}
                 </div>
@@ -347,7 +414,10 @@ export default function ProductsPage() {
                         variant="ghost"
                         onClick={() => {
                             setSearchQuery("")
-                            fetchProducts(1, true, "")
+                            const next = new URLSearchParams(searchParams.toString())
+                            next.delete("search")
+                            next.set("page", "1")
+                            router.push(`${pathname}?${next.toString()}`)
                         }}
                         className="text-gray-400 hover:text-white"
                     >
@@ -386,7 +456,9 @@ export default function ProductsPage() {
                         <TableBody>
                             {products.map((product) => (
                                 <TableRow key={product._id} className="border-[#333] hover:bg-[#1A1A1A]">
-                                    <TableCell className="text-white font-medium">{product.name}</TableCell>
+                                    <TableCell className="text-white font-medium">
+                                        {isAdmin ? <Link href={editProductHref(product._id)} className="hover:text-[#86efac] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86efac]">{product.name}</Link> : product.name}
+                                    </TableCell>
                                     <TableCell className="text-gray-400">{product.sku}</TableCell>
                                     <TableCell className="text-white">
                                         <ProductCategories product={product} />
@@ -408,10 +480,7 @@ export default function ProductsPage() {
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex justify-end gap-2">
-                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-400 hover:text-white hover:bg-[#333]">
-                                                <Eye className="h-4 w-4" />
-                                            </Button>
-                                            {isAdmin && <><Link href={`/products/edit/${product._id}`}>
+                                            {isAdmin && <><Link href={editProductHref(product._id)} aria-label={`Edit ${product.name}`}>
                                                 <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10">
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
@@ -432,17 +501,15 @@ export default function ProductsPage() {
                     {products.map((product) => (
                         <div
                             key={product._id}
-                            className="bg-[#161616] rounded-xl border border-[#333] p-4 hover:border-[#444] transition-colors"
+                            className="group relative bg-[#161616] rounded-xl border border-[#333] p-4 hover:border-[#444] transition-colors"
                         >
+                            {isAdmin && <Link href={editProductHref(product._id)} className="absolute inset-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86efac]" aria-label={`Edit ${product.name}`} />}
                             <div className="flex items-start justify-between mb-3">
                                 <div className="w-12 h-12 rounded-xl bg-[#0D0D0D] flex items-center justify-center">
                                     <Package className="h-6 w-6 text-gray-500" />
                                 </div>
-                                <div className="flex gap-1">
-                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-white hover:bg-[#333]">
-                                        <Eye className="h-3.5 w-3.5" />
-                                    </Button>
-                                    {isAdmin && <><Link href={`/products/edit/${product._id}`}>
+                                <div className="relative z-10 flex gap-1">
+                                    {isAdmin && <><Link href={editProductHref(product._id)} aria-label={`Edit ${product.name}`}>
                                         <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10">
                                             <Pencil className="h-3.5 w-3.5" />
                                         </Button>
@@ -452,7 +519,7 @@ export default function ProductsPage() {
                                     </Button></>}
                                 </div>
                             </div>
-                            <h3 className="font-semibold text-white text-base mb-1 line-clamp-1">{product.name}</h3>
+                            <h3 className={`font-semibold text-white text-base mb-1 line-clamp-1 ${isAdmin ? "group-hover:text-[#86efac]" : ""}`}>{product.name}</h3>
                             <p className="text-gray-500 text-xs mb-3">SKU: {product.sku}</p>
                             <div className="flex items-center justify-between mb-3">
                                 <ProductCategories product={product} limit={1} />
@@ -480,24 +547,18 @@ export default function ProductsPage() {
                 </div>
             )}
 
-            {/* Load More Button */}
-            {hasMore && products.length > 0 && (
-                <div className="flex justify-center pt-4">
+            {totalPages > 1 && products.length > 0 && (
+                <div className="flex items-center justify-center gap-3 pt-4">
                     <Button
-                        onClick={loadMore}
-                        disabled={isLoadingMore}
+                        onClick={() => goToPage(page - 1)}
+                        disabled={page <= 1 || isLoading}
                         variant="outline"
-                        className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A] min-w-[200px]"
+                        className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
                     >
-                        {isLoadingMore ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Loading...
-                            </>
-                        ) : (
-                            `Load More (${products.length}/${totalProducts})`
-                        )}
+                        Previous
                     </Button>
+                    <span className="text-sm text-gray-400">Page {page} of {totalPages}</span>
+                    <Button onClick={loadMore} disabled={!hasMore || isLoading} variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]">Next</Button>
                 </div>
             )}
         </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -46,6 +46,7 @@ import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { apiFetch } from "@/lib/api"
 import { CategoryOption, fetchAllCategories } from "@/lib/categories"
+import { safeInternalReturnTo } from "@/lib/admin-context"
 
 type Category = CategoryOption
 
@@ -128,12 +129,17 @@ export default function AddProductPage() {
     const searchParams = useSearchParams()
     const editId = searchParams.get('edit')
     const isEditMode = !!editId
+    const contextCompanyId = searchParams.get("companyId")
+    const contextCategoryId = searchParams.get("categoryId")
+    const returnTo = safeInternalReturnTo(searchParams.get("returnTo"))
 
     const [isLoading, setIsLoading] = useState(false)
     const [isLoadingProduct, setIsLoadingProduct] = useState(false)
     const [isInitialLoading, setIsInitialLoading] = useState(true)
     const [companies, setCompanies] = useState<Company[]>([])
     const [categories, setCategories] = useState<Category[]>([])
+    const [companyCategories, setCompanyCategories] = useState<Category[]>([])
+    const [isLoadingCompanyCategories, setIsLoadingCompanyCategories] = useState(false)
     const [availableLabels, setAvailableLabels] = useState<ProductLabelOption[]>([])
     const [isLoadingCompanies, setIsLoadingCompanies] = useState(true)
     const [isLoadingCategories, setIsLoadingCategories] = useState(true)
@@ -151,6 +157,7 @@ export default function AddProductPage() {
     const [imageUploadMode, setImageUploadMode] = useState<'url' | 'file'>('url')
     const [isUploadingImage, setIsUploadingImage] = useState(false)
     const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle')
+    const companyCategoryRequest = useRef(0)
 
     const form = useForm<z.infer<typeof productSchema>>({
         resolver: zodResolver(productSchema),
@@ -196,12 +203,53 @@ export default function AddProductPage() {
             // Fetch product if in edit mode
             if (isEditMode && editId) {
                 await fetchProduct(editId, loadedCategories)
+            } else {
+                if (contextCompanyId) form.setValue("company", contextCompanyId)
+                if (contextCategoryId) {
+                    form.setValue("categoryIds", [contextCategoryId], { shouldValidate: true })
+                    form.setValue("primaryCategoryId", contextCategoryId, { shouldValidate: true })
+                }
             }
 
             setIsInitialLoading(false)
         }
         initData()
-    }, [editId, isEditMode])
+    }, [contextCategoryId, contextCompanyId, editId, isEditMode])
+
+    const selectedCompanyId = form.watch("company")
+    const selectedCategoryIds = form.watch("categoryIds")
+
+    useEffect(() => {
+        if (selectedCompanyId && selectedCompanyId !== "none") {
+            void fetchCompanyCategories(selectedCompanyId)
+        } else {
+            companyCategoryRequest.current += 1
+            setCompanyCategories([])
+            setIsLoadingCompanyCategories(false)
+        }
+    }, [selectedCompanyId])
+
+    async function fetchCompanyCategories(id: string) {
+        const requestId = ++companyCategoryRequest.current
+        setIsLoadingCompanyCategories(true)
+        setCompanyCategories([])
+        try {
+            const response = await apiFetch(`/companies/${id}/categories`)
+            const payload = await response.json().catch(() => null)
+            if (!response.ok) throw new Error(payload?.message || "Failed to load brand categories")
+            if (requestId === companyCategoryRequest.current) {
+                setCompanyCategories(Array.isArray(payload?.data?.categories) ? payload.data.categories : [])
+            }
+        } catch (error) {
+            console.error("Failed to fetch company categories:", error)
+            if (requestId === companyCategoryRequest.current) {
+                setCompanyCategories([])
+                toast.error("Failed to load categories for the selected brand")
+            }
+        } finally {
+            if (requestId === companyCategoryRequest.current) setIsLoadingCompanyCategories(false)
+        }
+    }
 
     async function fetchProduct(id: string, loadedCategories: Category[]) {
         setIsLoadingProduct(true)
@@ -270,7 +318,7 @@ export default function AddProductPage() {
         } catch (error) {
             console.error("Fetch product error:", error)
             toast.error("Failed to load product")
-            router.push("/products")
+            router.push(returnTo)
         } finally {
             setIsLoadingProduct(false)
         }
@@ -291,12 +339,20 @@ export default function AddProductPage() {
 
     async function fetchCompanies() {
         try {
-            const response = await apiFetch("/companies?page=1&limit=500", { skipAuth: true })
-            if (response.ok) {
+            const nextCompanies: Company[] = []
+            let page = 1
+            let totalPages = 1
+
+            do {
+                const response = await apiFetch(`/companies?page=${page}&limit=50`, { skipAuth: true })
+                if (!response.ok) throw new Error("Failed to load companies")
                 const data = await response.json()
-                const nextCompanies = Array.isArray(data.data) ? data.data : []
-                setCompanies(nextCompanies)
-            }
+                if (Array.isArray(data.data)) nextCompanies.push(...data.data)
+                totalPages = Math.max(1, Number(data.pagination?.totalPages) || 1)
+                page += 1
+            } while (page <= totalPages)
+
+            setCompanies(nextCompanies.sort((a, b) => a.name.localeCompare(b.name)))
         } catch (error) {
             console.error("Failed to fetch companies:", error)
         } finally {
@@ -510,7 +566,8 @@ export default function AddProductPage() {
 
         setIsCreatingCategory(true)
         try {
-            const response = await apiFetch("/categories", {
+            const selectedCompany = form.getValues("company")
+            const response = await apiFetch(selectedCompany && selectedCompany !== "none" ? `/companies/${selectedCompany}/categories` : "/categories", {
                 method: "POST",
                 body: JSON.stringify({
                     name: newCategoryName.trim(),
@@ -528,6 +585,7 @@ export default function AddProductPage() {
             const newCategory = data.data
 
             setCategories(prev => [...prev, newCategory])
+            if (selectedCompany && selectedCompany !== "none") setCompanyCategories(prev => [...prev, newCategory])
             const selectedIds = form.getValues("categoryIds")
             const categoryIds = [...selectedIds, newCategory._id]
             form.setValue("categoryIds", categoryIds, { shouldValidate: true })
@@ -562,6 +620,19 @@ export default function AddProductPage() {
             if (!primaryCategory || !values.categoryIds.includes(values.primaryCategoryId)) {
                 toast.error("Choose a primary category from the selected categories")
                 return
+            }
+
+            if (values.company && values.company !== "none") {
+                if (isLoadingCompanyCategories) {
+                    toast.error("Wait for the selected brand's categories to finish loading")
+                    return
+                }
+                const allowedIds = new Set(companyCategories.map((category) => category._id))
+                const invalidIds = values.categoryIds.filter((id) => !allowedIds.has(id))
+                if (invalidIds.length > 0) {
+                    toast.error("Remove or replace categories that are not linked to the selected brand")
+                    return
+                }
             }
 
             // Keep the legacy slug while all category relationships use stable IDs.
@@ -611,7 +682,7 @@ export default function AddProductPage() {
             }
 
             toast.success(isEditMode ? "Product updated successfully" : "Product created successfully")
-            router.push("/products")
+            router.push(returnTo)
         } catch (error) {
             console.error(error)
             toast.error("Something went wrong. Please try again.")
@@ -628,10 +699,26 @@ export default function AddProductPage() {
         )
     }
 
+    const categoryOptions = selectedCompanyId && selectedCompanyId !== "none" ? companyCategories : categories
+    const allowedCategoryIds = new Set(categoryOptions.map((category) => category._id))
+    const invalidSelectedCategories = selectedCompanyId && selectedCompanyId !== "none" && !isLoadingCompanyCategories
+        ? selectedCategoryIds.filter((id) => !allowedCategoryIds.has(id))
+        : []
+    const contextCompany = companies.find((company) => company._id === contextCompanyId)
+    const contextCategory = categories.find((category) => category._id === contextCategoryId)
+
     return (
         <div className="max-w-4xl mx-auto">
-            <div className="flex items-center gap-4 mb-6">
-                <NextLink href="/products">
+            {(contextCompanyId || contextCategoryId) && (
+                <nav aria-label="Breadcrumb" className="mb-4 flex items-center gap-2 text-sm text-gray-400">
+                    {contextCompanyId ? <NextLink href="/brands" className="hover:text-white">Brands</NextLink> : <NextLink href="/categories" className="hover:text-white">Categories</NextLink>}
+                    {contextCompanyId && <><span aria-hidden="true">/</span><NextLink href={`/categories?companyId=${encodeURIComponent(contextCompanyId)}`} className="hover:text-white">{contextCompany?.name || "Brand"}</NextLink></>}
+                    {contextCategoryId && <><span aria-hidden="true">/</span><span>{contextCategory?.name || "Category"}</span></>}
+                    <span aria-hidden="true">/</span><span aria-current="page" className="text-white">{isEditMode ? "Edit product" : "Add product"}</span>
+                </nav>
+            )}
+            <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
+                <NextLink href={returnTo}>
                     <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
@@ -646,13 +733,13 @@ export default function AddProductPage() {
                         type="button"
                         variant="ghost"
                         className="text-gray-400 hover:text-white"
-                        onClick={() => router.back()}
+                        onClick={() => router.push(returnTo)}
                     >
                         Cancel
                     </Button>
                     <Button
                         onClick={() => form.handleSubmit(onSubmit)()}
-                        disabled={isLoading}
+                        disabled={isLoading || isLoadingCompanyCategories}
                         className="px-8"
                     >
                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -733,7 +820,7 @@ export default function AddProductPage() {
                                                                             className="flex-1 justify-between border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
                                                                         >
                                                                             <span className="truncate">
-                                                                                {isLoadingCategories
+                                                                                {isLoadingCategories || isLoadingCompanyCategories
                                                                                     ? "Loading categories..."
                                                                                     : selectedCategories.length > 0
                                                                                         ? `${selectedCategories.length} selected`
@@ -748,7 +835,7 @@ export default function AddProductPage() {
                                                                         <CommandInput placeholder="Search categories..." className="text-white placeholder:text-[#7d7d7d]" />
                                                                         <CommandList>
                                                                             <CommandEmpty className="text-[#8d8d8d]">No category found.</CommandEmpty>
-                                                                            {categories.map((category) => (
+                                                                            {categoryOptions.map((category) => (
                                                                                 <CommandItem
                                                                                     key={category._id}
                                                                                     value={`${category.name} ${category.slug}`}
@@ -821,8 +908,15 @@ export default function AddProductPage() {
                                                             </div>
                                                         )}
                                                         <FormDescription className="text-gray-500">
-                                                            Search and select one or more categories.
+                                                            {selectedCompanyId && selectedCompanyId !== "none"
+                                                                ? "Only categories linked to the selected brand are available."
+                                                                : "Search and select one or more categories."}
                                                         </FormDescription>
+                                                        {invalidSelectedCategories.length > 0 && (
+                                                            <p role="alert" className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-sm text-amber-300">
+                                                                {invalidSelectedCategories.length} selected {invalidSelectedCategories.length === 1 ? "category is" : "categories are"} not linked to this brand. The selection was kept; remove or replace it before saving.
+                                                            </p>
+                                                        )}
                                                         <FormMessage />
 
                                                         {selectedCategories.length > 0 && (
@@ -1496,9 +1590,9 @@ export default function AddProductPage() {
                                                         </DialogContent>
                                                     </Dialog>
                                                 </div>
-                                                <FormDescription className="text-gray-500">
-                                                    Search and select from all created brands.
-                                                </FormDescription>
+                                                 <FormDescription className="text-gray-500">
+                                                     Changing the brand keeps existing category selections so you can review and correct any incompatible assignments.
+                                                 </FormDescription>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -1663,11 +1757,11 @@ export default function AddProductPage() {
                                     type="button"
                                     variant="outline"
                                     className="flex-1 border-[#333] bg-[#1A1A1A] text-gray-300 hover:text-white hover:bg-[#333]"
-                                    onClick={() => router.back()}
+                                    onClick={() => router.push(returnTo)}
                                 >
                                     Cancel
                                 </Button>
-                                <Button type="submit" className="flex-1" disabled={isLoading}>
+                                <Button type="submit" className="flex-1" disabled={isLoading || isLoadingCompanyCategories}>
                                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     {isEditMode ? "Update Product" : "Create Product"}
                                 </Button>
