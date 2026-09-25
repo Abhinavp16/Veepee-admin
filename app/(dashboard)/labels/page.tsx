@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState, type ChangeEvent } from "react"
+import { useEffect, useMemo, useState, type ChangeEvent, type ReactElement } from "react"
 import {
     BadgeCheck,
     CircleDollarSign,
@@ -44,7 +44,7 @@ const ICON_OPTIONS = [
     { value: "service", label: "Service", Icon: Wrench },
 ] as const
 
-const iconMap = Object.fromEntries(ICON_OPTIONS.map((item) => [item.value, item.Icon])) as Record<string, (props: { className?: string }) => JSX.Element>
+const iconMap = Object.fromEntries(ICON_OPTIONS.map((item) => [item.value, item.Icon])) as Record<string, (props: { className?: string }) => ReactElement>
 
 function createEmptyLabel(order = 0): WebsiteLabel {
     return {

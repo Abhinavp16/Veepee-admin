@@ -1,71 +1,59 @@
 "use client"
 
-import { Sidebar } from "@/components/sidebar"
 import { Header } from "@/components/header"
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { DashboardProvider, type DashboardUser } from "@/components/dashboard-context"
+import { Sidebar } from "@/components/sidebar"
 import { apiFetch, logout } from "@/lib/api"
+import { canAccessPath, type DashboardRole } from "@/lib/navigation"
+import { ShieldAlert } from "lucide-react"
+import { useEffect, useState } from "react"
+import { usePathname, useRouter } from "next/navigation"
 
-export default function DashboardLayout({
-    children,
-}: {
-    children: React.ReactNode
-}) {
-    const router = useRouter()
-    const [isAuthorized, setIsAuthorized] = useState(false)
+function isDashboardRole(role: unknown): role is DashboardRole {
+  return role === "admin" || role === "staff"
+}
 
-    useEffect(() => {
-        const verifyAuth = async () => {
-            const token = localStorage.getItem('accessToken')
-            if (!token) {
-                router.push('/login')
-                return
-            }
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const [user, setUser] = useState<DashboardUser | null>(null)
+  const [mobileOpen, setMobileOpen] = useState(false)
 
-            try {
-                // Verify token is still valid by calling /auth/me
-                const res = await apiFetch('/auth/me')
-                if (!res.ok) {
-                    // Token invalid/expired and refresh failed
-                    logout()
-                    return
-                }
-                
-                const data = await res.json()
-                // /auth/me returns data directly, not data.user
-                if (data.data.role !== 'admin') {
-                    logout()
-                    return
-                }
-                
-                setIsAuthorized(true)
-            } catch {
-                logout()
-            }
+  useEffect(() => {
+    const verifyAuth = async () => {
+      if (!localStorage.getItem("accessToken")) {
+        router.replace("/login")
+        return
+      }
+      try {
+        const response = await apiFetch("/auth/me")
+        const payload = await response.json()
+        const verifiedUser = payload?.data
+        if (!response.ok || !verifiedUser || !isDashboardRole(verifiedUser.role)) {
+          await logout()
+          return
         }
-
-        verifyAuth()
-    }, [router])
-
-    if (!isAuthorized) {
-        return null
+        localStorage.setItem("user", JSON.stringify(verifiedUser))
+        setUser(verifiedUser)
+      } catch {
+        await logout()
+      }
     }
+    verifyAuth()
+  }, [router])
 
-    return (
-        <div className="relative h-screen w-full bg-black text-white overflow-hidden">
-            <Header />
+  if (!user) return null
 
-            {/* Main Scrollable Area */}
-            <div className="h-full overflow-y-auto no-scrollbar">
-                <main className="flex gap-6 p-6 pt-24 min-h-full">
-                    <Sidebar />
-
-                    {/* Main Content Container */}
-                    <div className="flex-1 flex flex-col gap-6 min-w-0">
-                        {children}
-                    </div>
-                </main>
-            </div>
-        </div>
-    )
+  const routeAllowed = canAccessPath(user.role, pathname)
+  return <DashboardProvider value={user}>
+    <div className="h-dvh overflow-hidden bg-black text-white">
+      <Header user={user} onMenuClick={() => setMobileOpen(true)} />
+      <div className="flex h-full min-w-0 pt-16 md:pt-20">
+        <Sidebar user={user} mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
+        <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6">
+          {routeAllowed ? children : <div className="mx-auto flex min-h-[60vh] max-w-lg flex-col items-center justify-center text-center"><div className="mb-5 rounded-full bg-red-500/10 p-4 text-red-400"><ShieldAlert className="h-8 w-8" /></div><h1 className="text-2xl font-bold">This area is restricted</h1><p className="mt-2 text-sm text-[#919191]">Your Staff account does not have access to this administrative control.</p></div>}
+        </main>
+      </div>
+    </div>
+  </DashboardProvider>
 }

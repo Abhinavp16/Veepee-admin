@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog"
 import { apiFetch } from "@/lib/api"
 import { toast } from "sonner"
+import { useDashboardUser } from "@/components/dashboard-context"
 
 interface Company {
     _id: string
@@ -34,6 +35,7 @@ interface Company {
 }
 
 export default function BrandsPage() {
+    const isAdmin = useDashboardUser()?.role === 'admin'
     const [companies, setCompanies] = useState<Company[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -359,14 +361,14 @@ export default function BrandsPage() {
                                             >
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
-                                            <Button 
+                                            {isAdmin && <Button
                                                 size="icon" 
                                                 variant="ghost" 
                                                 className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10"
                                                 onClick={() => setDeleteConfirmId(company._id)}
                                             >
                                                 <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            </Button>}
                                         </div>
                                     </TableCell>
                                 </TableRow>
@@ -403,14 +405,14 @@ export default function BrandsPage() {
                                     >
                                         <Pencil className="h-4 w-4" />
                                     </Button>
-                                    <Button 
+                                    {isAdmin && <Button
                                         size="icon" 
                                         variant="ghost" 
                                         className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10"
                                         onClick={() => setDeleteConfirmId(company._id)}
                                     >
                                         <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    </Button>}
                                 </div>
                             </div>
                             <h3 className="font-semibold text-white text-lg mb-1">{company.name}</h3>

@@ -71,8 +71,8 @@ test.describe('Admin Panel Flow', () => {
         await page.fill('textarea[name="description"]', 'This is a test product description for Playwright testing.');
         
         // Select category
-        await page.click('[data-slot="select-trigger"]:has-text("Select category")');
-        await page.click('text=Machinery');
+        await page.getByRole('button', { name: 'Choose product categories' }).click();
+        await page.getByRole('option', { name: /Machinery/ }).click();
         
         // Fill SKU
         await page.fill('input[name="sku"]', 'TEST-' + Date.now());

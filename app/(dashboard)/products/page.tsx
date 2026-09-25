@@ -16,16 +16,50 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
+import { useDashboardUser } from "@/components/dashboard-context"
 
 interface Product {
     _id: string
     name: string
     category: string
+    categoryIds?: string[]
+    categories?: Array<{ _id: string; name: string; slug: string }>
+    primaryCategoryId?: string
+    primaryCategory?: { _id: string; name: string; slug: string }
     retailPrice: number
     stock: number
     status: string
     sku: string
     rating: number
+}
+
+function ProductCategories({ product, limit = 2 }: { product: Product; limit?: number }) {
+    const categories = Array.isArray(product.categories) && product.categories.length > 0
+        ? product.categories
+        : product.primaryCategory
+            ? [product.primaryCategory]
+            : []
+    const labels = categories.length > 0
+        ? categories.map((category) => category.name)
+        : product.category
+            ? [product.category]
+            : []
+
+    return (
+        <div className="flex min-w-0 flex-wrap items-center gap-1" aria-label="Product categories">
+            {labels.slice(0, limit).map((label, index) => (
+                <Badge key={`${label}-${index}`} variant="outline" className="max-w-32 truncate border-[#333] text-gray-300 text-xs">
+                    {label}
+                </Badge>
+            ))}
+            {labels.length > limit && (
+                <Badge variant="outline" className="border-[#333] text-gray-400 text-xs" title={labels.slice(limit).join(", ")}>
+                    +{labels.length - limit}
+                </Badge>
+            )}
+            {labels.length === 0 && <span className="text-xs text-gray-500">Uncategorized</span>}
+        </div>
+    )
 }
 
 function getProductRating(product: any): number | null {
@@ -46,6 +80,7 @@ function getProductRating(product: any): number | null {
 }
 
 export default function ProductsPage() {
+    const isAdmin = useDashboardUser()?.role === 'admin'
     const [products, setProducts] = useState<Product[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -63,7 +98,7 @@ export default function ProductsPage() {
         fetchProducts(1, true)
     }, [])
 
-    async function fetchProducts(pageNum: number = 1, reset: boolean = false) {
+    async function fetchProducts(pageNum: number = 1, reset: boolean = false, query: string = searchQuery) {
         if (reset) {
             setIsLoading(true)
             setPage(1)
@@ -76,8 +111,8 @@ export default function ProductsPage() {
             const params = new URLSearchParams()
             params.append('page', pageNum.toString())
             params.append('limit', '20')
-            if (searchQuery.trim()) {
-                params.append('search', searchQuery.trim())
+            if (query.trim()) {
+                params.append('search', query.trim())
             }
 
             const res = await apiFetch(`/admin/products?${params.toString()}`)
@@ -88,7 +123,7 @@ export default function ProductsPage() {
 
                 // Only fetch ratings for first page or when resetting to avoid too many API calls
                 if (reset || pageNum === 1) {
-                    const missingRatingIds = items
+                    const missingRatingIds: string[] = items
                         .filter((product: any) => getProductRating(product) === null)
                         .map((product: any) => String(product?._id || ""))
                         .filter(Boolean)
@@ -125,7 +160,7 @@ export default function ProductsPage() {
                     setProducts(productsWithRatings)
                 } else {
                     // Append new products for load more
-                    const missingRatingIds = items
+                    const missingRatingIds: string[] = items
                         .filter((product: any) => getProductRating(product) === null)
                         .map((product: any) => String(product?._id || ""))
                         .filter(Boolean)
@@ -188,7 +223,7 @@ export default function ProductsPage() {
             setPage(nextPage)
             fetchProducts(nextPage, false)
         }
-    }, [hasMore, isLoadingMore, page])
+    }, [hasMore, isLoadingMore, page, searchQuery])
 
     async function deleteProduct(productId: string) {
         const confirmed = window.confirm("Are you sure you want to archive this product? It will no longer be visible in the app.")
@@ -202,7 +237,7 @@ export default function ProductsPage() {
 
             if (res.ok) {
                 toast.success("Product archived successfully")
-                fetchProducts()
+                fetchProducts(1, true)
             } else {
                 toast.error(data.message || "Failed to delete product")
             }
@@ -235,7 +270,7 @@ export default function ProductsPage() {
             toast.success(
                 `Hindi conversion done: ${stats.updated ?? 0} updated, ${stats.skipped ?? 0} skipped (processed ${stats.processed ?? 0}).`
             )
-            fetchProducts()
+            fetchProducts(1, true)
         } catch (error) {
             console.error(error)
             toast.error("Error converting Hindi names")
@@ -252,7 +287,7 @@ export default function ProductsPage() {
                     <p className="text-gray-400">Manage your product catalog. {totalProducts > 0 && `(${totalProducts} products)`}</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <Button
+                    {isAdmin && <Button
                         type="button"
                         onClick={convertMissingHindiNames}
                         disabled={isConvertingHindi}
@@ -265,7 +300,7 @@ export default function ProductsPage() {
                             <Languages className="mr-2 h-4 w-4" />
                         )}
                         Convert Missing Hindi Names
-                    </Button>
+                    </Button>}
                     {/* View Toggle */}
                     <div className="flex items-center bg-[#161616] rounded-lg p-1 border border-[#333]">
                         <button
@@ -281,9 +316,9 @@ export default function ProductsPage() {
                             <LayoutGrid className="h-4 w-4" />
                         </button>
                     </div>
-                    <Link href="/products/add" className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-[#86efac] text-black hover:bg-[#86efac]/90 h-10 px-4 py-2">
+                    {isAdmin && <Link href="/products/add" className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-[#86efac] text-black hover:bg-[#86efac]/90 h-10 px-4 py-2">
                         <Plus className="mr-2 h-4 w-4" /> Add Product
-                    </Link>
+                    </Link>}
                 </div>
             </div>
 
@@ -312,7 +347,7 @@ export default function ProductsPage() {
                         variant="ghost"
                         onClick={() => {
                             setSearchQuery("")
-                            fetchProducts(1, true)
+                            fetchProducts(1, true, "")
                         }}
                         className="text-gray-400 hover:text-white"
                     >
@@ -354,9 +389,7 @@ export default function ProductsPage() {
                                     <TableCell className="text-white font-medium">{product.name}</TableCell>
                                     <TableCell className="text-gray-400">{product.sku}</TableCell>
                                     <TableCell className="text-white">
-                                        <Badge variant="outline" className="border-[#333] text-gray-300">
-                                            {product.category}
-                                        </Badge>
+                                        <ProductCategories product={product} />
                                     </TableCell>
                                     <TableCell className="text-white text-right">₹{product.retailPrice.toLocaleString()}</TableCell>
                                     <TableCell className="text-white text-right">{product.stock}</TableCell>
@@ -378,14 +411,14 @@ export default function ProductsPage() {
                                             <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-400 hover:text-white hover:bg-[#333]">
                                                 <Eye className="h-4 w-4" />
                                             </Button>
-                                            <Link href={`/products/edit/${product._id}`}>
+                                            {isAdmin && <><Link href={`/products/edit/${product._id}`}>
                                                 <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10">
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
                                             </Link>
                                             <Button size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10" onClick={() => deleteProduct(product._id)}>
                                                 <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            </Button></>}
                                         </div>
                                     </TableCell>
                                 </TableRow>
@@ -409,22 +442,20 @@ export default function ProductsPage() {
                                     <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-white hover:bg-[#333]">
                                         <Eye className="h-3.5 w-3.5" />
                                     </Button>
-                                    <Link href={`/products/edit/${product._id}`}>
+                                    {isAdmin && <><Link href={`/products/edit/${product._id}`}>
                                         <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10">
                                             <Pencil className="h-3.5 w-3.5" />
                                         </Button>
                                     </Link>
                                     <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-400/10" onClick={() => deleteProduct(product._id)}>
                                         <Trash2 className="h-3.5 w-3.5" />
-                                    </Button>
+                                    </Button></>}
                                 </div>
                             </div>
                             <h3 className="font-semibold text-white text-base mb-1 line-clamp-1">{product.name}</h3>
                             <p className="text-gray-500 text-xs mb-3">SKU: {product.sku}</p>
                             <div className="flex items-center justify-between mb-3">
-                                <Badge variant="outline" className="border-[#333] text-gray-300 text-xs">
-                                    {product.category}
-                                </Badge>
+                                <ProductCategories product={product} limit={1} />
                                 <Badge className={`text-xs ${product.status === 'active' ? 'bg-green-500/10 text-green-500' :
                                     'bg-gray-500/10 text-gray-500'
                                     }`}>

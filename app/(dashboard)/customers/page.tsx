@@ -24,6 +24,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { apiFetch } from "@/lib/api"
+import { useDashboardUser } from "@/components/dashboard-context"
 
 interface Customer {
     _id: string
@@ -53,6 +54,7 @@ interface CustomerDetails extends Customer {
 }
 
 export default function CustomersPage() {
+    const isAdmin = useDashboardUser()?.role === 'admin'
     const [customers, setCustomers] = useState<Customer[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -203,16 +205,16 @@ export default function CustomersPage() {
                     <h1 className="text-3xl font-bold text-white">Customers</h1>
                     <p className="text-gray-400 text-sm">{totalCustomers > 0 && `(${totalCustomers} customers)`}</p>
                 </div>
-                <Button
+                {isAdmin && <Button
                     onClick={toggleDraftingHeader}
                     className={`${isNotifyModalOpen ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-[#86efac] text-black hover:bg-[#6ee7b7]"} font-bold gap-2`}
                 >
                     {isNotifyModalOpen ? "Cancel Draft" : <><Bell className="w-4 h-4" /> Custom Notification</>}
                     {selectedIds.length > 0 && `(${selectedIds.length})`}
-                </Button>
+                </Button>}
             </div>
 
-            {isNotifyModalOpen && (
+            {isAdmin && isNotifyModalOpen && (
                 <div className="relative animate-in fade-in slide-in-from-top-4 duration-500 ease-out mb-8">
                     {/* Glowing Top Border Accent */}
                     <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-[#86efac]/50 to-transparent" />
@@ -335,7 +337,7 @@ export default function CustomersPage() {
                                     <TableHead className="text-gray-400">Business</TableHead>
                                     <TableHead className="text-gray-400 text-right">Joined</TableHead>
                                     <TableHead className="text-gray-400 text-right">Actions</TableHead>
-                                    <TableHead className="text-gray-400 text-right w-10">
+                                    {isAdmin && <TableHead className="text-gray-400 text-right w-10">
                                         <Button
                                             variant="ghost"
                                             size="sm"
@@ -348,7 +350,7 @@ export default function CustomersPage() {
                                                 <Square className="h-4 w-4" />
                                             )}
                                         </Button>
-                                    </TableHead>
+                                    </TableHead>}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -387,7 +389,7 @@ export default function CustomersPage() {
                                                 <Eye className="h-4 w-4" />
                                             </Button>
                                         </TableCell>
-                                        <TableCell className="text-right">
+                                        {isAdmin && <TableCell className="text-right">
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
@@ -400,7 +402,7 @@ export default function CustomersPage() {
                                                     <Square className="h-4 w-4" />
                                                 )}
                                             </Button>
-                                        </TableCell>
+                                        </TableCell>}
                                     </TableRow>
                                 ))}
                             </TableBody>

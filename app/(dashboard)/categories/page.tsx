@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
-import { Plus, Pencil, Trash2, FolderTree, Loader2, ImageIcon, LayoutGrid, List, Upload, Link, ToggleLeft, ToggleRight, Package, Search } from "lucide-react"
+import { Fragment, useState, useEffect } from "react"
+import { Plus, Pencil, Trash2, FolderTree, Loader2, LayoutGrid, List, Upload, Link, Package, Search, GripVertical, ArrowUp, ArrowDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -31,6 +31,8 @@ import {
 } from "@/components/ui/dialog"
 import { apiFetch } from "@/lib/api"
 import { toast } from "sonner"
+import { useDashboardUser } from "@/components/dashboard-context"
+import { fetchAllCategories, getCategoryParentId } from "@/lib/categories"
 
 interface Category {
     _id: string
@@ -38,8 +40,8 @@ interface Category {
     slug: string
     description?: string
     image?: { url?: string; publicId?: string }
-    parent?: { _id: string; name: string; slug: string } | null
-    order: number
+    parent?: { _id: string; name: string; slug: string } | string | null
+    order?: number
     isActive: boolean
     productCount: number
     createdAt: string
@@ -48,21 +50,20 @@ interface Category {
 type UploadStatus = 'idle' | 'converting' | 'uploading' | 'done'
 
 export default function CategoriesPage() {
+    const isAdmin = useDashboardUser()?.role === 'admin'
     const [categories, setCategories] = useState<Category[]>([])
     const [isLoading, setIsLoading] = useState(true)
-    const [isLoadingMore, setIsLoadingMore] = useState(false)
     const [isDialogOpen, setIsDialogOpen] = useState(false)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [editingCategory, setEditingCategory] = useState<Category | null>(null)
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
     const [viewMode, setViewMode] = useState<'list' | 'card'>('card')
 
-    // Search & Pagination state
+    // Search state
     const [searchQuery, setSearchQuery] = useState("")
-    const [page, setPage] = useState(1)
-    const [totalPages, setTotalPages] = useState(1)
     const [totalCategories, setTotalCategories] = useState(0)
-    const [hasMore, setHasMore] = useState(false)
+    const [draggedCategoryId, setDraggedCategoryId] = useState<string | null>(null)
+    const [isReordering, setIsReordering] = useState(false)
 
     // Form state
     const [name, setName] = useState("")
@@ -70,69 +71,47 @@ export default function CategoriesPage() {
     const [imageUrl, setImageUrl] = useState("")
     const [imagePublicId, setImagePublicId] = useState("")
     const [parentId, setParentId] = useState<string>("none")
-    const [order, setOrder] = useState("0")
+    const [order, setOrder] = useState("1")
     const [isActive, setIsActive] = useState(true)
     const [imageUploadMode, setImageUploadMode] = useState<'url' | 'file'>('url')
     const [isUploadingImage, setIsUploadingImage] = useState(false)
     const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle')
 
     useEffect(() => {
-        fetchCategories(1, true)
+        fetchCategories()
     }, [])
 
-    async function fetchCategories(pageNum: number = 1, reset: boolean = false) {
-        if (reset) {
-            setIsLoading(true)
-            setPage(1)
-        } else {
-            setIsLoadingMore(true)
-        }
-
+    async function fetchCategories() {
+        setIsLoading(true)
         try {
-            const params = new URLSearchParams()
-            params.append('page', pageNum.toString())
-            params.append('limit', '20')
-            if (searchQuery.trim()) {
-                params.append('search', searchQuery.trim())
-            }
-
-            const res = await apiFetch(`/categories?${params.toString()}`, { skipAuth: true })
-            if (res.ok) {
-                const data = await res.json()
-                const items = data.data || []
-                const pagination = data.pagination || {}
-
-                if (reset || pageNum === 1) {
-                    setCategories(items)
-                } else {
-                    setCategories(prev => [...prev, ...items])
-                }
-
-                setTotalPages(pagination.totalPages || 1)
-                setTotalCategories(pagination.total || items.length)
-                setHasMore((pagination.page || 1) < (pagination.totalPages || 1))
-            }
+            const items = await fetchAllCategories() as Category[]
+            setCategories(items)
+            setTotalCategories(items.length)
         } catch (error) {
             console.error("Failed to fetch categories:", error)
             toast.error("Failed to load categories")
         } finally {
             setIsLoading(false)
-            setIsLoadingMore(false)
         }
     }
 
-    const handleSearch = useCallback((e: React.FormEvent) => {
+    function handleSearch(e: React.FormEvent) {
         e.preventDefault()
-        fetchCategories(1, true)
-    }, [searchQuery])
+    }
 
-    const loadMore = useCallback(() => {
-        if (hasMore && !isLoadingMore) {
-            const nextPage = page + 1
-            setPage(nextPage)
-            fetchCategories(nextPage, false)
+    function getAppendPosition(nextParentId: string) {
+        const normalizedParentId = nextParentId === "none" ? null : nextParentId
+        return categories.filter((category) => getCategoryParentId(category) === normalizedParentId).length + 1
+    }
+
+    function handleParentChange(nextParentId: string) {
+        setParentId(nextParentId)
+        const previousParentId = editingCategory ? getCategoryParentId(editingCategory) : null
+        const normalizedParentId = nextParentId === "none" ? null : nextParentId
+        if (!editingCategory || previousParentId !== normalizedParentId) {
+            setOrder(String(getAppendPosition(nextParentId)))
         }
-    }, [hasMore, isLoadingMore, page])
+    }
 
     function openCreateDialog() {
         setEditingCategory(null)
@@ -141,7 +120,7 @@ export default function CategoriesPage() {
         setImageUrl("")
         setImagePublicId("")
         setParentId("none")
-        setOrder("0")
+        setOrder(String(getAppendPosition("none")))
         setIsActive(true)
         setImageUploadMode('url')
         setIsDialogOpen(true)
@@ -153,8 +132,8 @@ export default function CategoriesPage() {
         setDescription(category.description || "")
         setImageUrl(category.image?.url || "")
         setImagePublicId(category.image?.publicId || "")
-        setParentId(category.parent?._id || "none")
-        setOrder(String(category.order || 0))
+        setParentId(getCategoryParentId(category) || "none")
+        setOrder(String(Math.max(1, category.order || 1)))
         setIsActive(category.isActive)
         setImageUploadMode('url')
         setIsDialogOpen(true)
@@ -222,6 +201,11 @@ export default function CategoriesPage() {
             toast.error("Category name is required")
             return
         }
+        const displayPosition = Number(order)
+        if (!Number.isInteger(displayPosition) || displayPosition < 1) {
+            toast.error("Display position must be a whole number starting at 1")
+            return
+        }
 
         setIsSubmitting(true)
 
@@ -231,7 +215,7 @@ export default function CategoriesPage() {
                 description: description.trim() || undefined,
                 image: imageUrl.trim() ? { url: imageUrl.trim(), publicId: imagePublicId || undefined } : undefined,
                 parent: parentId !== "none" ? parentId : null,
-                order: Number(order) || 0,
+                order: displayPosition,
                 isActive,
             }
 
@@ -251,7 +235,7 @@ export default function CategoriesPage() {
 
             toast.success(editingCategory ? "Category updated successfully" : "Category created successfully")
             setIsDialogOpen(false)
-            fetchCategories()
+            await fetchCategories()
         } catch (error: any) {
             toast.error(error.message || "Failed to save category")
         } finally {
@@ -272,7 +256,7 @@ export default function CategoriesPage() {
 
             toast.success("Category deleted successfully")
             setDeleteConfirmId(null)
-            fetchCategories()
+            await fetchCategories()
         } catch (error: any) {
             toast.error(error.message || "Failed to delete category")
         }
@@ -282,6 +266,108 @@ export default function CategoriesPage() {
     const parentOptions = categories.filter(c => 
         !editingCategory || c._id !== editingCategory._id
     )
+
+    const compareCategories = (a: Category, b: Category) =>
+        (a.order || 0) - (b.order || 0) || a.name.localeCompare(b.name)
+    const normalizedSearch = searchQuery.trim().toLowerCase()
+    const visibleCategories = normalizedSearch
+        ? categories.filter((category) => category.name.toLowerCase().includes(normalizedSearch) || category.slug.toLowerCase().includes(normalizedSearch))
+        : categories
+    const parentById = new Map(categories.map((category) => [category._id, category]))
+    const parentIds = [...new Set(visibleCategories.map(getCategoryParentId).filter((id): id is string => Boolean(id)))]
+    const categoryGroups = [
+        {
+            parentId: null as string | null,
+            label: "Root categories",
+            items: visibleCategories.filter((category) => getCategoryParentId(category) === null).sort(compareCategories),
+        },
+        ...parentIds.map((groupParentId) => ({
+            parentId: groupParentId as string | null,
+            label: `Children of ${parentById.get(groupParentId)?.name || "Unknown category"}`,
+            items: visibleCategories.filter((category) => getCategoryParentId(category) === groupParentId).sort(compareCategories),
+        })),
+    ].filter((group) => group.items.length > 0)
+
+    async function persistSiblingOrder(parentGroupId: string | null, categoryIds: string[], previousCategories: Category[]) {
+        setIsReordering(true)
+        try {
+            const response = await apiFetch("/categories/reorder", {
+                method: "PATCH",
+                body: JSON.stringify({ parentId: parentGroupId, categoryIds }),
+            })
+            if (!response.ok) {
+                const payload = await response.json().catch(() => null)
+                throw new Error(payload?.message || "Failed to reorder categories")
+            }
+            toast.success("Category order updated")
+        } catch (error: any) {
+            setCategories(previousCategories)
+            toast.error(error.message || "Failed to reorder categories")
+        } finally {
+            setIsReordering(false)
+            setDraggedCategoryId(null)
+        }
+    }
+
+    function reorderCategory(categoryId: string, targetId: string, placeAfter = false) {
+        if (categoryId === targetId || normalizedSearch || isReordering) return
+        const category = categories.find((item) => item._id === categoryId)
+        const target = categories.find((item) => item._id === targetId)
+        if (!category || !target || getCategoryParentId(category) !== getCategoryParentId(target)) return
+
+        const parentGroupId = getCategoryParentId(category)
+        const siblings = categories.filter((item) => getCategoryParentId(item) === parentGroupId).sort(compareCategories)
+        const reordered = siblings.filter((item) => item._id !== categoryId)
+        const targetIndex = reordered.findIndex((item) => item._id === targetId)
+        reordered.splice(targetIndex + (placeAfter ? 1 : 0), 0, category)
+
+        const previousCategories = categories
+        const orderById = new Map(reordered.map((item, index) => [item._id, index + 1]))
+        setCategories((current) => current.map((item) => orderById.has(item._id) ? { ...item, order: orderById.get(item._id) } : item))
+        void persistSiblingOrder(parentGroupId, reordered.map((item) => item._id), previousCategories)
+    }
+
+    function moveCategory(category: Category, direction: -1 | 1) {
+        const siblings = categories.filter((item) => getCategoryParentId(item) === getCategoryParentId(category)).sort(compareCategories)
+        const currentIndex = siblings.findIndex((item) => item._id === category._id)
+        const target = siblings[currentIndex + direction]
+        if (target) reorderCategory(category._id, target._id, direction === 1)
+    }
+
+    function ReorderControls({ category, index, count }: { category: Category; index: number; count: number }) {
+        const disabled = Boolean(normalizedSearch) || isReordering
+        return (
+            <div className="flex items-center" title={normalizedSearch ? "Clear search to reorder complete sibling groups" : undefined}>
+                <button
+                    type="button"
+                    tabIndex={disabled ? -1 : 0}
+                    draggable={!disabled}
+                    onDragStart={(event) => {
+                        setDraggedCategoryId(category._id)
+                        event.dataTransfer.effectAllowed = "move"
+                        event.dataTransfer.setData("text/plain", category._id)
+                    }}
+                    onDragEnd={() => setDraggedCategoryId(null)}
+                    onKeyDown={(event) => {
+                        if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+                            event.preventDefault()
+                            moveCategory(category, event.key === "ArrowUp" ? -1 : 1)
+                        }
+                    }}
+                    className={`rounded p-1 text-gray-500 ${disabled ? "cursor-not-allowed opacity-40" : "cursor-grab active:cursor-grabbing"}`}
+                    aria-label={`Drag ${category.name} within its sibling group`}
+                >
+                    <GripVertical className="h-4 w-4" />
+                </button>
+                <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-gray-500" disabled={disabled || index === 0} onClick={() => moveCategory(category, -1)} aria-label={`Move ${category.name} up`}>
+                    <ArrowUp className="h-3.5 w-3.5" />
+                </Button>
+                <Button type="button" size="icon" variant="ghost" className="h-7 w-7 text-gray-500" disabled={disabled || index === count - 1} onClick={() => moveCategory(category, 1)} aria-label={`Move ${category.name} down`}>
+                    <ArrowDown className="h-3.5 w-3.5" />
+                </Button>
+            </div>
+        )
+    }
 
     return (
         <div className="space-y-6">
@@ -345,7 +431,6 @@ export default function CategoriesPage() {
                         variant="ghost"
                         onClick={() => {
                             setSearchQuery("")
-                            fetchCategories(1, true)
                         }}
                         className="text-gray-400 hover:text-white"
                     >
@@ -353,13 +438,16 @@ export default function CategoriesPage() {
                     </Button>
                 )}
             </form>
+            <p className="text-xs text-gray-500">
+                Drag categories or use the arrow buttons to reorder within each sibling group. Clear search to enable ordering.
+            </p>
 
             {/* Categories Content */}
             {isLoading ? (
                 <div className="bg-[#161616] rounded-xl border border-[#333] flex justify-center items-center h-48">
                     <Loader2 className="h-8 w-8 animate-spin text-[#86efac]" />
                 </div>
-            ) : categories.length === 0 ? (
+            ) : visibleCategories.length === 0 ? (
                 <div className="bg-[#161616] rounded-xl border border-[#333] flex flex-col items-center justify-center h-48 text-gray-400">
                     <FolderTree className="h-12 w-12 mb-4 opacity-50" />
                     <p>No categories found</p>
@@ -381,9 +469,29 @@ export default function CategoriesPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {categories.map((category) => (
-                                <TableRow key={category._id} className="border-[#333]">
+                            {categoryGroups.map((group) => (
+                                <Fragment key={group.parentId || "root"}>
+                                <TableRow className="border-[#333] bg-[#101010] hover:bg-[#101010]">
+                                    <TableCell colSpan={7} className="py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        {group.label} ({group.items.length})
+                                    </TableCell>
+                                </TableRow>
+                                {group.items.map((category, index) => (
+                                <TableRow
+                                    key={category._id}
+                                    className={`border-[#333] ${draggedCategoryId === category._id ? "opacity-50" : ""}`}
+                                    onDragOver={(event) => {
+                                        if (draggedCategoryId) event.preventDefault()
+                                    }}
+                                    onDrop={(event) => {
+                                        event.preventDefault()
+                                        const sourceId = event.dataTransfer.getData("text/plain") || draggedCategoryId
+                                        if (sourceId) reorderCategory(sourceId, category._id)
+                                    }}
+                                >
                                     <TableCell>
+                                        <div className="flex items-center gap-1">
+                                        <ReorderControls category={category} index={index} count={group.items.length} />
                                         {category.image?.url ? (
                                             <img 
                                                 src={category.image.url} 
@@ -395,15 +503,19 @@ export default function CategoriesPage() {
                                                 <FolderTree className="h-5 w-5 text-gray-500" />
                                             </div>
                                         )}
+                                        </div>
                                     </TableCell>
                                     <TableCell className="font-medium text-white">
-                                        {category.name}
+                                        <div>{category.name}</div>
+                                        <div className="text-xs font-normal text-gray-600">Position {index + 1}</div>
                                     </TableCell>
                                     <TableCell className="text-gray-400">
                                         {category.slug}
                                     </TableCell>
                                     <TableCell className="text-gray-400">
-                                        {category.parent?.name || "—"}
+                                        {(typeof category.parent === "object" && category.parent
+                                            ? category.parent.name
+                                            : parentById.get(category.parent || "")?.name) || "—"}
                                     </TableCell>
                                     <TableCell>
                                         <span className="flex items-center gap-1 text-gray-400">
@@ -430,32 +542,51 @@ export default function CategoriesPage() {
                                             >
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
-                                            <Button 
+                                            {isAdmin && <Button
                                                 size="icon" 
                                                 variant="ghost" 
                                                 className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10"
                                                 onClick={() => setDeleteConfirmId(category._id)}
                                             >
                                                 <Trash2 className="h-4 w-4" />
-                                            </Button>
+                                            </Button>}
                                         </div>
                                     </TableCell>
                                 </TableRow>
+                                ))}
+                                </Fragment>
                             ))}
                         </TableBody>
                     </Table>
                 </div>
             ) : (
                 /* Card View */
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {categories.map((category) => (
+                <div className="space-y-5">
+                    {categoryGroups.map((group) => (
+                    <section key={group.parentId || "root"} aria-labelledby={`group-${group.parentId || "root"}`}>
+                        <div className="mb-2 flex items-center justify-between">
+                            <h2 id={`group-${group.parentId || "root"}`} className="text-sm font-semibold text-gray-300">{group.label}</h2>
+                            <span className="text-xs text-gray-500">{group.items.length} categories</span>
+                        </div>
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {group.items.map((category, index) => (
                         <div 
                             key={category._id} 
-                            className={`bg-[#161616] rounded-xl border p-4 hover:border-[#444] transition-colors ${
+                            onDragOver={(event) => {
+                                if (draggedCategoryId) event.preventDefault()
+                            }}
+                            onDrop={(event) => {
+                                event.preventDefault()
+                                const sourceId = event.dataTransfer.getData("text/plain") || draggedCategoryId
+                                if (sourceId) reorderCategory(sourceId, category._id)
+                            }}
+                            className={`bg-[#161616] rounded-xl border p-4 hover:border-[#444] transition-colors ${draggedCategoryId === category._id ? "opacity-50" : ""} ${
                                 category.isActive ? 'border-[#333]' : 'border-[#333] opacity-60'
                             }`}
                         >
                             <div className="flex items-start justify-between mb-3">
+                                <div className="flex items-start gap-1">
+                                <ReorderControls category={category} index={index} count={group.items.length} />
                                 {category.image?.url ? (
                                     <img 
                                         src={category.image.url} 
@@ -467,6 +598,7 @@ export default function CategoriesPage() {
                                         <FolderTree className="h-7 w-7 text-gray-500" />
                                     </div>
                                 )}
+                                </div>
                                 <div className="flex gap-1">
                                     <Button 
                                         size="icon" 
@@ -476,18 +608,18 @@ export default function CategoriesPage() {
                                     >
                                         <Pencil className="h-4 w-4" />
                                     </Button>
-                                    <Button 
+                                    {isAdmin && <Button
                                         size="icon" 
                                         variant="ghost" 
                                         className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10"
                                         onClick={() => setDeleteConfirmId(category._id)}
                                     >
                                         <Trash2 className="h-4 w-4" />
-                                    </Button>
+                                    </Button>}
                                 </div>
                             </div>
                             <h3 className="font-semibold text-white text-lg mb-1">{category.name}</h3>
-                            <p className="text-gray-500 text-sm mb-2">/{category.slug}</p>
+                            <p className="text-gray-500 text-sm mb-2">/{category.slug} - Position {index + 1}</p>
                             <div className="flex items-center gap-3 text-xs">
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-medium ${
                                     category.isActive 
@@ -501,13 +633,16 @@ export default function CategoriesPage() {
                                     {category.productCount} products
                                 </span>
                             </div>
-                            {category.parent?.name && (
-                                <p className="text-gray-500 text-xs mt-2">Parent: {category.parent.name}</p>
+                            {getCategoryParentId(category) && (
+                                <p className="text-gray-500 text-xs mt-2">Parent: {typeof category.parent === "object" && category.parent ? category.parent.name : parentById.get(category.parent || "")?.name}</p>
                             )}
                             {category.description && (
                                 <p className="text-gray-400 text-sm mt-2 line-clamp-2">{category.description}</p>
                             )}
                         </div>
+                    ))}
+                        </div>
+                    </section>
                     ))}
                 </div>
             )}
@@ -670,7 +805,7 @@ export default function CategoriesPage() {
                             <label className="text-sm font-medium text-white mb-2 block">
                                 Parent Category
                             </label>
-                            <Select value={parentId} onValueChange={setParentId}>
+                            <Select value={parentId} onValueChange={handleParentChange}>
                                 <SelectTrigger className="bg-[#0D0D0D] border-[#333] text-white">
                                     <SelectValue placeholder="Select parent category" />
                                 </SelectTrigger>
@@ -705,15 +840,20 @@ export default function CategoriesPage() {
                         <div className="flex gap-4">
                             <div className="flex-1">
                                 <label className="text-sm font-medium text-white mb-2 block">
-                                    Display Order
+                                    Display Position *
                                 </label>
                                 <Input
                                     type="number"
-                                    placeholder="0"
+                                    min={1}
+                                    step={1}
+                                    placeholder="1"
                                     value={order}
                                     onChange={(e) => setOrder(e.target.value)}
                                     className="bg-[#0D0D0D] border-[#333] text-white"
                                 />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Starts at 1. Saving inserts here and shifts later siblings down.
+                                </p>
                             </div>
                             <div className="flex-1">
                                 <label className="text-sm font-medium text-white mb-2 block">
@@ -782,26 +922,6 @@ export default function CategoriesPage() {
                 </DialogContent>
             </Dialog>
 
-            {/* Load More Button */}
-            {hasMore && categories.length > 0 && (
-                <div className="flex justify-center pt-4">
-                    <Button
-                        onClick={loadMore}
-                        disabled={isLoadingMore}
-                        variant="outline"
-                        className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A] min-w-[200px]"
-                    >
-                        {isLoadingMore ? (
-                            <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Loading...
-                            </>
-                        ) : (
-                            `Load More (${categories.length}/${totalCategories})`
-                        )}
-                    </Button>
-                </div>
-            )}
         </div>
     )
 }

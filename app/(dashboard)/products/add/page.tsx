@@ -9,6 +9,7 @@ import { useSearchParams } from "next/navigation"
 import NextLink from "next/link"
 
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import {
@@ -44,12 +45,9 @@ import {
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 import { apiFetch } from "@/lib/api"
+import { CategoryOption, fetchAllCategories } from "@/lib/categories"
 
-interface Category {
-    _id: string
-    name: string
-    slug: string
-}
+type Category = CategoryOption
 
 interface Company {
     _id: string
@@ -97,7 +95,8 @@ const productSchema = z.object({
     description: z.string().optional().default(""),
     shortDescription: z.string().optional(),
     bulletPoints: z.array(z.string()).optional(),
-    category: z.string().min(1, "Category is required"),
+    categoryIds: z.array(z.string()).min(1, "Select at least one category"),
+    primaryCategoryId: z.string().min(1, "Primary category is required"),
     sku: z.string().min(1, "SKU is required"),
     mrp: z.string().refine((val) => !isNaN(Number(val)), "Must be a number"),
     retailPrice: z.string().refine((val) => !isNaN(Number(val)), "Must be a number"),
@@ -114,6 +113,14 @@ const productSchema = z.object({
     rating: z.string().refine((val) => !isNaN(Number(val)), "Must be a number").default("4.5"),
     purchaseCountMin: z.string().refine((val) => !isNaN(Number(val)), "Must be a number").default("0"),
     purchaseCountMax: z.string().refine((val) => !isNaN(Number(val)), "Must be a number").default("0"),
+}).superRefine((values, context) => {
+    if (values.primaryCategoryId && !values.categoryIds.includes(values.primaryCategoryId)) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["primaryCategoryId"],
+            message: "Primary category must be one of the selected categories",
+        })
+    }
 })
 
 export default function AddProductPage() {
@@ -152,7 +159,8 @@ export default function AddProductPage() {
             description: "",
             shortDescription: "",
             bulletPoints: [],
-            category: "",
+            categoryIds: [],
+            primaryCategoryId: "",
             sku: "",
             mrp: "",
             retailPrice: "",
@@ -180,14 +188,14 @@ export default function AddProductPage() {
             await fetchLabels()
 
             // Fetch companies and categories in parallel
-            await Promise.all([
+            const [, loadedCategories] = await Promise.all([
                 fetchCompanies(),
                 fetchCategories(),
             ])
 
             // Fetch product if in edit mode
             if (isEditMode && editId) {
-                await fetchProduct(editId)
+                await fetchProduct(editId, loadedCategories)
             }
 
             setIsInitialLoading(false)
@@ -195,7 +203,7 @@ export default function AddProductPage() {
         initData()
     }, [editId, isEditMode])
 
-    async function fetchProduct(id: string) {
+    async function fetchProduct(id: string, loadedCategories: Category[]) {
         setIsLoadingProduct(true)
         try {
             const res = await apiFetch(`/admin/products/${id}`)
@@ -206,13 +214,32 @@ export default function AddProductPage() {
 
             if (!product) throw new Error("Product data is empty")
 
+            const populatedCategories = Array.isArray(product.categories) ? product.categories : []
+            const categoryIds = [...new Set([
+                ...populatedCategories.map((category: any) => String(category?._id || category || "")),
+                ...(Array.isArray(product.categoryIds)
+                    ? product.categoryIds.map((category: any) => String(category?._id || category || ""))
+                    : []),
+            ].filter(Boolean))]
+            const legacyCategory = loadedCategories.find((category) => category.slug === product.category)
+            if (categoryIds.length === 0 && legacyCategory) categoryIds.push(legacyCategory._id)
+
+            const populatedPrimaryId = String(product.primaryCategory?._id || product.primaryCategory || "")
+            const requestedPrimaryId = String(product.primaryCategoryId?._id || product.primaryCategoryId || populatedPrimaryId)
+            const primaryCategoryId = categoryIds.includes(requestedPrimaryId)
+                ? requestedPrimaryId
+                : legacyCategory && categoryIds.includes(legacyCategory._id)
+                    ? legacyCategory._id
+                    : categoryIds[0] || ""
+
             // Set form values
             form.reset({
                 name: product.name || "",
                 description: product.description || "",
                 shortDescription: product.shortDescription || "",
                 bulletPoints: [],
-                category: product.category || "",
+                categoryIds,
+                primaryCategoryId,
                 sku: product.sku || "",
                 mrp: String(product.mrp || "0"),
                 retailPrice: String(product.retailPrice || "0"),
@@ -249,16 +276,14 @@ export default function AddProductPage() {
         }
     }
 
-    async function fetchCategories() {
+    async function fetchCategories(): Promise<Category[]> {
         try {
-            const response = await apiFetch("/categories?page=1&limit=500", { skipAuth: true })
-            if (response.ok) {
-                const data = await response.json()
-                const nextCategories = Array.isArray(data.data) ? data.data : []
-                setCategories(nextCategories)
-            }
+            const nextCategories = await fetchAllCategories()
+            setCategories(nextCategories)
+            return nextCategories
         } catch (error) {
             console.error("Failed to fetch categories:", error)
+            return []
         } finally {
             setIsLoadingCategories(false)
         }
@@ -487,7 +512,11 @@ export default function AddProductPage() {
         try {
             const response = await apiFetch("/categories", {
                 method: "POST",
-                body: JSON.stringify({ name: newCategoryName.trim() }),
+                body: JSON.stringify({
+                    name: newCategoryName.trim(),
+                    parent: null,
+                    order: categories.filter((category) => !category.parent).length + 1,
+                }),
             })
 
             if (!response.ok) {
@@ -498,8 +527,13 @@ export default function AddProductPage() {
             const data = await response.json()
             const newCategory = data.data
 
-            setCategories(prev => [...prev, newCategory].sort((a, b) => a.name.localeCompare(b.name)))
-            form.setValue("category", newCategory.slug)
+            setCategories(prev => [...prev, newCategory])
+            const selectedIds = form.getValues("categoryIds")
+            const categoryIds = [...selectedIds, newCategory._id]
+            form.setValue("categoryIds", categoryIds, { shouldValidate: true })
+            if (!form.getValues("primaryCategoryId")) {
+                form.setValue("primaryCategoryId", newCategory._id, { shouldValidate: true })
+            }
             setNewCategoryName("")
             setShowNewCategoryDialog(false)
             toast.success(`Category "${newCategory.name}" created successfully`)
@@ -524,17 +558,27 @@ export default function AddProductPage() {
             const validBulletPoints = bulletPoints.filter(bp => bp.trim() !== "")
             const normalizedLabelIds = normalizeSelectedLabelIds(values.labelIds, availableLabels)
 
-            // Construct payload matching backend expectation
+            const primaryCategory = categories.find((category) => category._id === values.primaryCategoryId)
+            if (!primaryCategory || !values.categoryIds.includes(values.primaryCategoryId)) {
+                toast.error("Choose a primary category from the selected categories")
+                return
+            }
+
+            // Keep the legacy slug while all category relationships use stable IDs.
             const payload = {
                 name: values.name,
                 description: values.description,
                 shortDescription: values.shortDescription || values.description.substring(0, 200),
-                category: values.category,
+                categoryIds: values.categoryIds,
+                primaryCategoryId: values.primaryCategoryId,
+                category: primaryCategory.slug,
                 sku: values.sku,
                 status: values.status,
-                mrp: Number(values.mrp),
-                retailPrice: Number(values.retailPrice),
-                wholesalePrice: Number(values.wholesalePrice),
+                ...(!isEditMode ? {
+                    mrp: Number(values.mrp),
+                    retailPrice: Number(values.retailPrice),
+                    wholesalePrice: Number(values.wholesalePrice),
+                } : {}),
                 stock: Number(values.stock),
                 minWholesaleQuantity: Number(values.minWholesaleQuantity),
                 isFeatured: values.isFeatured,
@@ -654,57 +698,75 @@ export default function AddProductPage() {
                                     <div className="grid gap-4 mt-4">
                                         <FormField
                                             control={form.control}
-                                        name="category"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-white">Category</FormLabel>
-                                                <div className="flex gap-2">
-                                                    <Popover>
-                                                        <PopoverTrigger asChild>
-                                                            <FormControl>
-                                                                <Button
-                                                                    type="button"
-                                                                    variant="outline"
-                                                                    className="flex-1 justify-between border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
-                                                                >
-                                                                    <span className="truncate">
-                                                                        {field.value
-                                                                            ? categories.find((category) => category.slug === field.value)?.name || field.value
-                                                                            : isLoadingCategories
-                                                                                ? "Loading categories..."
-                                                                                : "Select category"}
-                                                                    </span>
-                                                                    <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-[#8d8d8d]" />
-                                                                </Button>
-                                                            </FormControl>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent align="start" className="w-[360px] border-[#333] bg-[#111] p-0 text-white">
-                                                            <Command className="bg-[#111] text-white">
-                                                                <CommandInput
-                                                                    placeholder="Search categories..."
-                                                                    className="text-white placeholder:text-[#7d7d7d]"
-                                                                />
-                                                                <CommandList>
-                                                                    <CommandEmpty className="text-[#8d8d8d]">No category found.</CommandEmpty>
-                                                                    {categories.map((category) => (
-                                                                        <CommandItem
-                                                                            key={category._id}
-                                                                            value={`${category.name} ${category.slug}`}
-                                                                            onSelect={() => field.onChange(category.slug)}
-                                                                            className="flex items-center justify-between rounded-none px-3 py-2 text-white aria-selected:bg-[#1A1A1A]"
+                                            name="categoryIds"
+                                            render={({ field }) => {
+                                                const selectedCategories = field.value
+                                                    .map((id) => categories.find((category) => category._id === id))
+                                                    .filter((category): category is Category => Boolean(category))
+
+                                                const toggleCategory = (categoryId: string) => {
+                                                    const isSelected = field.value.includes(categoryId)
+                                                    const categoryIds = isSelected
+                                                        ? field.value.filter((id) => id !== categoryId)
+                                                        : [...field.value, categoryId]
+                                                    field.onChange(categoryIds)
+
+                                                    const primaryId = form.getValues("primaryCategoryId")
+                                                    if (isSelected && primaryId === categoryId) {
+                                                        form.setValue("primaryCategoryId", categoryIds[0] || "", { shouldValidate: true })
+                                                    } else if (!primaryId && categoryIds.length > 0) {
+                                                        form.setValue("primaryCategoryId", categoryIds[0], { shouldValidate: true })
+                                                    }
+                                                }
+
+                                                return (
+                                                    <FormItem>
+                                                        <FormLabel className="text-white">Categories *</FormLabel>
+                                                        <div className="flex gap-2">
+                                                            <Popover>
+                                                                <PopoverTrigger asChild>
+                                                                    <FormControl>
+                                                                        <Button
+                                                                            type="button"
+                                                                            variant="outline"
+                                                                            aria-label="Choose product categories"
+                                                                            className="flex-1 justify-between border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
                                                                         >
-                                                                            <div className="min-w-0">
-                                                                                <p className="truncate text-sm font-medium">{category.name}</p>
-                                                                                <p className="truncate text-xs text-[#7d7d7d]">{category.slug}</p>
-                                                                            </div>
-                                                                            <Check className={`h-4 w-4 ${field.value === category.slug ? "text-[#86efac]" : "text-transparent"}`} />
-                                                                        </CommandItem>
-                                                                    ))}
-                                                                </CommandList>
-                                                            </Command>
-                                                        </PopoverContent>
-                                                    </Popover>
-                                                        <Dialog open={showNewCategoryDialog} onOpenChange={setShowNewCategoryDialog}>
+                                                                            <span className="truncate">
+                                                                                {isLoadingCategories
+                                                                                    ? "Loading categories..."
+                                                                                    : selectedCategories.length > 0
+                                                                                        ? `${selectedCategories.length} selected`
+                                                                                        : "Select categories"}
+                                                                            </span>
+                                                                            <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-[#8d8d8d]" />
+                                                                        </Button>
+                                                                    </FormControl>
+                                                                </PopoverTrigger>
+                                                                <PopoverContent align="start" className="w-[360px] border-[#333] bg-[#111] p-0 text-white">
+                                                                    <Command className="bg-[#111] text-white">
+                                                                        <CommandInput placeholder="Search categories..." className="text-white placeholder:text-[#7d7d7d]" />
+                                                                        <CommandList>
+                                                                            <CommandEmpty className="text-[#8d8d8d]">No category found.</CommandEmpty>
+                                                                            {categories.map((category) => (
+                                                                                <CommandItem
+                                                                                    key={category._id}
+                                                                                    value={`${category.name} ${category.slug}`}
+                                                                                    onSelect={() => toggleCategory(category._id)}
+                                                                                    className="flex items-center justify-between rounded-none px-3 py-2 text-white aria-selected:bg-[#1A1A1A]"
+                                                                                >
+                                                                                    <div className="min-w-0">
+                                                                                        <p className="truncate text-sm font-medium">{category.name}</p>
+                                                                                        <p className="truncate text-xs text-[#7d7d7d]">{category.slug}</p>
+                                                                                    </div>
+                                                                                    <Check className={`h-4 w-4 ${field.value.includes(category._id) ? "text-[#86efac]" : "text-transparent"}`} />
+                                                                                </CommandItem>
+                                                                            ))}
+                                                                        </CommandList>
+                                                                    </Command>
+                                                                </PopoverContent>
+                                                            </Popover>
+                                                         <Dialog open={showNewCategoryDialog} onOpenChange={setShowNewCategoryDialog}>
                                                             <DialogTrigger asChild>
                                                                 <Button type="button" variant="outline" size="icon" className="border-[#333] bg-[#1A1A1A] text-white hover:bg-[#333]">
                                                                     <Plus className="h-4 w-4" />
@@ -744,15 +806,56 @@ export default function AddProductPage() {
                                                                     </Button>
                                                                 </DialogFooter>
                                                             </DialogContent>
-                                                        </Dialog>
-                                                    </div>
-                                                    <FormDescription className="text-gray-500">
-                                                        Search by category name and pick from all created categories.
-                                                    </FormDescription>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
+                                                         </Dialog>
+                                                        </div>
+                                                        {selectedCategories.length > 0 && (
+                                                            <div className="flex flex-wrap gap-2 pt-2" aria-label="Selected categories">
+                                                                {selectedCategories.map((category) => (
+                                                                    <Badge key={category._id} variant="outline" className="gap-1 border-[#444] text-gray-200">
+                                                                        {category.name}
+                                                                        <button type="button" onClick={() => toggleCategory(category._id)} aria-label={`Remove ${category.name}`}>
+                                                                            <X className="h-3 w-3" />
+                                                                        </button>
+                                                                    </Badge>
+                                                                ))}
+                                                            </div>
+                                                        )}
+                                                        <FormDescription className="text-gray-500">
+                                                            Search and select one or more categories.
+                                                        </FormDescription>
+                                                        <FormMessage />
+
+                                                        {selectedCategories.length > 0 && (
+                                                            <FormField
+                                                                control={form.control}
+                                                                name="primaryCategoryId"
+                                                                render={({ field: primaryField }) => (
+                                                                    <FormItem className="pt-2">
+                                                                        <FormLabel className="text-white">Primary Category *</FormLabel>
+                                                                        <Select value={primaryField.value} onValueChange={primaryField.onChange}>
+                                                                            <FormControl>
+                                                                                <SelectTrigger className="border-[#333] bg-[#0D0D0D] text-white">
+                                                                                    <SelectValue placeholder="Choose the primary category" />
+                                                                                </SelectTrigger>
+                                                                            </FormControl>
+                                                                            <SelectContent className="border-[#333] bg-[#0D0D0D] text-white">
+                                                                                {selectedCategories.map((category) => (
+                                                                                    <SelectItem key={category._id} value={category._id}>{category.name}</SelectItem>
+                                                                                ))}
+                                                                            </SelectContent>
+                                                                        </Select>
+                                                                        <FormDescription className="text-gray-500">
+                                                                            Used for the product&apos;s main grouping and legacy category slug.
+                                                                        </FormDescription>
+                                                                        <FormMessage />
+                                                                    </FormItem>
+                                                                )}
+                                                            />
+                                                        )}
+                                                    </FormItem>
+                                                )
+                                            }}
+                                         />
                                         <FormField
                                             control={form.control}
                                             name="sku"
@@ -1094,10 +1197,10 @@ export default function AddProductPage() {
                                             <FormItem>
                                                 <FormLabel className="text-white">MRP (₹)</FormLabel>
                                                 <FormControl>
-                                                    <Input type="number" placeholder="0.00" {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                    <Input type="number" placeholder="0.00" {...field} disabled={isEditMode} className="bg-[#0D0D0D] border-[#333] text-white disabled:opacity-60" />
                                                 </FormControl>
                                                 <FormDescription className="text-gray-500">
-                                                    Maximum Retail Price - shown as original price
+                                                    {isEditMode ? "Existing product prices are managed from Price Management." : "Maximum Retail Price - shown as original price"}
                                                 </FormDescription>
                                                 <FormMessage />
                                             </FormItem>
@@ -1112,10 +1215,10 @@ export default function AddProductPage() {
                                                 <FormItem>
                                                     <FormLabel className="text-white">Customer Price (₹)</FormLabel>
                                                     <FormControl>
-                                                        <Input type="number" placeholder="0.00" {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                        <Input type="number" placeholder="0.00" {...field} disabled={isEditMode} className="bg-[#0D0D0D] border-[#333] text-white disabled:opacity-60" />
                                                     </FormControl>
                                                     <FormDescription className="text-gray-500">
-                                                        Price shown to regular customers
+                                                        {isEditMode ? "Use Price Management to change this price." : "Price shown to regular customers"}
                                                     </FormDescription>
                                                     <FormMessage />
                                                 </FormItem>
@@ -1128,10 +1231,10 @@ export default function AddProductPage() {
                                                 <FormItem>
                                                     <FormLabel className="text-white">Wholesale Price (₹)</FormLabel>
                                                     <FormControl>
-                                                        <Input type="number" placeholder="0.00" {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                        <Input type="number" placeholder="0.00" {...field} disabled={isEditMode} className="bg-[#0D0D0D] border-[#333] text-white disabled:opacity-60" />
                                                     </FormControl>
                                                     <FormDescription className="text-gray-500">
-                                                        Price shown to wholesalers only
+                                                        {isEditMode ? "Use Price Management to change this price." : "Price shown to wholesalers only"}
                                                     </FormDescription>
                                                     <FormMessage />
                                                 </FormItem>
