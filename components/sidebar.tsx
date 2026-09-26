@@ -7,6 +7,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 import type { DashboardUser } from "@/components/dashboard-context"
 import { VeepeeBrand } from "@/components/veepee-brand"
+import { ThemeToggle } from "@/components/theme-toggle"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { logout } from "@/lib/api"
 import { navigationGroups, type NavigationItem } from "@/lib/navigation"
@@ -55,11 +56,11 @@ function Navigation({ user, onNavigate }: Pick<SidebarProps, "user"> & { onNavig
 
 function UtilityArea({ user, onNavigate }: Pick<SidebarProps, "user"> & { onNavigate?: () => void }) {
   const isAdmin = user.role === "admin"
-  return <div className="shrink-0 border-t border-[#1F1F1F] p-4"><div className="space-y-1">{isAdmin && <Link href="/settings" onClick={onNavigate} className="flex items-center gap-3.5 rounded-xl px-4 py-3 text-[15px] font-medium text-[#A3A3A3] transition-colors hover:bg-white/5 hover:text-white"><Settings className="h-[18px] w-[18px]" />Settings</Link>}<button onClick={async () => { toast.success("Logged out successfully"); await logout() }} className="flex w-full items-center gap-3.5 rounded-xl px-4 py-3 text-[15px] font-medium text-[#A3A3A3] transition-colors hover:bg-red-500/10 hover:text-red-400"><LogOut className="h-[18px] w-[18px]" />Logout</button></div></div>
+  return <div className="admin-utility-area shrink-0 border-t p-4"><div className="space-y-1"><ThemeToggle />{isAdmin && <Link href="/settings" onClick={onNavigate} className="flex items-center gap-3.5 rounded-xl px-4 py-3 text-[15px] font-medium text-[#A3A3A3] transition-colors hover:bg-white/5 hover:text-white"><Settings className="h-[18px] w-[18px]" />Settings</Link>}<button onClick={async () => { toast.success("Logged out successfully"); await logout() }} className="flex w-full items-center gap-3.5 rounded-xl px-4 py-3 text-[15px] font-medium text-[#A3A3A3] transition-colors hover:bg-red-500/10 hover:text-red-400"><LogOut className="h-[18px] w-[18px]" />Logout</button></div></div>
 }
 
 function SidebarPanel({ user, onNavigate, showBrand = false }: Pick<SidebarProps, "user"> & { onNavigate?: () => void; showBrand?: boolean }) {
-  return <div className="flex h-full min-h-0 flex-col bg-[#0D0D0D]">{showBrand && <div className="shrink-0 border-b border-[#1F1F1F] px-7 py-5"><VeepeeBrand /></div>}<Navigation user={user} onNavigate={onNavigate} /><UtilityArea user={user} onNavigate={onNavigate} /></div>
+  return <div className="admin-sidebar flex h-full min-h-0 flex-col">{showBrand && <div className="admin-sidebar-brand shrink-0 border-b px-7 py-5"><VeepeeBrand /></div>}<Navigation user={user} onNavigate={onNavigate} /><UtilityArea user={user} onNavigate={onNavigate} /></div>
 }
 
 export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) {

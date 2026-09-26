@@ -4,6 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
+  color-scheme: light;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -37,9 +38,23 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --admin-page: #eef3f9;
+  --admin-shell: rgba(255, 255, 255, 0.94);
+  --admin-sidebar: #f8fafc;
+  --admin-surface: #ffffff;
+  --admin-surface-muted: #f5f8fc;
+  --admin-surface-inset: #f0f5fa;
+  --admin-border: #d8e1ed;
+  --admin-border-strong: #c3d0e0;
+  --admin-text: #293850;
+  --admin-muted: #74839a;
+  --admin-grid: #dce5f0;
+  --admin-shadow: 0 16px 42px rgba(52, 76, 112, 0.1);
+  --admin-revenue: linear-gradient(135deg, #ffffff 0%, #f3f8ff 55%, #edf5ff 100%);
 }
 
 .dark {
+  color-scheme: dark;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.145 0 0);
@@ -72,6 +87,19 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
+  --admin-page: #050605;
+  --admin-shell: rgba(0, 0, 0, 0.95);
+  --admin-sidebar: #0d0d0d;
+  --admin-surface: #101210;
+  --admin-surface-muted: #0d0f0d;
+  --admin-surface-inset: #0b0d0b;
+  --admin-border: #242724;
+  --admin-border-strong: #343934;
+  --admin-text: #ffffff;
+  --admin-muted: #7f8982;
+  --admin-grid: #263026;
+  --admin-shadow: 0 18px 50px rgba(0, 0, 0, 0.26);
+  --admin-revenue: linear-gradient(135deg, #142019 0%, #101410 52%, #0d0f0d 100%);
 }
 
 @theme inline {
@@ -199,6 +227,186 @@ input[type='number']::-webkit-inner-spin-button {
   filter: hue-rotate(55deg) saturate(1.2);
 }
 
-input[type='number'] {
+html.dark input[type='number'] {
   color-scheme: dark;
+}
+
+html.light input[type='number'] {
+  color-scheme: light;
+}
+
+/* Theme-aware admin shell and dashboard surfaces. */
+.admin-page {
+  background: var(--admin-page);
+  color: var(--admin-text);
+}
+
+.admin-header {
+  border-color: var(--admin-border);
+  background: var(--admin-shell);
+  color: var(--admin-text);
+  box-shadow: 0 1px 0 rgba(80, 101, 130, 0.04);
+}
+
+.admin-sidebar {
+  background: var(--admin-sidebar);
+  color: var(--admin-text);
+}
+
+.admin-sidebar-brand,
+.admin-utility-area {
+  border-color: var(--admin-border);
+}
+
+.admin-brand {
+  color: var(--admin-text);
+}
+
+.admin-profile-button {
+  border-color: var(--admin-border-strong);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+}
+
+.admin-profile-button:hover,
+.admin-theme-toggle:hover {
+  background: var(--admin-surface-inset);
+}
+
+.admin-theme-toggle {
+  color: var(--admin-muted);
+}
+
+.admin-card {
+  border-color: var(--admin-border);
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-card-muted {
+  border-color: var(--admin-border);
+  background: var(--admin-surface-inset);
+}
+
+.admin-revenue-card {
+  border-color: color-mix(in srgb, #4e78be 28%, var(--admin-border));
+  background: var(--admin-revenue);
+  box-shadow: var(--admin-shadow);
+}
+
+.admin-muted {
+  color: var(--admin-muted);
+}
+
+/* Existing management pages still use dark literal utilities. These mappings
+   keep them legible while those pages are gradually moved to semantic tokens. */
+html.light .bg-\[\#0D0D0D\],
+html.light .bg-\[\#0d0d0d\],
+html.light .bg-\[\#0B0D0B\],
+html.light .bg-\[\#0b0d0b\],
+html.light .bg-black,
+html.light .bg-black\/95 {
+  background-color: #f5f8fc !important;
+}
+
+html.light .bg-\[\#101210\],
+html.light .bg-\[\#12110F\],
+html.light .bg-\[\#161616\] {
+  background-color: #ffffff !important;
+}
+
+html.light .bg-\[\#1A1A1A\],
+html.light .bg-\[\#1a1a1a\],
+html.light .bg-\[\#222\],
+html.light .bg-\[\#242424\],
+html.light .bg-\[\#2A2A2A\],
+html.light .bg-\[\#333\] {
+  background-color: #eaf0f7 !important;
+}
+
+html.light .border-\[\#1D211D\],
+html.light .border-\[\#1F1F1F\],
+html.light .border-\[\#222\],
+html.light .border-\[\#242724\],
+html.light .border-\[\#292D29\],
+html.light .border-\[\#302A22\],
+html.light .border-\[\#333\],
+html.light .border-\[\#343934\] {
+  border-color: #d8e1ed !important;
+}
+
+html.light .divide-\[\#222\] > :not(:last-child) {
+  border-color: #d8e1ed !important;
+}
+
+html.light .text-white,
+html.light .text-\[\#E7E7E7\] {
+  color: #293850 !important;
+}
+
+html.light .text-gray-300,
+html.light .text-gray-400,
+html.light .text-\[\#919191\],
+html.light .text-\[\#929A94\] {
+  color: #64748b !important;
+}
+
+html.light .text-gray-500,
+html.light .text-\[\#666\],
+html.light .text-\[\#68706A\],
+html.light .text-\[\#737B75\],
+html.light .text-\[\#746A5C\],
+html.light .text-\[\#7F8982\] {
+  color: #8491a5 !important;
+}
+
+html.light .text-\[\#A3A3A3\] {
+  color: #64748b !important;
+}
+
+html.light .text-\[\#A7F3C1\] {
+  color: #16824a !important;
+}
+
+html.light .hover\:bg-\[\#1A1A1A\]:hover,
+html.light .hover\:bg-\[\#1a1a1a\]:hover,
+html.light .hover\:bg-\[\#333\]:hover,
+html.light .hover\:bg-\[\#444\]:hover {
+  background-color: #e5edf7 !important;
+}
+
+html.light .hover\:text-white:hover,
+html.light .focus\:text-white:focus {
+  color: #293850 !important;
+}
+
+html.light [class*="bg-red-"][class*="text-white"],
+html.light [class*="bg-blue-"][class*="text-white"],
+html.light [class*="bg-orange-"][class*="text-white"],
+html.light [class*="bg-purple-"][class*="text-white"],
+html.light [class*="from-"][class*="text-white"] {
+  color: #ffffff !important;
+}
+
+html.light,
+html.light body,
+html.light * {
+  scrollbar-color: #6f91c9 #eef3f9;
+}
+
+html.light *::-webkit-scrollbar-track {
+  border-color: #d8e1ed;
+  background: #eef3f9;
+}
+
+html.light *::-webkit-scrollbar-thumb {
+  border-color: #eef3f9;
+  background: linear-gradient(180deg, #82a5dc 0%, #547fc2 100%);
+}
+
+html.light *::-webkit-scrollbar-corner,
+html.light *::-webkit-scrollbar-button {
+  border-color: #d8e1ed;
+  background: #eef3f9;
 }

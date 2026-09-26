@@ -46,7 +46,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const routeAllowed = canAccessPath(user.role, pathname)
   return <DashboardProvider value={user}>
-    <div className="h-dvh overflow-hidden bg-black text-white">
+    <div className="admin-page h-dvh overflow-hidden">
       <Header user={user} onMenuClick={() => setMobileOpen(true)} />
       <div className="flex h-full min-w-0 pt-16 md:pt-20">
         <Sidebar user={user} mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
