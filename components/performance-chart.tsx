@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { AlertCircle, Loader2, RefreshCw } from 'lucide-react'
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis, CartesianGrid } from "recharts"
 import { apiFetch } from '@/lib/api'
+import { useTheme } from 'next-themes'
 
 type PeriodKey = '7d' | '30d' | '90d' | '1y' | 'all'
 
@@ -22,6 +23,8 @@ interface ChartPoint {
 }
 
 export function PerformanceChart() {
+  const { resolvedTheme } = useTheme()
+  const isLight = resolvedTheme === 'light'
   const [data, setData] = useState<ChartPoint[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [activePeriod, setActivePeriod] = useState<PeriodKey>('all')
@@ -79,13 +82,13 @@ export function PerformanceChart() {
   const yMax = Math.ceil(maxRevenue * 1.2 / 100) * 100 || 1000
 
   return (
-    <section className="flex flex-col gap-6 rounded-2xl border border-[#242724] bg-[#101210] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.24)] sm:p-6">
+    <section className="admin-card flex flex-col gap-6 rounded-2xl border p-5 sm:p-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 md:gap-2 lg:gap-4 flex-wrap">
         <div className="flex items-center gap-3">
           <div><h2 className="text-xl font-semibold text-white">Sales Overview</h2><p className="mt-1 text-sm text-[#737B75]">Verified revenue performance over time</p></div>
         </div>
 
-        <div className="flex items-center rounded-xl border border-[#292D29] bg-[#0B0D0B] p-1">
+        <div className="admin-card-muted flex items-center rounded-xl border p-1">
           {periodMap.map((p) => (
             <button
               key={p.value}
@@ -102,7 +105,7 @@ export function PerformanceChart() {
         </div>
       </div>
 
-      <div className="h-[360px] w-full rounded-xl border border-[#1D211D] bg-[#0B0D0B] p-2 sm:p-4">
+      <div className="admin-card-muted h-[360px] w-full rounded-xl border p-2 sm:p-4">
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="h-6 w-6 animate-spin text-[#86efac]" />
@@ -127,10 +130,10 @@ export function PerformanceChart() {
                   <stop offset="95%" stopColor="#86efac" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#1F1F1F" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={isLight ? '#dce5f0' : '#263026'} vertical={false} />
               <XAxis
                 dataKey="date"
-                tick={{ fill: '#666', fontSize: 11 }}
+                tick={{ fill: isLight ? '#718096' : '#737b75', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
                 interval="preserveStartEnd"
@@ -138,7 +141,7 @@ export function PerformanceChart() {
               <YAxis
                 domain={[0, yMax]}
                 orientation="left"
-                tick={{ fill: '#666', fontSize: 11 }}
+                tick={{ fill: isLight ? '#718096' : '#737b75', fontSize: 11 }}
                 axisLine={false}
                 tickLine={false}
                 tickFormatter={formatCurrency}
@@ -148,7 +151,7 @@ export function PerformanceChart() {
                   if (active && payload && payload.length) {
                     const d = payload[0].payload as ChartPoint
                     return (
-                      <div className="bg-[#1A1A1A] border border-[#333] p-3 rounded-lg shadow-xl">
+                      <div className="admin-card rounded-lg border p-3 shadow-xl">
                         <p className="text-white font-medium">₹{d.revenue.toLocaleString('en-IN')}</p>
                         <p className="text-gray-400 text-xs mt-1">{d.orders} orders &middot; {d.date}</p>
                       </div>

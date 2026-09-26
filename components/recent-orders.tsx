@@ -72,7 +72,7 @@ export function RecentOrders() {
     }
 
     return (
-        <section className="rounded-2xl border border-[#242724] bg-[#101210] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.24)] sm:p-6">
+        <section className="admin-card rounded-2xl border p-5 sm:p-6">
             <div className="flex items-center justify-between mb-6">
                 <div><h3 className="text-xl font-semibold text-white">Recent Orders</h3><p className="mt-1 text-sm text-[#737B75]">Latest activity across customer orders</p></div>
                 <Link href="/orders" className="text-sm text-[#86efac] flex items-center gap-1 hover:underline">
@@ -87,7 +87,7 @@ export function RecentOrders() {
             ) : orders.length === 0 ? (
                 <div className="text-center py-10 text-gray-500 text-sm">No orders yet</div>
             ) : (
-                <div className="overflow-x-auto rounded-xl border border-[#1D211D] bg-[#0B0D0B]">
+                <div className="admin-card-muted overflow-x-auto rounded-xl border">
                 <table className="w-full min-w-[840px]">
                     <thead>
                         <tr className="border-b border-[#242724] bg-[#111411] text-sm text-[#919991]">

@@ -68,7 +68,7 @@ export function DashboardMetrics() {
 
   return (
     <section className="grid gap-4 xl:grid-cols-[1.35fr_2fr]" aria-label="Dashboard overview">
-      <div className="relative overflow-hidden rounded-2xl border border-[#284132] bg-[linear-gradient(135deg,#142019_0%,#101410_52%,#0d0f0d_100%)] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.28)]">
+      <div className="admin-revenue-card relative overflow-hidden rounded-2xl border p-6">
         <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-[#86efac]/10 blur-3xl" />
         <div className="relative flex h-full min-h-36 flex-col justify-between gap-7">
           <div className="flex items-center justify-between">
@@ -87,22 +87,22 @@ export function DashboardMetrics() {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <div className="rounded-2xl border border-[#242724] bg-[#101210] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.2)] transition-colors hover:border-[#343934]">
+        <div className="admin-card rounded-2xl border p-5 transition-colors hover:border-[#343934]">
           <span className="flex items-center gap-2 text-sm text-[#929A94]"><ShoppingCart className="h-4 w-4 text-white" /> Total Orders</span>
           <span className="mt-4 block text-3xl font-semibold text-white">{(overview?.totalOrders ?? 0).toLocaleString()}</span>
           <span className="mt-1 block min-h-4 text-xs text-[#86efac]">{today && today.orders > 0 ? `+${today.orders} today` : "All recorded orders"}</span>
         </div>
-        <div className="rounded-2xl border border-[#242724] bg-[#101210] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.2)] transition-colors hover:border-[#343934]">
+        <div className="admin-card rounded-2xl border p-5 transition-colors hover:border-[#343934]">
           <span className="flex items-center gap-2 text-sm text-[#929A94]"><Users className="h-4 w-4 text-[#86efac]" /> Customers</span>
           <span className="mt-4 block text-3xl font-semibold text-[#86efac]">{(overview?.totalCustomers ?? 0).toLocaleString()}</span>
           <span className="mt-1 block text-xs text-[#68706A]">Active buyer accounts</span>
         </div>
-        <div className="rounded-2xl border border-[#242724] bg-[#101210] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.2)] transition-colors hover:border-[#343934]">
+        <div className="admin-card rounded-2xl border p-5 transition-colors hover:border-[#343934]">
           <span className="flex items-center gap-2 text-sm text-[#929A94]"><Handshake className="h-4 w-4 text-[#fbbf24]" /> Negotiations</span>
           <span className="mt-4 block text-3xl font-semibold text-[#fbbf24]">{overview?.activeNegotiations ?? 0}</span>
           <span className="mt-1 block text-xs text-[#68706A]">Awaiting resolution</span>
         </div>
-        <div className="rounded-2xl border border-[#302A22] bg-[#12110F] p-5 shadow-[0_14px_35px_rgba(0,0,0,0.2)] transition-colors hover:border-[#493B27]">
+        <div className="admin-card rounded-2xl border p-5 transition-colors hover:border-[#493B27]">
           <span className="flex items-center gap-2 text-sm text-[#929A94]"><ReceiptIndianRupee className="h-4 w-4 text-orange-400" /> Pending Payments</span>
           <span className="mt-4 block text-3xl font-semibold text-orange-400">{overview?.pendingPayments ?? 0}</span>
           <span className="mt-1 block text-xs text-[#746A5C]">Needs verification</span>

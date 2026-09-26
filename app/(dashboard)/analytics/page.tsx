@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Loader2, TrendingUp, ShoppingCart, IndianRupee, Activity, Users, Eye, Package, Flame, AlertTriangle, BarChart3, ArrowUpRight, ArrowDownRight } from "lucide-react"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
+import { useTheme } from "next-themes"
 import {
     AreaChart,
     Area,
@@ -59,6 +60,16 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 const BAR_COLORS = { views: '#3b82f6', orders: '#22c55e', revenue: '#f59e0b', demand: '#ef4444' };
 
 export default function AnalyticsPage() {
+    const { resolvedTheme } = useTheme()
+    const isLight = resolvedTheme === "light"
+    const chartTheme = {
+        grid: isLight ? "#dce5f0" : "#333333",
+        gridMuted: isLight ? "#e3eaf3" : "#222222",
+        axis: isLight ? "#718096" : "#777777",
+        tooltipBg: isLight ? "#ffffff" : "#1F1F1F",
+        tooltipBorder: isLight ? "#d8e1ed" : "#333333",
+        tooltipText: isLight ? "#293850" : "#ffffff",
+    }
     const [salesData, setSalesData] = useState<SalesData | null>(null)
     const [productData, setProductData] = useState<ProductAnalytics[]>([])
     const [demandData, setDemandData] = useState<DemandData | null>(null)
@@ -223,10 +234,10 @@ export default function AnalyticsPage() {
                                                     <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
                                                 </linearGradient>
                                             </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                                            <XAxis dataKey="date" stroke="#666" tickFormatter={(v) => new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} tickLine={false} axisLine={false} />
-                                            <YAxis stroke="#666" tickFormatter={(v) => `₹${v / 1000}k`} tickLine={false} axisLine={false} />
-                                            <Tooltip contentStyle={{ backgroundColor: '#1F1F1F', border: '1px solid #333', borderRadius: '8px' }} labelStyle={{ color: '#aaa' }} />
+                                            <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
+                                            <XAxis dataKey="date" stroke={chartTheme.axis} tickFormatter={(v) => new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} tickLine={false} axisLine={false} />
+                                            <YAxis stroke={chartTheme.axis} tickFormatter={(v) => `₹${v / 1000}k`} tickLine={false} axisLine={false} />
+                                            <Tooltip contentStyle={{ backgroundColor: chartTheme.tooltipBg, border: `1px solid ${chartTheme.tooltipBorder}`, borderRadius: '8px', color: chartTheme.tooltipText }} labelStyle={{ color: chartTheme.axis }} />
                                             <Area type="monotone" dataKey="revenue" stroke="#22c55e" fillOpacity={1} fill="url(#colorRevenue)" />
                                         </AreaChart>
                                     </ResponsiveContainer>
@@ -247,7 +258,7 @@ export default function AnalyticsPage() {
                                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                 ))}
                                             </Pie>
-                                            <Tooltip formatter={(value: number) => `₹${value.toLocaleString()}`} contentStyle={{ backgroundColor: '#1F1F1F', border: '1px solid #333', borderRadius: '8px' }} itemStyle={{ color: '#fff' }} />
+                                            <Tooltip formatter={(value: number) => `₹${value.toLocaleString()}`} contentStyle={{ backgroundColor: chartTheme.tooltipBg, border: `1px solid ${chartTheme.tooltipBorder}`, borderRadius: '8px' }} itemStyle={{ color: chartTheme.tooltipText }} />
                                             <Legend iconType="circle" />
                                         </PieChart>
                                     </ResponsiveContainer>
@@ -331,13 +342,13 @@ export default function AnalyticsPage() {
                                     <div className="h-[350px] w-full">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <BarChart data={productData.slice(0, 10)} layout="vertical" margin={{ left: 20 }}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#222" horizontal={false} />
-                                                <XAxis type="number" stroke="#666" tickLine={false} axisLine={false}
+                                                <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridMuted} horizontal={false} />
+                                                <XAxis type="number" stroke={chartTheme.axis} tickLine={false} axisLine={false}
                                                     tickFormatter={(v) => productSort === 'revenue' ? `₹${v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}` : v.toLocaleString()} />
-                                                <YAxis type="category" dataKey="name" stroke="#999" width={140} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                                                <YAxis type="category" dataKey="name" stroke={chartTheme.axis} width={140} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
                                                 <Tooltip
-                                                    contentStyle={{ backgroundColor: '#1F1F1F', border: '1px solid #333', borderRadius: '8px' }}
-                                                    labelStyle={{ color: '#fff', fontWeight: 600 }}
+                                                    contentStyle={{ backgroundColor: chartTheme.tooltipBg, border: `1px solid ${chartTheme.tooltipBorder}`, borderRadius: '8px' }}
+                                                    labelStyle={{ color: chartTheme.tooltipText, fontWeight: 600 }}
                                                     formatter={(value: number, name: string) => {
                                                         if (name === 'revenue') return [`₹${value.toLocaleString()}`, 'Revenue']
                                                         if (name === 'views') return [value.toLocaleString(), 'Views']
@@ -467,11 +478,11 @@ export default function AnalyticsPage() {
                                     <div className="h-[300px] w-full">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <BarChart data={topViewed.slice(0, 8)}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
-                                                <XAxis dataKey="name" stroke="#666" tick={{ fontSize: 11 }} tickLine={false} axisLine={false}
+                                                <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridMuted} vertical={false} />
+                                                <XAxis dataKey="name" stroke={chartTheme.axis} tick={{ fontSize: 11 }} tickLine={false} axisLine={false}
                                                     tickFormatter={(v) => v.length > 15 ? v.slice(0, 15) + '…' : v} />
-                                                <YAxis stroke="#666" tickLine={false} axisLine={false} />
-                                                <Tooltip contentStyle={{ backgroundColor: '#1F1F1F', border: '1px solid #333', borderRadius: '8px' }} />
+                                                <YAxis stroke={chartTheme.axis} tickLine={false} axisLine={false} />
+                                                <Tooltip contentStyle={{ backgroundColor: chartTheme.tooltipBg, border: `1px solid ${chartTheme.tooltipBorder}`, borderRadius: '8px', color: chartTheme.tooltipText }} />
                                                 <Legend iconType="circle" />
                                                 <Bar dataKey="views" fill="#3b82f6" name="Views" radius={[4, 4, 0, 0]} barSize={18} />
                                                 <Bar dataKey="cartAdds" fill="#f59e0b" name="Cart Adds" radius={[4, 4, 0, 0]} barSize={18} />
