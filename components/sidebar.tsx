@@ -37,35 +37,36 @@ function Navigation({ user, onNavigate }: Pick<SidebarProps, "user"> & { onNavig
 
     if (children.length) {
       return <div key={item.label} className="space-y-1">
-        <button onClick={() => setExpanded((value) => !value)} className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-left text-[15px] font-medium transition-colors ${active ? "bg-[#86efac]/10 text-[#86efac]" : "text-[#A3A3A3] hover:bg-white/5 hover:text-white"}`}>
-          <span className="flex items-center gap-3.5"><Icon className="h-[18px] w-[18px] shrink-0" />{item.label}</span>
+        <button onClick={() => setExpanded((value) => !value)} className={`admin-nav-item flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-[13px] font-semibold transition-colors ${active ? "admin-nav-item-active" : "admin-nav-item-inactive"}`}>
+          <span className="flex items-center gap-3"><Icon className="h-[17px] w-[17px] shrink-0" />{item.label}</span>
           {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
-        {expanded && <div className="ml-5 border-l border-[#333] pl-3">{children.map((child) => {
+        {expanded && <div className="ml-5 border-l border-[var(--admin-border)] pl-3">{children.map((child) => {
           const ChildIcon = child.icon
-          return <Link key={child.href} href={child.href!} onClick={onNavigate} className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${isActive(pathname, child.href) ? "text-[#86efac]" : "text-[#A3A3A3] hover:text-white"}`}><ChildIcon className="h-4 w-4 shrink-0" />{child.label}</Link>
+          return <Link key={child.href} href={child.href!} onClick={onNavigate} className={`admin-nav-child flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${isActive(pathname, child.href) ? "admin-nav-child-active" : ""}`}><ChildIcon className="h-4 w-4 shrink-0" />{child.label}</Link>
         })}</div>}
       </div>
     }
 
-    return <Link key={item.href} href={item.href!} onClick={onNavigate} className={`flex items-center gap-3.5 rounded-xl px-4 py-3 text-[15px] font-medium transition-colors ${active ? "bg-[#86efac]/10 text-[#86efac]" : "text-[#A3A3A3] hover:bg-white/5 hover:text-white"}`}><Icon className="h-[18px] w-[18px] shrink-0" />{item.label}</Link>
+    return <Link key={item.href} href={item.href!} onClick={onNavigate} aria-current={active ? "page" : undefined} className={`admin-nav-item flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition-colors ${active ? "admin-nav-item-active" : "admin-nav-item-inactive"}`}><Icon className="h-[17px] w-[17px] shrink-0" />{item.label}</Link>
   }
 
-  return <nav className="min-h-0 flex-1 overflow-y-auto px-4 py-5">{visibleGroups.map((group) => <section key={group.label} className="mb-7"><p className="mb-2.5 px-4 text-[10px] font-bold uppercase tracking-[0.18em] text-[#666]">{group.label}</p><div className="space-y-1">{group.items.map(renderItem)}</div></section>)}</nav>
+  return <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-5">{visibleGroups.map((group) => <section key={group.label} className="mb-6"><p className="admin-nav-group mb-2 px-3 text-[9px] font-bold uppercase tracking-[0.2em]">{group.label}</p><div className="space-y-0.5">{group.items.map(renderItem)}</div></section>)}</nav>
 }
 
 function UtilityArea({ user, onNavigate }: Pick<SidebarProps, "user"> & { onNavigate?: () => void }) {
+  const pathname = usePathname()
   const isAdmin = user.role === "admin"
-  return <div className="admin-utility-area shrink-0 border-t p-4"><div className="space-y-1"><ThemeToggle />{isAdmin && <Link href="/settings" onClick={onNavigate} className="flex items-center gap-3.5 rounded-xl px-4 py-3 text-[15px] font-medium text-[#A3A3A3] transition-colors hover:bg-white/5 hover:text-white"><Settings className="h-[18px] w-[18px]" />Settings</Link>}<button onClick={async () => { toast.success("Logged out successfully"); await logout() }} className="flex w-full items-center gap-3.5 rounded-xl px-4 py-3 text-[15px] font-medium text-[#A3A3A3] transition-colors hover:bg-red-500/10 hover:text-red-400"><LogOut className="h-[18px] w-[18px]" />Logout</button></div></div>
+  return <div className="admin-utility-area shrink-0 border-t p-3"><div className="space-y-0.5"><ThemeToggle />{isAdmin && <Link href="/settings" onClick={onNavigate} className={`admin-nav-item flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition-colors ${pathname === "/settings" ? "admin-nav-item-active" : "admin-nav-item-inactive"}`}><Settings className="h-[17px] w-[17px]" />Settings</Link>}<button onClick={async () => { toast.success("Logged out successfully"); await logout() }} className="admin-nav-item admin-nav-item-inactive flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition-colors hover:!bg-red-500/10 hover:!text-red-500"><LogOut className="h-[17px] w-[17px]" />Logout</button></div></div>
 }
 
 function SidebarPanel({ user, onNavigate, showBrand = false }: Pick<SidebarProps, "user"> & { onNavigate?: () => void; showBrand?: boolean }) {
-  return <div className="admin-sidebar flex h-full min-h-0 flex-col">{showBrand && <div className="admin-sidebar-brand shrink-0 border-b px-7 py-5"><VeepeeBrand /></div>}<Navigation user={user} onNavigate={onNavigate} /><UtilityArea user={user} onNavigate={onNavigate} /></div>
+  return <div className="admin-sidebar flex h-full min-h-0 flex-col">{showBrand && <div className="admin-sidebar-brand shrink-0 border-b px-5 py-5"><VeepeeBrand /></div>}<Navigation user={user} onNavigate={onNavigate} /><UtilityArea user={user} onNavigate={onNavigate} /></div>
 }
 
 export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) {
   return <>
-    <aside className="hidden h-full min-h-0 shrink-0 border-r border-[#1F1F1F] md:flex md:w-72 lg:w-80 xl:w-[21rem]"><SidebarPanel user={user} showBrand /></aside>
+    <aside className="hidden h-full min-h-0 shrink-0 border-r border-[var(--admin-border)] md:flex md:w-64 xl:w-[17rem]"><SidebarPanel user={user} showBrand /></aside>
     <Sheet open={mobileOpen} onOpenChange={onMobileOpenChange}>
       <SheetContent side="left" className="w-[88vw] max-w-[22rem] border-[#333] bg-[#0D0D0D] p-0 text-white">
         <SheetHeader className="sr-only"><SheetTitle>Veepee navigation</SheetTitle></SheetHeader>

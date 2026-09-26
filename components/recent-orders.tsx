@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from 'react'
-import { ArrowUpRight, Clock, CheckCircle2, Loader2 } from 'lucide-react'
+import { ArrowUpRight, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { apiFetch } from '@/lib/api'
 
@@ -66,69 +66,47 @@ export function RecentOrders() {
         return status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
     }
 
-    const getPaymentStatus = (order: Order) => {
-        if (!order.payment) return order.status === 'pending_payment' ? 'pending' : 'unknown'
-        return order.payment.status
-    }
-
     return (
-        <section className="admin-card rounded-2xl border p-5 sm:p-6">
-            <div className="flex items-center justify-between mb-6">
-                <div><h3 className="text-xl font-semibold text-white">Recent Orders</h3><p className="mt-1 text-sm text-[#737B75]">Latest activity across customer orders</p></div>
-                <Link href="/orders" className="text-sm text-[#86efac] flex items-center gap-1 hover:underline">
-                    View All <ArrowUpRight className="h-4 w-4" />
+        <section className="admin-card recent-orders-panel h-full min-h-[560px] rounded-[1.4rem] border p-5 sm:p-6">
+            <div className="mb-6 flex items-end justify-between gap-4">
+                <div><p className="dashboard-eyebrow">Operations</p><h3 className="admin-heading mt-1.5 text-xl font-bold tracking-tight">Recent orders</h3></div>
+                <Link href="/orders" className="dashboard-accent flex shrink-0 items-center gap-1 text-xs font-semibold hover:underline">
+                    View all <ArrowUpRight className="h-3.5 w-3.5" />
                 </Link>
             </div>
 
             {isLoading ? (
                 <div className="flex justify-center py-10">
-                    <Loader2 className="h-6 w-6 animate-spin text-[#86efac]" />
+                    <Loader2 className="dashboard-accent h-6 w-6 animate-spin" />
                 </div>
             ) : orders.length === 0 ? (
                 <div className="text-center py-10 text-gray-500 text-sm">No orders yet</div>
             ) : (
-                <div className="admin-card-muted overflow-x-auto rounded-xl border">
-                <table className="w-full min-w-[840px]">
+                <div className="overflow-x-auto">
+                <table className="w-full table-fixed">
                     <thead>
-                        <tr className="border-b border-[#242724] bg-[#111411] text-sm text-[#919991]">
-                            <th className="pb-4 text-left font-medium pl-2">Order ID</th>
-                            <th className="pb-4 text-left font-medium">Customer</th>
-                            <th className="pb-4 text-left font-medium">Date</th>
-                            <th className="pb-4 text-right font-medium">Amount</th>
-                            <th className="pb-4 text-center font-medium">Status</th>
-                            <th className="pb-4 text-center font-medium pr-2">Payment</th>
+                        <tr className="border-b border-[var(--admin-border)] text-[11px] text-[var(--admin-muted)]">
+                            <th className="w-[32%] pb-3 text-left font-medium">Order</th>
+                            <th className="order-customer w-[27%] pb-3 text-left font-medium">Customer</th>
+                            <th className="w-[18%] pb-3 text-right font-medium">Amount</th>
+                            <th className="w-[23%] pb-3 text-right font-medium">Status</th>
                         </tr>
                     </thead>
                     <tbody className="text-sm">
                         {orders.map((order) => {
-                            const payStatus = getPaymentStatus(order)
                             return (
                                 <tr
                                     key={order._id}
-                                    className="group border-b border-[#1F1F1F] transition-colors last:border-0 hover:bg-[#151915]"
+                                    className="group border-b border-[var(--admin-border)] transition-colors last:border-0 hover:bg-[var(--admin-surface-inset)]"
                                 >
-                                    <td className="py-4 pl-2 text-white font-medium">{order.orderNumber}</td>
-                                    <td className="py-4 text-[#E7E7E7]">{order.customerSnapshot?.name || '—'}</td>
-                                    <td className="py-4 text-[#919191]">{formatDate(order.createdAt)}</td>
-                                    <td className="py-4 text-right text-white font-bold">₹{order.total.toLocaleString('en-IN')}</td>
-                                    <td className="py-4">
-                                        <div className="flex justify-center">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusStyle(order.status)}`}>
-                                                {formatStatus(order.status)}
+                                    <td className="py-4 pr-3"><span className="admin-heading block text-xs font-semibold">{order.orderNumber}</span><span className="admin-muted mt-1 block text-[11px]">{formatDate(order.createdAt)}</span></td>
+                                    <td className="admin-heading order-customer py-4 pr-3 text-xs">{order.customerSnapshot?.name || '—'}</td>
+                                    <td className="admin-heading whitespace-nowrap py-4 pr-3 text-right text-xs font-bold">₹{order.total.toLocaleString('en-IN')}</td>
+                                    <td className="py-4 text-right">
+                                        <div className="flex justify-end">
+                                            <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-semibold ${getStatusStyle(order.status)}`}>
+                                                 {formatStatus(order.status)}
                                             </span>
-                                        </div>
-                                    </td>
-                                    <td className="py-4 pr-2">
-                                        <div className="flex items-center justify-center gap-2">
-                                            {payStatus === 'verified' ? (
-                                                <div className="flex items-center gap-1 text-[#86efac]">
-                                                    <CheckCircle2 className="h-4 w-4" /> Verified
-                                                </div>
-                                            ) : (
-                                                <div className="flex items-center gap-1 text-yellow-500">
-                                                    <Clock className="h-4 w-4" /> {formatStatus(payStatus)}
-                                                </div>
-                                            )}
                                         </div>
                                     </td>
                                 </tr>

@@ -57,8 +57,8 @@ export function DashboardMetrics() {
 
   if (isLoading) {
     return (
-      <div className="flex h-36 items-center justify-center rounded-2xl border border-[#242724] bg-[#101210] p-6 shadow-[0_16px_45px_rgba(0,0,0,0.24)]">
-        <Loader2 className="h-6 w-6 animate-spin text-[#86efac]" />
+      <div className="admin-card flex h-44 items-center justify-center rounded-[1.4rem] border p-6">
+        <Loader2 className="dashboard-accent h-6 w-6 animate-spin" />
       </div>
     )
   }
@@ -67,45 +67,45 @@ export function DashboardMetrics() {
   const today = data?.today
 
   return (
-    <section className="grid gap-4 xl:grid-cols-[1.35fr_2fr]" aria-label="Dashboard overview">
-      <div className="admin-revenue-card relative overflow-hidden rounded-2xl border p-6">
-        <div className="pointer-events-none absolute -right-12 -top-16 h-44 w-44 rounded-full bg-[#86efac]/10 blur-3xl" />
-        <div className="relative flex h-full min-h-36 flex-col justify-between gap-7">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2.5 text-[#B7C0B9]">
-              <span className="rounded-lg border border-[#86efac]/15 bg-[#86efac]/10 p-2 text-[#86efac]"><Wallet className="h-5 w-5" /></span>
-              <span className="text-sm font-medium uppercase tracking-[0.12em]">Total Revenue</span>
-            </div>
-            <span className="rounded-full border border-[#86efac]/15 bg-[#86efac]/5 px-3 py-1 text-[11px] font-medium text-[#86efac]">Paid orders</span>
+    <section className="admin-card rounded-[1.4rem] border p-5 sm:p-6" aria-label="Dashboard overview">
+      <div className="grid gap-5 lg:grid-cols-[minmax(240px,1fr)_minmax(0,2.25fr)] lg:gap-6">
+        <div className="flex min-h-40 flex-col justify-between border-b border-[var(--admin-border)] pb-5 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-6">
+          <div className="flex items-center gap-3">
+            <span className="dashboard-icon dashboard-icon-primary"><Wallet className="h-[18px] w-[18px]" /></span>
+            <span className="admin-muted text-sm font-medium">Total revenue</span>
           </div>
-          <div>
-            <div className="text-4xl font-bold tracking-tight text-white sm:text-5xl">{formatCurrency(overview?.totalRevenue ?? 0)}</div>
-            <p className="mt-2 text-sm text-[#7F8982]">Verified revenue across the marketplace</p>
-            {today && today.revenue > 0 && <span className="mt-3 inline-block text-xs font-medium text-[#86efac]">+{formatCurrency(today.revenue)} today</span>}
+          <div className="mt-8">
+            <div className="admin-heading text-4xl font-bold tracking-[-0.04em]">{formatCurrency(overview?.totalRevenue ?? 0)}</div>
+            <p className="admin-muted mt-2 text-sm">Verified paid order revenue</p>
+            {today && today.revenue > 0 && <span className="dashboard-positive mt-2 inline-block text-xs font-semibold">+{formatCurrency(today.revenue)} today</span>}
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="admin-card rounded-2xl border p-5 transition-colors hover:border-[#343934]">
-          <span className="flex items-center gap-2 text-sm text-[#929A94]"><ShoppingCart className="h-4 w-4 text-white" /> Total Orders</span>
-          <span className="mt-4 block text-3xl font-semibold text-white">{(overview?.totalOrders ?? 0).toLocaleString()}</span>
-          <span className="mt-1 block min-h-4 text-xs text-[#86efac]">{today && today.orders > 0 ? `+${today.orders} today` : "All recorded orders"}</span>
-        </div>
-        <div className="admin-card rounded-2xl border p-5 transition-colors hover:border-[#343934]">
-          <span className="flex items-center gap-2 text-sm text-[#929A94]"><Users className="h-4 w-4 text-[#86efac]" /> Customers</span>
-          <span className="mt-4 block text-3xl font-semibold text-[#86efac]">{(overview?.totalCustomers ?? 0).toLocaleString()}</span>
-          <span className="mt-1 block text-xs text-[#68706A]">Active buyer accounts</span>
-        </div>
-        <div className="admin-card rounded-2xl border p-5 transition-colors hover:border-[#343934]">
-          <span className="flex items-center gap-2 text-sm text-[#929A94]"><Handshake className="h-4 w-4 text-[#fbbf24]" /> Negotiations</span>
-          <span className="mt-4 block text-3xl font-semibold text-[#fbbf24]">{overview?.activeNegotiations ?? 0}</span>
-          <span className="mt-1 block text-xs text-[#68706A]">Awaiting resolution</span>
-        </div>
-        <div className="admin-card rounded-2xl border p-5 transition-colors hover:border-[#493B27]">
-          <span className="flex items-center gap-2 text-sm text-[#929A94]"><ReceiptIndianRupee className="h-4 w-4 text-orange-400" /> Pending Payments</span>
-          <span className="mt-4 block text-3xl font-semibold text-orange-400">{overview?.pendingPayments ?? 0}</span>
-          <span className="mt-1 block text-xs text-[#746A5C]">Needs verification</span>
+        <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <div className="admin-card-muted dashboard-stat-card rounded-2xl border p-4">
+            <span className="dashboard-icon dashboard-icon-primary"><ShoppingCart className="h-4 w-4" /></span>
+            <span className="admin-muted mt-4 block text-xs font-medium">Total orders</span>
+            <span className="admin-heading mt-1 block text-2xl font-bold">{(overview?.totalOrders ?? 0).toLocaleString()}</span>
+            <span className="admin-muted mt-1 block min-h-4 text-[11px]">{today && today.orders > 0 ? `+${today.orders} today` : "All time"}</span>
+          </div>
+          <div className="admin-card-muted dashboard-stat-card rounded-2xl border p-4">
+            <span className="dashboard-icon dashboard-icon-cyan"><Users className="h-4 w-4" /></span>
+            <span className="admin-muted mt-4 block text-xs font-medium">Customers</span>
+            <span className="dashboard-accent mt-1 block text-2xl font-bold">{(overview?.totalCustomers ?? 0).toLocaleString()}</span>
+            <span className="admin-muted mt-1 block text-[11px]">Registered buyers</span>
+          </div>
+          <div className="admin-card-muted dashboard-stat-card rounded-2xl border p-4">
+            <span className="dashboard-icon dashboard-icon-amber"><Handshake className="h-4 w-4" /></span>
+            <span className="admin-muted mt-4 block text-xs font-medium">Negotiations</span>
+            <span className="mt-1 block text-2xl font-bold text-amber-500">{overview?.activeNegotiations ?? 0}</span>
+            <span className="admin-muted mt-1 block text-[11px]">Awaiting resolution</span>
+          </div>
+          <div className="admin-card-muted dashboard-stat-card rounded-2xl border p-4">
+            <span className="dashboard-icon dashboard-icon-orange"><ReceiptIndianRupee className="h-4 w-4" /></span>
+            <span className="admin-muted mt-4 block text-xs font-medium">Pending payments</span>
+            <span className="mt-1 block text-2xl font-bold text-orange-500">{overview?.pendingPayments ?? 0}</span>
+            <span className="admin-muted mt-1 block text-[11px]">Needs attention</span>
+          </div>
         </div>
       </div>
     </section>

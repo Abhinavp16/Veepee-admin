@@ -10,7 +10,6 @@ import {
   LayoutDashboard,
   MessageSquareMore,
   Package,
-  Settings,
   ShoppingCart,
   Star,
   TicketPercent,
@@ -78,7 +77,6 @@ export const navigationGroups: NavigationGroup[] = [
       { label: "Banners", href: "/banners", icon: Image, roles: adminOnly },
       { label: "Website", href: "/manage-website", icon: Globe, roles: adminOnly },
       { label: "Reviews", href: "/reviews", icon: Star, roles: adminOnly },
-      { label: "Settings", href: "/settings", icon: Settings, roles: adminOnly },
     ],
   },
 ]
