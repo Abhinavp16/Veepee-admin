@@ -8,7 +8,7 @@ test.describe('Admin Panel Flow', () => {
 
     test('should login with admin credentials', async ({ page }) => {
         // Fill login form
-        await page.fill('input[name="email"]', 'admin@agrimart.com');
+        await page.fill('input[name="email"]', 'admin@veepeeimpex.com');
         await page.fill('input[name="password"]', 'admin123');
         
         // Click sign in
@@ -23,7 +23,7 @@ test.describe('Admin Panel Flow', () => {
 
     test('should navigate to products page', async ({ page }) => {
         // Login first
-        await page.fill('input[name="email"]', 'admin@agrimart.com');
+        await page.fill('input[name="email"]', 'admin@veepeeimpex.com');
         await page.fill('input[name="password"]', 'admin123');
         await page.click('button[type="submit"]');
         await page.waitForURL('http://localhost:3000/', { timeout: 10000 });
@@ -38,7 +38,7 @@ test.describe('Admin Panel Flow', () => {
 
     test('should open add product page', async ({ page }) => {
         // Login first
-        await page.fill('input[name="email"]', 'admin@agrimart.com');
+        await page.fill('input[name="email"]', 'admin@veepeeimpex.com');
         await page.fill('input[name="password"]', 'admin123');
         await page.click('button[type="submit"]');
         await page.waitForURL('http://localhost:3000/', { timeout: 10000 });
@@ -57,7 +57,7 @@ test.describe('Admin Panel Flow', () => {
 
     test('should create a new product', async ({ page }) => {
         // Login first
-        await page.fill('input[name="email"]', 'admin@agrimart.com');
+        await page.fill('input[name="email"]', 'admin@veepeeimpex.com');
         await page.fill('input[name="password"]', 'admin123');
         await page.click('button[type="submit"]');
         await page.waitForURL('http://localhost:3000/', { timeout: 10000 });
@@ -103,7 +103,7 @@ test.describe('Admin Panel Flow', () => {
 
     test('should logout when token expires', async ({ page }) => {
         // Login first
-        await page.fill('input[name="email"]', 'admin@agrimart.com');
+        await page.fill('input[name="email"]', 'admin@veepeeimpex.com');
         await page.fill('input[name="password"]', 'admin123');
         await page.click('button[type="submit"]');
         await page.waitForURL('http://localhost:3000/', { timeout: 10000 });
