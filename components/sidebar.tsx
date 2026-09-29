@@ -66,7 +66,7 @@ function SidebarPanel({ user, onNavigate, showBrand = false }: Pick<SidebarProps
 
 export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) {
   return <>
-    <aside className="hidden h-full min-h-0 shrink-0 border-r border-[var(--admin-border)] md:flex md:w-64 xl:w-[17rem]"><SidebarPanel user={user} showBrand /></aside>
+    <aside className="hidden h-full min-h-0 shrink-0 border-r border-[var(--admin-border)] md:flex md:w-64 xl:w-[17rem]"><SidebarPanel user={user} /></aside>
     <Sheet open={mobileOpen} onOpenChange={onMobileOpenChange}>
       <SheetContent side="left" className="w-[88vw] max-w-[22rem] border-[#333] bg-[#0D0D0D] p-0 text-white">
         <SheetHeader className="sr-only"><SheetTitle>Veepee navigation</SheetTitle></SheetHeader>
