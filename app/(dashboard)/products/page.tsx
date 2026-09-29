@@ -151,7 +151,7 @@ export default function ProductsPage() {
             // Build query params
             const params = new URLSearchParams()
             params.append('page', pageNum.toString())
-            params.append('limit', '20')
+            params.append('limit', '100')
             if (companyId) params.append('companyId', companyId)
             if (categoryId) params.append('categoryId', categoryId)
             if (includeDescendants) params.append('includeDescendants', 'true')
