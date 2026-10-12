@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
+import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
 import { useViewMode } from "@/lib/use-view-mode"
 import { useDashboardUser } from "@/components/dashboard-context"
@@ -429,8 +430,8 @@ export default function ProductsPage() {
 
             {/* Products Content */}
             {isLoading ? (
-                <div className="bg-[#161616] rounded-2xl min-h-[400px] border border-[#333] flex justify-center items-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-[#86efac]" />
+                <div className="bg-[#161616] rounded-2xl min-h-[400px] border border-[#333]">
+                    <TableSkeleton columns={6} />
                 </div>
             ) : products.length === 0 ? (
                 <div className="bg-[#161616] rounded-2xl min-h-[400px] border border-[#333] flex flex-col items-center justify-center text-gray-400">

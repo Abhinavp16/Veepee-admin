@@ -29,6 +29,9 @@ export default function LoginPage() {
     try {
       const response = await apiFetch("/auth/login", { method: "POST", skipAuth: true, body: JSON.stringify(values) })
       const payload = await response.json()
+      if (response.status === 403 && payload?.error?.code === "STAFF_LOGIN_REQUIRED") {
+        throw new Error("Staff sign in from the staff area at /member/login")
+      }
       if (!response.ok) throw new Error(payload.message || "Login failed")
       if (!isDashboardRole(payload?.data?.user?.role)) throw new Error("Access denied. This dashboard is for Veepee administrators and staff.")
       localStorage.setItem("accessToken", payload.data.accessToken)

@@ -25,6 +25,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
 
 interface NegotiationList {
@@ -252,9 +253,7 @@ export default function NegotiationsPage() {
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
-                        <div className="flex justify-center p-8">
-                            <Loader2 className="h-8 w-8 animate-spin text-[#86efac]" />
-                        </div>
+                        <TableSkeleton columns={6} />
                     ) : negotiations.length === 0 ? (
                         <div className="text-center text-gray-500 py-10">No negotiations found</div>
                     ) : (

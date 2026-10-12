@@ -12,6 +12,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import * as HugeIconsFree from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { apiFetch, buildApiUrl } from "@/lib/api"
+import { SortableItem, SortableProvider } from "@/components/sortable"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -75,6 +76,8 @@ interface BannerProductOption {
 }
 
 interface Banner {
+    // Stable key while editing; never sent to the server.
+    clientId: string
     _id?: string
     title: string
     subtitle: string
@@ -99,8 +102,18 @@ function inferLinkedProductId(linkUrl: unknown) {
     return match?.[1] || ""
 }
 
+function newClientId() {
+    return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `b-${Math.random().toString(36).slice(2)}`
+}
+
+// What gets saved: the on-screen order becomes the stored order.
+function toPayload(banners: Banner[]) {
+    return banners.map(({ clientId, ...banner }, index) => ({ ...banner, order: index }))
+}
+
 function createEmptyBanner(order: number): Banner {
     return {
+        clientId: newClientId(),
         title: "",
         subtitle: "",
         tag: "",
@@ -120,6 +133,7 @@ function normalizeBanner(banner: any, index: number): Banner {
     const linkType: BannerLinkType = banner?.linkType === "product" || linkedProductId ? "product" : "url"
 
     return {
+        clientId: newClientId(),
         _id: typeof banner?._id === "string" ? banner._id : undefined,
         title: String(banner?.title || ""),
         subtitle: String(banner?.subtitle || ""),
@@ -353,7 +367,7 @@ export default function BannersPage() {
         try {
             const res = await apiFetch('/admin/settings', {
                 method: 'PUT',
-                body: JSON.stringify({ heroBanners })
+                body: JSON.stringify({ heroBanners: toPayload(heroBanners) })
             })
             if (res.ok) {
                 toast.success("Hero banners saved successfully")
@@ -380,12 +394,22 @@ export default function BannersPage() {
         setPromoBanners(prev => prev.filter((_, i) => i !== index))
     }
 
+    // Reorder by the banners' stable keys.
+    function reorderBanners(
+        setter: React.Dispatch<React.SetStateAction<Banner[]>>,
+        orderedIds: string[],
+    ) {
+        setter(prev => orderedIds
+            .map(id => prev.find(banner => banner.clientId === id))
+            .filter((banner): banner is Banner => Boolean(banner)))
+    }
+
     async function savePromoBanners() {
         setIsSavingPromo(true)
         try {
             const res = await apiFetch('/admin/settings', {
                 method: 'PUT',
-                body: JSON.stringify({ promoBanners })
+                body: JSON.stringify({ promoBanners: toPayload(promoBanners) })
             })
             if (res.ok) {
                 toast.success("Promo banners saved successfully")
@@ -404,16 +428,17 @@ export default function BannersPage() {
         index: number,
         type: 'hero' | 'promo',
         updateFn: (index: number, field: keyof Banner, value: string | boolean | number) => void,
-        removeFn: (index: number) => void
+        removeFn: (index: number) => void,
+        handle?: React.ReactNode,
     ) {
         const isUploading = uploadingIndex?.type === type && uploadingIndex?.index === index
         const selectedProduct = availableProducts.find((product) => product._id === banner.linkedProductId)
 
         return (
-            <div key={index} className="border border-[#333] rounded-lg p-4 space-y-4 bg-[#0D0D0D]">
+            <div className="border border-[#333] rounded-lg p-4 space-y-4 bg-[#0D0D0D]">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                        <GripVertical className="h-4 w-4 text-[#555]" />
+                        {handle ?? <GripVertical className="h-4 w-4 text-[#555]" />}
                         <span className="text-sm font-medium text-white">Banner {index + 1}</span>
                     </div>
                     <div className="flex items-center gap-3">
@@ -665,9 +690,16 @@ export default function BannersPage() {
                                     <p className="text-sm">No hero banners yet. Add your first banner.</p>
                                 </div>
                             ) : (
-                                heroBanners.map((banner, index) =>
-                                    renderBannerCard(banner, index, 'hero', updateHeroBanner, removeHeroBanner)
-                                )
+                                <SortableProvider
+                                    ids={heroBanners.map(banner => banner.clientId)}
+                                    onReorder={(ids) => reorderBanners(setHeroBanners, ids)}
+                                >
+                                    {heroBanners.map((banner, index) => (
+                                        <SortableItem key={banner.clientId} id={banner.clientId}>
+                                            {(handle) => renderBannerCard(banner, index, 'hero', updateHeroBanner, removeHeroBanner, handle)}
+                                        </SortableItem>
+                                    ))}
+                                </SortableProvider>
                             )}
                             {heroBanners.length > 0 && (
                                 <Button onClick={saveHeroBanners} disabled={isSavingHero} className="w-full">
@@ -701,9 +733,16 @@ export default function BannersPage() {
                                     <p className="text-sm">No promo banners yet. Add your first banner.</p>
                                 </div>
                             ) : (
-                                promoBanners.map((banner, index) =>
-                                    renderBannerCard(banner, index, 'promo', updatePromoBanner, removePromoBanner)
-                                )
+                                <SortableProvider
+                                    ids={promoBanners.map(banner => banner.clientId)}
+                                    onReorder={(ids) => reorderBanners(setPromoBanners, ids)}
+                                >
+                                    {promoBanners.map((banner, index) => (
+                                        <SortableItem key={banner.clientId} id={banner.clientId}>
+                                            {(handle) => renderBannerCard(banner, index, 'promo', updatePromoBanner, removePromoBanner, handle)}
+                                        </SortableItem>
+                                    ))}
+                                </SortableProvider>
                             )}
                             {promoBanners.length > 0 && (
                                 <Button onClick={savePromoBanners} disabled={isSavingPromo} className="w-full">

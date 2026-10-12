@@ -3,6 +3,7 @@
 import { Header } from "@/components/header"
 import { DashboardProvider, type DashboardUser } from "@/components/dashboard-context"
 import { Sidebar } from "@/components/sidebar"
+import { StaffSessionBanner } from "@/components/staff-session-banner"
 import { apiFetch, logout } from "@/lib/api"
 import { canAccessPath, type DashboardRole } from "@/lib/navigation"
 import { ShieldAlert } from "lucide-react"
@@ -34,6 +35,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           return
         }
         localStorage.setItem("user", JSON.stringify(verifiedUser))
+        if (verifiedUser.mustChangePassword) {
+          router.replace("/member/change-password")
+          return
+        }
         setUser(verifiedUser)
       } catch {
         await logout()
@@ -51,6 +56,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="flex h-full min-w-0 pt-16 md:pt-20">
         <Sidebar user={user} mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
         <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8 xl:p-9">
+          {user.role === "staff" && <StaffSessionBanner />}
           {routeAllowed ? children : <div className="mx-auto flex min-h-[60vh] max-w-lg flex-col items-center justify-center text-center"><div className="mb-5 rounded-full bg-red-500/10 p-4 text-red-400"><ShieldAlert className="h-8 w-8" /></div><h1 className="text-2xl font-bold">This area is restricted</h1><p className="mt-2 text-sm text-[#919191]">Your Staff account does not have access to this administrative control.</p></div>}
         </main>
       </div>

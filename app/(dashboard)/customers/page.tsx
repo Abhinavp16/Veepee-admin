@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
 import { useDashboardUser } from "@/components/dashboard-context"
 
@@ -322,9 +323,7 @@ export default function CustomersPage() {
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
-                        <div className="flex justify-center p-8">
-                            <Loader2 className="h-8 w-8 animate-spin text-[#86efac]" />
-                        </div>
+                        <TableSkeleton columns={6} />
                     ) : customers.length === 0 ? (
                         <div className="text-center text-gray-500 py-10">No customers found</div>
                     ) : (

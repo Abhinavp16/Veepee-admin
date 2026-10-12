@@ -25,6 +25,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import Image from "next/image"
+import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
 
 interface Order {
@@ -300,9 +301,7 @@ export default function OrdersPage() {
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
-                        <div className="flex justify-center p-8">
-                            <Loader2 className="h-8 w-8 animate-spin text-[#86efac]" />
-                        </div>
+                        <TableSkeleton columns={6} />
                     ) : orders.length === 0 ? (
                         <div className="text-center text-gray-500 py-10">No orders found</div>
                     ) : (

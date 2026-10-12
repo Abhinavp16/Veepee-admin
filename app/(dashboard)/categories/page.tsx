@@ -31,6 +31,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
+import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
 import { DiscountFields } from "@/components/discount-fields"
 import { fetchDiscounts, parsePercent, saveDiscount } from "@/lib/discounts"
@@ -567,8 +568,8 @@ export default function CategoriesPage() {
 
             {/* Categories Content */}
             {isLoading ? (
-                <div className="bg-[#161616] rounded-xl border border-[#333] flex justify-center items-center h-48">
-                    <Loader2 className="h-8 w-8 animate-spin text-[#86efac]" />
+                <div className="bg-[#161616] rounded-xl border border-[#333]">
+                    <TableSkeleton rows={6} columns={5} />
                 </div>
             ) : visibleCategories.length === 0 ? (
                 <div className="bg-[#161616] rounded-xl border border-[#333] flex flex-col items-center justify-center h-48 text-gray-400">

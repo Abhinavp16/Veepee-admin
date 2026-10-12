@@ -21,8 +21,10 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
+import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
 import { DiscountFields } from "@/components/discount-fields"
+import { SortableProvider, SortableTableRow } from "@/components/sortable"
 import { fetchDiscounts, parsePercent, saveDiscount } from "@/lib/discounts"
 import { useViewMode } from "@/lib/use-view-mode"
 import { toast } from "sonner"
@@ -192,6 +194,75 @@ export default function BrandsPage() {
         }
     }
 
+    function renderBrandCells(company: Company) {
+        return (
+            <>
+                                    <TableCell>
+                                        {company.logo?.url ? (
+                                            <img 
+                                                src={company.logo.url} 
+                                                alt={company.name}
+                                                className="w-10 h-10 rounded-lg object-cover bg-[#0D0D0D]"
+                                            />
+                                        ) : (
+                                            <div className="w-10 h-10 rounded-lg bg-[#0D0D0D] flex items-center justify-center">
+                                                <Building2 className="h-5 w-5 text-gray-500" />
+                                            </div>
+                                        )}
+                                    </TableCell>
+                                    <TableCell className="font-medium text-white">
+                                        <NextLink className="hover:text-[#86efac] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86efac]" href={`/categories?companyId=${encodeURIComponent(company._id)}`}>
+                                            {company.name}
+                                        </NextLink>
+                                    </TableCell>
+                                    <TableCell className="text-gray-400">
+                                        {company.slug}
+                                    </TableCell>
+                                    <TableCell className="text-gray-400 max-w-[200px] truncate">
+                                        {company.description || "-"}
+                                    </TableCell>
+                                    <TableCell className="text-right">
+                                        <div className="flex justify-end gap-2">
+                                            <Button 
+                                                size="icon" 
+                                                variant="ghost" 
+                                                className="h-8 w-8 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10"
+                                                onClick={() => openEditDialog(company)}
+                                            >
+                                                <Pencil className="h-4 w-4" />
+                                            </Button>
+                                            {isAdmin && <Button
+                                                size="icon" 
+                                                variant="ghost" 
+                                                className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                                                onClick={() => setDeleteConfirmId(company._id)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>}
+                                        </div>
+                                    </TableCell>
+                                            </>
+        )
+    }
+
+    // Drag-and-drop order is only meaningful when every brand is on screen.
+    const canReorder = !searchQuery && !hasMore && companies.length > 1
+
+    async function handleReorder(orderedIds: string[]) {
+        const previous = companies
+        setCompanies(orderedIds
+            .map((id) => previous.find((company) => company._id === id))
+            .filter((company): company is Company => Boolean(company)))
+        try {
+            const res = await apiFetch("/companies/reorder", { method: "PATCH", body: JSON.stringify({ ids: orderedIds }) })
+            if (!res.ok) throw new Error()
+            toast.success("Brand order saved")
+        } catch {
+            setCompanies(previous)
+            toast.error("Could not save the new order")
+        }
+    }
+
     async function handleSubmit() {
         if (!name.trim()) {
             toast.error("Brand name is required")
@@ -334,8 +405,8 @@ export default function BrandsPage() {
 
             {/* Brands Content */}
             {isLoading ? (
-                <div className="bg-[#161616] rounded-xl border border-[#333] flex justify-center items-center h-48">
-                    <Loader2 className="h-8 w-8 animate-spin text-[#86efac]" />
+                <div className="bg-[#161616] rounded-xl border border-[#333]">
+                    <TableSkeleton rows={6} columns={5} />
                 </div>
             ) : companies.length === 0 ? (
                 <div className="bg-[#161616] rounded-xl border border-[#333] flex flex-col items-center justify-center h-48 text-gray-400">
@@ -349,6 +420,7 @@ export default function BrandsPage() {
                     <Table>
                         <TableHeader>
                             <TableRow className="border-[#333] hover:bg-transparent">
+                                {canReorder && <TableHead className="w-8" />}
                                 <TableHead className="text-gray-400">Logo</TableHead>
                                 <TableHead className="text-gray-400">Name</TableHead>
                                 <TableHead className="text-gray-400">Slug</TableHead>
@@ -357,54 +429,26 @@ export default function BrandsPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {companies.map((company) => (
-                                <TableRow key={company._id} className="border-[#333]">
-                                    <TableCell>
-                                        {company.logo?.url ? (
-                                            <img 
-                                                src={company.logo.url} 
-                                                alt={company.name}
-                                                className="w-10 h-10 rounded-lg object-cover bg-[#0D0D0D]"
-                                            />
-                                        ) : (
-                                            <div className="w-10 h-10 rounded-lg bg-[#0D0D0D] flex items-center justify-center">
-                                                <Building2 className="h-5 w-5 text-gray-500" />
-                                            </div>
-                                        )}
-                                    </TableCell>
-                                    <TableCell className="font-medium text-white">
-                                        <NextLink className="hover:text-[#86efac] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#86efac]" href={`/categories?companyId=${encodeURIComponent(company._id)}`}>
-                                            {company.name}
-                                        </NextLink>
-                                    </TableCell>
-                                    <TableCell className="text-gray-400">
-                                        {company.slug}
-                                    </TableCell>
-                                    <TableCell className="text-gray-400 max-w-[200px] truncate">
-                                        {company.description || "-"}
-                                    </TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex justify-end gap-2">
-                                            <Button 
-                                                size="icon" 
-                                                variant="ghost" 
-                                                className="h-8 w-8 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10"
-                                                onClick={() => openEditDialog(company)}
-                                            >
-                                                <Pencil className="h-4 w-4" />
-                                            </Button>
-                                            {isAdmin && <Button
-                                                size="icon" 
-                                                variant="ghost" 
-                                                className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                                                onClick={() => setDeleteConfirmId(company._id)}
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>}
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
+                            {canReorder ? (
+                                <SortableProvider ids={companies.map((company) => company._id)} onReorder={handleReorder}>
+                                    {companies.map((company) => (
+                                        <SortableTableRow key={company._id} id={company._id} className="border-[#333]">
+                                            {(handle) => (
+                                                <>
+                                                    <TableCell className="w-8 pr-0">{handle}</TableCell>
+                                                    {renderBrandCells(company)}
+                                                </>
+                                            )}
+                                        </SortableTableRow>
+                                    ))}
+                                </SortableProvider>
+                            ) : (
+                                companies.map((company) => (
+                                    <TableRow key={company._id} className="border-[#333]">
+                                        {renderBrandCells(company)}
+                                    </TableRow>
+                                ))
+                            )}
                         </TableBody>
                     </Table>
                 </div>

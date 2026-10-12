@@ -9,6 +9,7 @@ export interface DashboardUser {
   email?: string
   avatar?: string | null
   role: DashboardRole
+  mustChangePassword?: boolean
 }
 
 const DashboardContext = createContext<DashboardUser | null>(null)

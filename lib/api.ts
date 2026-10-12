@@ -9,10 +9,19 @@ export function buildApiUrl(endpoint: string): string {
 
 interface FetchOptions extends RequestInit { skipAuth?: boolean }
 
+// Staff sign in from their own area; everyone else from /login.
+export function loginPath(): string {
+  try {
+    const user = JSON.parse(localStorage.getItem("user") || "null")
+    return user?.role === "staff" ? "/member/login" : "/login"
+  } catch { return "/login" }
+}
+
 function clearSession() {
   localStorage.removeItem("accessToken")
   localStorage.removeItem("refreshToken")
   localStorage.removeItem("user")
+  localStorage.removeItem("sessionExpiresAt")
 }
 
 function createApiErrorResponse(message: string, status = 503): Response {
@@ -24,7 +33,7 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!refreshToken) return null
   try {
     const response = await fetch(buildApiUrl("/auth/refresh-token"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refreshToken }) })
-    if (!response.ok) { clearSession(); window.location.href = "/login"; return null }
+    if (!response.ok) { const next = loginPath(); clearSession(); window.location.href = next; return null }
     const payload = await response.json()
     localStorage.setItem("accessToken", payload.data.accessToken)
     if (payload.data.refreshToken) localStorage.setItem("refreshToken", payload.data.refreshToken)
@@ -59,6 +68,7 @@ export async function logout() {
   if (accessToken) {
     try { await fetch(buildApiUrl("/auth/logout"), { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` }, body: JSON.stringify({ refreshToken }) }) } catch { /* Local cleanup still completes when the API is unavailable. */ }
   }
+  const next = loginPath()
   clearSession()
-  window.location.href = "/login"
+  window.location.href = next
 }
