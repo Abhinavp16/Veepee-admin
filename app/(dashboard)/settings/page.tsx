@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Loader2, Save, CreditCard, Building2, User, Upload, ImageIcon } from "lucide-react"
+import { Loader2, Save, CreditCard, Building2, User, Upload, ImageIcon, Smartphone } from "lucide-react"
 import { toast } from "sonner"
 import { apiFetch, buildApiUrl, getUser } from "@/lib/api"
 import { Switch } from "@/components/ui/switch"
@@ -43,8 +43,14 @@ const settingsSchema = z.object({
     bankAccountHolderName: z.string().optional(),
     bankTransferEnabled: z.boolean().optional(),
     avatar: z.string().optional(),
-    features: z.record(z.any()).optional()
+    features: z.record(z.any()).optional(),
+    mobileApp: z.record(z.any()).optional()
 }).passthrough()
+
+const APP_PLATFORMS = [
+    { key: "android", label: "Android (Google Play)", urlHint: "https://play.google.com/store/apps/details?id=com.veepeeimpex.oxon" },
+    { key: "ios", label: "iOS (App Store)", urlHint: "https://apps.apple.com/app/..." },
+] as const
 
 export default function SettingsPage() {
     const [isLoading, setIsLoading] = useState(true)
@@ -508,6 +514,108 @@ export default function SettingsPage() {
                                     )}
                                 />
                             </div>
+                        </CardContent>
+                    </Card>
+
+
+                    {/* Forced app update */}
+                    <Card className="bg-[#161616] border-[#333]">
+                        <CardHeader>
+                            <CardTitle className="text-white flex items-center gap-2">
+                                <Smartphone className="h-5 w-5" /> App Update Requirement
+                            </CardTitle>
+                            <CardDescription>
+                                When enabled, app builds older than the build number below are blocked until the
+                                customer updates. Set the build number only after that build is live in the store.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            {APP_PLATFORMS.map((platform) => (
+                                <div key={platform.key} className="space-y-4 rounded-lg border border-[#333] p-4">
+                                    <FormField
+                                        control={form.control}
+                                        name={`mobileApp.${platform.key}.enabled`}
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-row items-center justify-between">
+                                                <div className="space-y-0.5">
+                                                    <FormLabel className="text-base text-white">{platform.label}</FormLabel>
+                                                    <FormDescription>Require an update on this platform</FormDescription>
+                                                </div>
+                                                <FormControl>
+                                                    <Switch checked={!!field.value} onCheckedChange={field.onChange} />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField
+                                            control={form.control}
+                                            name={`mobileApp.${platform.key}.latestVersion`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-white">Latest version (shown to users)</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="1.0.1" className="bg-[#0D0D0D] border-[#333] text-white" {...field} value={field.value ?? ""} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name={`mobileApp.${platform.key}.latestBuildNumber`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-white">Minimum build number</FormLabel>
+                                                    <FormControl>
+                                                        <Input type="number" min={0} className="bg-[#0D0D0D] border-[#333] text-white" {...field} value={field.value ?? 0} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+                                    <FormField
+                                        control={form.control}
+                                        name={`mobileApp.${platform.key}.storeUrl`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-white">Store link</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder={platform.urlHint} className="bg-[#0D0D0D] border-[#333] text-white" {...field} value={field.value ?? ""} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`mobileApp.${platform.key}.title`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-white">Dialog title (optional)</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Update required" className="bg-[#0D0D0D] border-[#333] text-white" {...field} value={field.value ?? ""} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`mobileApp.${platform.key}.message`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-white">Dialog message (optional)</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Please update to continue." className="bg-[#0D0D0D] border-[#333] text-white" {...field} value={field.value ?? ""} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            ))}
                         </CardContent>
                     </Card>
 
