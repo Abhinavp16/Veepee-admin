@@ -3,6 +3,7 @@ import {
   BarChart3,
   Bell,
   BadgeCheck,
+  CalendarClock,
   Building2,
   FolderTree,
   Globe,
@@ -46,6 +47,7 @@ export const navigationGroups: NavigationGroup[] = [
     items: [
       { label: "Product Catalogue", href: "/products", icon: Package, roles: operations },
       { label: "Price Management", href: "/price-management", icon: IndianRupee, roles: adminOnly },
+      { label: "Price Changes", href: "/price-changes", icon: CalendarClock, roles: adminOnly },
       { label: "Brands", href: "/brands", icon: Building2, roles: operations },
       { label: "Categories", href: "/categories", icon: FolderTree, roles: operations },
       { label: "Orders", href: "/orders", icon: ShoppingCart, roles: operations },
