@@ -42,7 +42,7 @@ export default function ReviewsPage() {
             const res = await apiFetch('/admin/reviews')
             const data = await res.json()
             if (res.ok) {
-                setReviews(data.data.reviews || [])
+                setReviews(Array.isArray(data.data) ? data.data : (data.data?.reviews || []))
             } else {
                 toast.error("Failed to fetch reviews")
             }
