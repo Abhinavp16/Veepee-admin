@@ -17,7 +17,7 @@ interface HeaderProps {
 export function Header({ user, onMenuClick }: HeaderProps) {
   return <header className="admin-header fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between border-b px-4 backdrop-blur md:h-20 md:px-6">
     <div className="flex items-center gap-3">
-      <button type="button" onClick={onMenuClick} className="rounded-lg p-2 text-[#919191] hover:bg-white/5 hover:text-white md:hidden" aria-label="Open navigation"><Menu className="h-5 w-5" /></button>
+      <button type="button" onClick={onMenuClick} className="rounded-lg p-2 text-[#919191] hover:bg-white/5 hover:text-white lg:hidden" aria-label="Open navigation"><Menu className="h-5 w-5" /></button>
       <VeepeeBrand />
       <span className="hidden border-l border-[#333] pl-3 text-sm text-[#919191] sm:inline">Admin</span>
     </div>
