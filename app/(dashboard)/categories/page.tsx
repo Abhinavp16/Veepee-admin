@@ -32,6 +32,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { apiFetch } from "@/lib/api"
+import { useViewMode } from "@/lib/use-view-mode"
 import { toast } from "sonner"
 import { useDashboardUser } from "@/components/dashboard-context"
 import { fetchAllCategories, getCategoryParentId } from "@/lib/categories"
@@ -71,7 +72,7 @@ export default function CategoriesPage() {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [editingCategory, setEditingCategory] = useState<Category | null>(null)
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-    const [viewMode, setViewMode] = useState<'list' | 'card'>('card')
+    const [viewMode, setViewMode] = useViewMode('categories')
 
     // Search state
     const [searchQuery, setSearchQuery] = useState("")

@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
+import { useViewMode } from "@/lib/use-view-mode"
 import { useDashboardUser } from "@/components/dashboard-context"
 import { productFormHref } from "@/lib/admin-context"
 import { fetchAllCategories } from "@/lib/categories"
@@ -93,7 +94,7 @@ export default function ProductsPage() {
     const [products, setProducts] = useState<Product[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [isLoadingMore, setIsLoadingMore] = useState(false)
-    const [viewMode, setViewMode] = useState<'list' | 'card'>('card')
+    const [viewMode, setViewMode] = useViewMode('products')
     const [isConvertingHindi, setIsConvertingHindi] = useState(false)
 
     // Pagination & Search state

@@ -22,6 +22,7 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { apiFetch } from "@/lib/api"
+import { useViewMode } from "@/lib/use-view-mode"
 import { toast } from "sonner"
 import { useDashboardUser } from "@/components/dashboard-context"
 import NextLink from "next/link"
@@ -44,7 +45,7 @@ export default function BrandsPage() {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [editingCompany, setEditingCompany] = useState<Company | null>(null)
     const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
-    const [viewMode, setViewMode] = useState<'list' | 'card'>('card')
+    const [viewMode, setViewMode] = useViewMode('brands')
 
     // Search & Pagination state
     const [searchQuery, setSearchQuery] = useState("")
@@ -323,7 +324,7 @@ export default function BrandsPage() {
                                 <TableHead className="text-gray-400">Logo</TableHead>
                                 <TableHead className="text-gray-400">Name</TableHead>
                                 <TableHead className="text-gray-400">Slug</TableHead>
-                                <TableHead className="text-gray-400">Description</TableHead>
+                                <TableHead className="text-gray-400">Internal note</TableHead>
                                 <TableHead className="text-gray-400 text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -561,14 +562,15 @@ export default function BrandsPage() {
                         
                         <div>
                             <label className="text-sm font-medium text-white mb-2 block">
-                                Description
+                                Internal note
                             </label>
                             <Textarea
-                                placeholder="Brief description of the brand..."
+                                placeholder="Notes about this brand for your team..."
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 className="bg-[#0D0D0D] border-[#333] text-white min-h-[80px]"
                             />
+                            <p className="text-xs text-gray-500 mt-1">Only visible in the admin panel. It is not shown to customers in the app.</p>
                         </div>
                     </div>
                     
