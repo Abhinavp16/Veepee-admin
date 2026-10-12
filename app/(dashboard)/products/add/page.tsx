@@ -158,6 +158,9 @@ export default function AddProductPage() {
     const [isUploadingImage, setIsUploadingImage] = useState(false)
     const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle')
     const companyCategoryRequest = useRef(0)
+    // Prices as loaded, so an edit only sends the price tiers the admin actually changed.
+    const originalPrices = useRef<{ mrp: number; retailPrice: number; wholesalePrice: number } | null>(null)
+    const [pendingPriceNotice, setPendingPriceNotice] = useState<string | null>(null)
 
     const form = useForm<z.infer<typeof productSchema>>({
         resolver: zodResolver(productSchema),
@@ -305,6 +308,19 @@ export default function AddProductPage() {
                 purchaseCountMin: String(product.purchaseCountMin || "0"),
                 purchaseCountMax: String(product.purchaseCountMax || "0"),
             })
+            originalPrices.current = {
+                mrp: Number(product.mrp) || 0,
+                retailPrice: Number(product.retailPrice) || 0,
+                wholesalePrice: Number(product.wholesalePrice) || 0,
+            }
+            const pendingParts = [
+                product.pendingRetailPrice != null ? `retail ₹${product.pendingRetailPrice}` : null,
+                product.pendingWholesalePrice != null ? `wholesale ₹${product.pendingWholesalePrice}` : null,
+                product.pendingMrp != null ? `MRP ₹${product.pendingMrp}` : null,
+            ].filter(Boolean)
+            setPendingPriceNotice(pendingParts.length > 0
+                ? `A scheduled price change is pending (${pendingParts.join(", ")})${product.priceChangeEffectiveAt ? ` for ${new Date(product.priceChangeEffectiveAt).toLocaleString()}` : ""}. Saving a new price here replaces it.`
+                : null)
 
             // Set images
             if (product.images && product.images.length > 0) {
@@ -668,6 +684,25 @@ export default function AddProductPage() {
                 purchaseCountMax: Number(values.purchaseCountMax),
             }
 
+            // In edit mode prices go through the audited price-change API, applied immediately.
+            const priceChanges: { mrp?: number; retailPrice?: number; wholesalePrice?: number } = {}
+            if (isEditMode && originalPrices.current) {
+                for (const field of ["mrp", "retailPrice", "wholesalePrice"] as const) {
+                    const next = Number(values[field])
+                    if (!Number.isFinite(next) || next < 0) {
+                        toast.error("Prices must be non-negative numbers")
+                        return
+                    }
+                    if (next !== originalPrices.current[field]) priceChanges[field] = next
+                }
+                const finalMrp = priceChanges.mrp ?? originalPrices.current.mrp
+                const finalRetail = priceChanges.retailPrice ?? originalPrices.current.retailPrice
+                if (Object.keys(priceChanges).length > 0 && finalMrp < finalRetail) {
+                    toast.error("MRP cannot be lower than the customer price")
+                    return
+                }
+            }
+
             const endpoint = isEditMode
                 ? `/admin/products/${editId}`
                 : "/admin/products"
@@ -679,6 +714,19 @@ export default function AddProductPage() {
 
             if (!response.ok) {
                 throw new Error(isEditMode ? "Failed to update product" : "Failed to create product")
+            }
+
+            if (isEditMode && Object.keys(priceChanges).length > 0) {
+                const priceResponse = await apiFetch(`/admin/products/${editId}/price-change`, {
+                    method: "PUT",
+                    headers: { "Idempotency-Key": typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}` },
+                    body: JSON.stringify({ ...priceChanges, priceChangeMode: "immediate" }),
+                })
+                if (!priceResponse.ok) {
+                    const priceError = await priceResponse.json().catch(() => ({}))
+                    toast.error(`Product saved, but the price change failed: ${priceError?.message || "please try again from Price Management"}`)
+                    return
+                }
             }
 
             toast.success(isEditMode ? "Product updated successfully" : "Product created successfully")
@@ -1283,6 +1331,9 @@ export default function AddProductPage() {
                             <Card className="bg-[#161616] border-[#333]">
                                 <CardContent className="pt-6 space-y-4">
                                     <h3 className="text-white font-medium mb-4">Pricing & Inventory</h3>
+                                    {isEditMode && pendingPriceNotice && (
+                                        <p className="rounded-md border border-yellow-400/40 bg-yellow-400/10 p-3 text-sm text-yellow-200">{pendingPriceNotice}</p>
+                                    )}
 
                                     <FormField
                                         control={form.control}
@@ -1291,10 +1342,10 @@ export default function AddProductPage() {
                                             <FormItem>
                                                 <FormLabel className="text-white">MRP (₹)</FormLabel>
                                                 <FormControl>
-                                                    <Input type="number" placeholder="0.00" {...field} disabled={isEditMode} className="bg-[#0D0D0D] border-[#333] text-white disabled:opacity-60" />
+                                                    <Input type="number" placeholder="0.00" {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
                                                 </FormControl>
                                                 <FormDescription className="text-gray-500">
-                                                    {isEditMode ? "Existing product prices are managed from Price Management." : "Maximum Retail Price - shown as original price"}
+                                                    {isEditMode ? "Changes are saved as an audited price change and apply immediately." : "Maximum Retail Price - shown as original price"}
                                                 </FormDescription>
                                                 <FormMessage />
                                             </FormItem>
@@ -1309,10 +1360,10 @@ export default function AddProductPage() {
                                                 <FormItem>
                                                     <FormLabel className="text-white">Customer Price (₹)</FormLabel>
                                                     <FormControl>
-                                                        <Input type="number" placeholder="0.00" {...field} disabled={isEditMode} className="bg-[#0D0D0D] border-[#333] text-white disabled:opacity-60" />
+                                                        <Input type="number" placeholder="0.00" {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
                                                     </FormControl>
                                                     <FormDescription className="text-gray-500">
-                                                        {isEditMode ? "Use Price Management to change this price." : "Price shown to regular customers"}
+                                                        {isEditMode ? "Applies immediately. Use Price Management to schedule a change." : "Price shown to regular customers"}
                                                     </FormDescription>
                                                     <FormMessage />
                                                 </FormItem>
@@ -1325,10 +1376,10 @@ export default function AddProductPage() {
                                                 <FormItem>
                                                     <FormLabel className="text-white">Wholesale Price (₹)</FormLabel>
                                                     <FormControl>
-                                                        <Input type="number" placeholder="0.00" {...field} disabled={isEditMode} className="bg-[#0D0D0D] border-[#333] text-white disabled:opacity-60" />
+                                                        <Input type="number" placeholder="0.00" {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
                                                     </FormControl>
                                                     <FormDescription className="text-gray-500">
-                                                        {isEditMode ? "Use Price Management to change this price." : "Price shown to wholesalers only"}
+                                                        {isEditMode ? "Applies immediately. Use Price Management to schedule a change." : "Price shown to wholesalers only"}
                                                     </FormDescription>
                                                     <FormMessage />
                                                 </FormItem>
