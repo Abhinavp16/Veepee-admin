@@ -104,6 +104,12 @@ const productSchema = z.object({
     wholesalePrice: z.string().refine((val) => !isNaN(Number(val)), "Must be a number"),
     stock: z.string().refine((val) => !isNaN(Number(val)), "Must be a number"),
     minWholesaleQuantity: z.string().refine((val) => !isNaN(Number(val)), "Must be a number"),
+    priceUnit: z.enum(["piece", "packet", "box", "bundle", "coil", "set"]).default("piece"),
+    packSize: z.string().refine((val) => Number.isInteger(Number(val)) && Number(val) >= 1, "Whole number, at least 1").default("1"),
+    minCustomerQuantity: z.string().refine((val) => Number.isInteger(Number(val)) && Number(val) >= 1, "Whole number, at least 1").default("1"),
+    comingSoon: z.boolean().default(false),
+    expectedLaunchDate: z.string().optional(),
+    hidePriceWhileComingSoon: z.boolean().default(false),
     status: z.enum(["active", "draft", "archived"]),
     isFeatured: z.boolean().default(false),
     isHot: z.boolean().default(false),
@@ -123,6 +129,15 @@ const productSchema = z.object({
         })
     }
 })
+
+// <input type="datetime-local"> wants local time without a zone.
+function toLocalDateTimeInput(value?: string | null): string {
+    if (!value) return ""
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return ""
+    const pad = (n: number) => String(n).padStart(2, "0")
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
 
 export default function AddProductPage() {
     const router = useRouter()
@@ -177,6 +192,12 @@ export default function AddProductPage() {
             wholesalePrice: "",
             stock: "0",
             minWholesaleQuantity: "10",
+            priceUnit: "piece",
+            packSize: "1",
+            minCustomerQuantity: "1",
+            comingSoon: false,
+            expectedLaunchDate: "",
+            hidePriceWhileComingSoon: false,
             status: "active",
             isFeatured: false,
             isHot: false,
@@ -297,6 +318,12 @@ export default function AddProductPage() {
                 wholesalePrice: String(product.wholesalePrice || "0"),
                 stock: String(product.stock || "0"),
                 minWholesaleQuantity: String(product.minWholesaleQuantity || "10"),
+                priceUnit: product.priceUnit || "piece",
+                packSize: String(product.packSize || "1"),
+                minCustomerQuantity: String(product.minCustomerQuantity || "1"),
+                comingSoon: product.comingSoon === true,
+                expectedLaunchDate: toLocalDateTimeInput(product.expectedLaunchDate),
+                hidePriceWhileComingSoon: product.hidePriceWhileComingSoon === true,
                 status: product.status || "draft",
                 isFeatured: product.isFeatured || false,
                 isHot: product.isHot || false,
@@ -668,6 +695,14 @@ export default function AddProductPage() {
                 } : {}),
                 stock: Number(values.stock),
                 minWholesaleQuantity: Number(values.minWholesaleQuantity),
+                priceUnit: values.priceUnit,
+                packSize: Number(values.packSize),
+                minCustomerQuantity: Number(values.minCustomerQuantity),
+                comingSoon: values.comingSoon,
+                expectedLaunchDate: values.comingSoon && values.expectedLaunchDate
+                    ? new Date(values.expectedLaunchDate).toISOString()
+                    : null,
+                hidePriceWhileComingSoon: values.comingSoon && values.hidePriceWhileComingSoon,
                 isFeatured: values.isFeatured,
                 isHot: values.isHot,
                 company: values.company && values.company !== 'none' ? values.company : null,
@@ -1406,7 +1441,7 @@ export default function AddProductPage() {
                                             name="minWholesaleQuantity"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel className="text-white">Min Wholesale Qty</FormLabel>
+                                                    <FormLabel className="text-white">Min Wholesale Qty (packs)</FormLabel>
                                                     <FormControl>
                                                         <Input type="number" placeholder="10" {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
                                                     </FormControl>
@@ -1414,6 +1449,118 @@ export default function AddProductPage() {
                                                 </FormItem>
                                             )}
                                         />
+                                    </div>
+
+
+                                    <div className="space-y-4 rounded-lg border border-[#333] p-4">
+                                        <div>
+                                            <p className="text-sm font-medium text-white">Selling units</p>
+                                            <p className="text-xs text-gray-400">
+                                                Wholesalers order whole packs of this many pieces; customers order single pieces, at least the minimum below.
+                                            </p>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-4">
+                                            <FormField
+                                                control={form.control}
+                                                name="priceUnit"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-white">Price is per</FormLabel>
+                                                        <Select onValueChange={field.onChange} value={field.value}>
+                                                            <FormControl>
+                                                                <SelectTrigger className="bg-[#0D0D0D] border-[#333] text-white">
+                                                                    <SelectValue />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent className="bg-[#0D0D0D] border-[#333]">
+                                                                {["piece", "packet", "box", "bundle", "coil", "set"].map((unit) => (
+                                                                    <SelectItem key={unit} value={unit}>{unit[0].toUpperCase() + unit.slice(1)}</SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="packSize"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-white">Pieces per pack</FormLabel>
+                                                        <FormControl>
+                                                            <Input type="number" min={1} {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="minCustomerQuantity"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-white">Min customer qty</FormLabel>
+                                                        <FormControl>
+                                                            <Input type="number" min={1} {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4 rounded-lg border border-[#333] p-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="comingSoon"
+                                            render={({ field }) => (
+                                                <FormItem className="flex flex-row items-center justify-between">
+                                                    <div className="space-y-0.5">
+                                                        <FormLabel className="text-white">Coming soon</FormLabel>
+                                                        <p className="text-xs text-gray-400">
+                                                            Shoppers can see it and ask to be notified, but cannot order. Turning this off launches it and notifies them.
+                                                        </p>
+                                                    </div>
+                                                    <FormControl>
+                                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                        {form.watch("comingSoon") && (
+                                            <>
+                                                <FormField
+                                                    control={form.control}
+                                                    name="expectedLaunchDate"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel className="text-white">Launch date (optional)</FormLabel>
+                                                            <FormControl>
+                                                                <Input type="datetime-local" {...field} value={field.value ?? ""} className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                            </FormControl>
+                                                            <p className="text-xs text-gray-400">
+                                                                Goes live by itself after this date once the product has stock. Leave empty to launch manually.
+                                                            </p>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name="hidePriceWhileComingSoon"
+                                                    render={({ field }) => (
+                                                        <FormItem className="flex flex-row items-center justify-between">
+                                                            <FormLabel className="text-white">Hide price until launch</FormLabel>
+                                                            <FormControl>
+                                                                <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                                            </FormControl>
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </>
+                                        )}
                                     </div>
 
                                     <FormField

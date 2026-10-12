@@ -32,6 +32,8 @@ import {
     DialogTitle,
 } from "@/components/ui/dialog"
 import { apiFetch } from "@/lib/api"
+import { DiscountFields } from "@/components/discount-fields"
+import { fetchDiscounts, parsePercent, saveDiscount } from "@/lib/discounts"
 import { useViewMode } from "@/lib/use-view-mode"
 import { toast } from "sonner"
 import { useDashboardUser } from "@/components/dashboard-context"
@@ -92,6 +94,8 @@ export default function CategoriesPage() {
     const [parentId, setParentId] = useState<string>("none")
     const [order, setOrder] = useState("1")
     const [isActive, setIsActive] = useState(true)
+    const [customerPct, setCustomerPct] = useState("")
+    const [wholesalerPct, setWholesalerPct] = useState("")
     const [imageUploadMode, setImageUploadMode] = useState<'url' | 'file'>('url')
     const [isUploadingImage, setIsUploadingImage] = useState(false)
     const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle')
@@ -156,6 +160,8 @@ export default function CategoriesPage() {
         setOrder(String(getAppendPosition("none")))
         setIsActive(true)
         setImageUploadMode('url')
+        setCustomerPct("")
+        setWholesalerPct("")
         setIsDialogOpen(true)
     }
 
@@ -169,6 +175,17 @@ export default function CategoriesPage() {
         setOrder(String(Math.max(1, category.order || 1)))
         setIsActive(category.isActive)
         setImageUploadMode('url')
+        setCustomerPct("")
+        setWholesalerPct("")
+        // Percentages are not part of the public category data, so load them separately.
+        fetchDiscounts()
+            .then(({ categories: rows }) => {
+                const row = rows.find((item) => item.id === category._id)
+                if (!row) return
+                setCustomerPct(row.customerDiscountPercent ? String(row.customerDiscountPercent) : "")
+                setWholesalerPct(row.wholesalerDiscountPercent ? String(row.wholesalerDiscountPercent) : "")
+            })
+            .catch(() => toast.error("Could not load this category's discounts"))
         setIsDialogOpen(true)
     }
 
@@ -240,6 +257,13 @@ export default function CategoriesPage() {
             return
         }
 
+        const customer = parsePercent(customerPct)
+        const wholesaler = parsePercent(wholesalerPct)
+        if (customer === null || wholesaler === null) {
+            toast.error("Discounts must be between 0 and 99")
+            return
+        }
+
         setIsSubmitting(true)
 
         try {
@@ -266,6 +290,12 @@ export default function CategoriesPage() {
             if (!res.ok) {
                 const error = await res.json()
                 throw new Error(error.message || "Failed to save category")
+            }
+
+            const saved = await res.json().catch(() => null)
+            const categoryId = editingCategory?._id || saved?.data?._id || saved?.data?.category?._id
+            if (categoryId && (editingCategory || customer > 0 || wholesaler > 0)) {
+                await saveDiscount("category", categoryId, customer, wholesaler)
             }
 
             toast.success(editingCategory ? "Category updated successfully" : "Category created successfully")
@@ -961,6 +991,14 @@ export default function CategoriesPage() {
                                 className="bg-[#0D0D0D] border-[#333] text-white min-h-[80px]"
                             />
                         </div>
+
+                        <DiscountFields
+                            target="category"
+                            customer={customerPct}
+                            wholesaler={wholesalerPct}
+                            onCustomerChange={setCustomerPct}
+                            onWholesalerChange={setWholesalerPct}
+                        />
 
                         {/* Order & Active */}
                         <div className="flex gap-4">
