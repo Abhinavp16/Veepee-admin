@@ -27,9 +27,11 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
+import { RequirementSheet } from "@/components/requirement-sheet"
 
 interface NegotiationList {
     id: string
+    requestGroup?: { id: string; number: string } | null
     negotiationNumber: string
     product: { name: string; price: number }
     wholesaler: { name: string }
@@ -63,6 +65,7 @@ export default function NegotiationsPage() {
     const [isLoadingMore, setIsLoadingMore] = useState(false)
     const [selectedNegotiation, setSelectedNegotiation] = useState<NegotiationDetail | null>(null)
     const [isSheetOpen, setIsSheetOpen] = useState(false)
+    const [requirementId, setRequirementId] = useState<string | null>(null)
 
     // Counter offer state
     const [counterPrice, setCounterPrice] = useState("")
@@ -272,7 +275,10 @@ export default function NegotiationsPage() {
                             <TableBody>
                                 {negotiations.map((negotiation) => (
                                     <TableRow key={negotiation.id} className="border-[#333] hover:bg-[#1A1A1A]">
-                                        <TableCell className="text-white font-medium">{negotiation.negotiationNumber}</TableCell>
+                                        <TableCell className="text-white font-medium">
+                                            {negotiation.negotiationNumber}
+                                            {negotiation.requestGroup && <Badge variant="outline" className="ml-2 border-[#86efac] text-[#86efac]">{negotiation.requestGroup.number}</Badge>}
+                                        </TableCell>
                                         <TableCell className="text-white">{negotiation.wholesaler?.name || 'Unknown'}</TableCell>
                                         <TableCell className="text-gray-400">{negotiation.product?.name || 'Unknown'}</TableCell>
                                         <TableCell className="text-white text-right">{negotiation.requestedQuantity}</TableCell>
@@ -285,7 +291,8 @@ export default function NegotiationsPage() {
                                                 variant="ghost"
                                                 size="sm"
                                                 className="h-8 w-8 p-0 text-white hover:bg-[#333]"
-                                                onClick={() => fetchNegotiationDetails(negotiation.id)}
+                                                onClick={() => negotiation.requestGroup ? setRequirementId(negotiation.requestGroup.id) : fetchNegotiationDetails(negotiation.id)}
+                                                title={negotiation.requestGroup ? "Open the whole requirement" : "Open negotiation"}
                                             >
                                                 <MessageSquare className="h-4 w-4" />
                                             </Button>
@@ -408,6 +415,8 @@ export default function NegotiationsPage() {
                     )}
                 </SheetContent>
             </Sheet>
+
+            <RequirementSheet groupId={requirementId} onClose={() => setRequirementId(null)} onChanged={() => fetchNegotiations()} />
 
             {/* Load More Button */}
             {hasMore && negotiations.length > 0 && (
