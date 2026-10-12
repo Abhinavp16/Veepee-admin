@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react"
 import {
   BarChart3,
+  Bell,
   BadgeCheck,
   Building2,
   FolderTree,
@@ -39,7 +40,7 @@ const adminOnly: DashboardRole[] = ["admin"]
 const operations: DashboardRole[] = ["admin", "staff"]
 
 export const navigationGroups: NavigationGroup[] = [
-  { label: "Overview", items: [{ label: "Dashboard", href: "/", icon: LayoutDashboard, roles: operations }] },
+  { label: "Overview", items: [{ label: "Dashboard", href: "/", icon: LayoutDashboard, roles: operations }, { label: "Notifications", href: "/notifications", icon: Bell, roles: operations }] },
   {
     label: "Operations",
     items: [
@@ -85,7 +86,7 @@ export const navigationGroups: NavigationGroup[] = [
 
 export function canAccessPath(role: DashboardRole, pathname: string) {
   if (role === "admin") return true
-  return ["/", "/products", "/brands", "/categories", "/orders", "/negotiations", "/customers"].includes(pathname)
+  return ["/", "/notifications", "/products", "/brands", "/categories", "/orders", "/negotiations", "/customers"].includes(pathname)
 }
 
 export function roleLabel(role: DashboardRole) {

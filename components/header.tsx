@@ -3,6 +3,7 @@
 import { LogOut, Menu, Settings2 } from "lucide-react"
 import Link from "next/link"
 import type { DashboardUser } from "@/components/dashboard-context"
+import { NotificationBell } from "@/components/notification-bell"
 import { VeepeeBrand } from "@/components/veepee-brand"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -21,6 +22,8 @@ export function Header({ user, onMenuClick }: HeaderProps) {
       <VeepeeBrand />
       <span className="hidden border-l border-[#333] pl-3 text-sm text-[#919191] sm:inline">Admin</span>
     </div>
+    <div className="flex items-center gap-3">
+    <NotificationBell />
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button className="admin-profile-button flex items-center gap-2 rounded-full border py-1 pl-1.5 pr-3 transition-colors focus:outline-none focus:ring-2 focus:ring-[#86efac]/50">
@@ -35,5 +38,6 @@ export function Header({ user, onMenuClick }: HeaderProps) {
         <DropdownMenuItem onClick={async () => { await logout() }} className="cursor-pointer rounded-lg py-2 focus:bg-red-500/10 focus:text-red-400"><LogOut className="mr-3 h-4 w-4" />Logout session</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    </div>
   </header>
 }

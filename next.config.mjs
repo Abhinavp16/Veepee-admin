@@ -16,7 +16,8 @@ const contentSecurityPolicy = [
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  `connect-src 'self' ${apiOrigin}${isDev ? ' ws: http://localhost:* http://127.0.0.1:*' : ''}`.trim(),
+  // Firebase endpoints are needed for browser push notifications.
+  `connect-src 'self' ${apiOrigin} https://fcmregistrations.googleapis.com https://firebaseinstallations.googleapis.com https://fcm.googleapis.com${isDev ? ' ws: http://localhost:* http://127.0.0.1:*' : ''}`.trim(),
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -32,6 +33,15 @@ const securityHeaders = [
   { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
 ]
 
+// The push service worker loads Firebase's own scripts, so it gets its own
+// (still tight) policy instead of the page policy.
+const serviceWorkerPolicy = [
+  "default-src 'self'",
+  "script-src 'self' https://www.gstatic.com",
+  "connect-src 'self' https://fcmregistrations.googleapis.com https://firebaseinstallations.googleapis.com https://fcm.googleapis.com https://www.googleapis.com",
+  "object-src 'none'",
+].join('; ')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   typescript: {
@@ -41,7 +51,17 @@ const nextConfig = {
     unoptimized: true,
   },
   async headers() {
-    return [{ source: '/:path*', headers: securityHeaders }]
+    return [
+      { source: '/((?!firebase-messaging-sw\\.js).*)', headers: securityHeaders },
+      {
+        source: '/firebase-messaging-sw.js',
+        headers: [
+          { key: 'Content-Security-Policy', value: serviceWorkerPolicy },
+          { key: 'Cache-Control', value: 'no-cache' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+        ],
+      },
+    ]
   },
 }
 
