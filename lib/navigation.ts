@@ -14,6 +14,7 @@ import {
   Star,
   TicketPercent,
   UserCog,
+  UserX,
   UserPlus,
   UserSearch,
   Users,
@@ -67,6 +68,7 @@ export const navigationGroups: NavigationGroup[] = [
         ],
       },
       { label: "Staff Management", href: "/staff", icon: UserCog, roles: adminOnly },
+      { label: "Deletion Requests", href: "/account-deletion-requests", icon: UserX, roles: adminOnly },
     ],
   },
   {
