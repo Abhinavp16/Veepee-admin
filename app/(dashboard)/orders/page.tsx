@@ -33,12 +33,18 @@ interface Order {
     orderNumber: string
     items: { productSnapshot: { name: string }; quantity: number; pricePerUnit: number }[]
     customerSnapshot: { name: string; email: string; phone: string }
+    subtotal?: number
+    deliveryFee?: number
+    discount?: number
     total: number
     status: string
+    // New orders wait for the shop to add delivery and confirm them.
+    confirmationStatus?: 'pending' | 'confirmed' | 'rejected' | null
+    confirmationNote?: string | null
     createdAt: string
     trackingNumber?: string
     courierName?: string
-    shippingAddress?: { address: string; city: string; state: string; pincode: string }
+    shippingAddress?: { fullName?: string; phone?: string; addressLine1?: string; address?: string; city: string; state: string; pincode: string }
     statusHistory?: { status: string; note?: string; timestamp: string }[]
     payment?: {
         _id: string
@@ -69,10 +75,17 @@ export default function OrdersPage() {
     const [totalPages, setTotalPages] = useState(1)
     const [totalOrders, setTotalOrders] = useState(0)
     const [hasMore, setHasMore] = useState(false)
+    const [onlyAwaiting, setOnlyAwaiting] = useState(false)
+
+    // Confirming a new order: delivery charge or rejection reason.
+    const [deliveryCharge, setDeliveryCharge] = useState("")
+    const [rejectReason, setRejectReason] = useState("")
+    const [isRejectingOrder, setIsRejectingOrder] = useState(false)
+    const [isConfirming, setIsConfirming] = useState(false)
 
     useEffect(() => {
         fetchOrders(1, true)
-    }, [])
+    }, [onlyAwaiting])
 
     async function fetchOrders(pageNum: number = 1, reset: boolean = false) {
         if (reset) {
@@ -89,6 +102,7 @@ export default function OrdersPage() {
             if (searchQuery.trim()) {
                 params.append('search', searchQuery.trim())
             }
+            if (onlyAwaiting) params.append('confirmation', 'pending')
 
             const res = await apiFetch(`/admin/orders?${params.toString()}`)
             const data = await res.json()
@@ -240,6 +254,65 @@ export default function OrdersPage() {
         }
     }
 
+    async function handleConfirmOrder(order: Order) {
+        const charge = Number(deliveryCharge)
+        if (deliveryCharge.trim() === "" || !Number.isFinite(charge) || charge < 0) {
+            toast.error("Enter the delivery charge (0 for free delivery)")
+            return
+        }
+        setIsConfirming(true)
+        try {
+            const res = await apiFetch(`/admin/orders/${order._id}/confirm`, {
+                method: "PUT",
+                body: JSON.stringify({ deliveryCharge: charge }),
+            })
+            const data = await res.json()
+            if (res.ok) {
+                toast.success(`Order confirmed. The customer will pay ₹${Number(data.data?.total ?? 0).toLocaleString('en-IN')}.`)
+                setDeliveryCharge("")
+                await fetchOrderDetails(order._id)
+                fetchOrders(1, true)
+            } else {
+                toast.error(data.message || "Could not confirm the order")
+            }
+        } catch {
+            toast.error("Error connecting to server")
+        } finally {
+            setIsConfirming(false)
+        }
+    }
+
+    async function handleRejectOrder(order: Order) {
+        if (!rejectReason.trim()) {
+            toast.error("Tell the customer why the order is not confirmed")
+            return
+        }
+        setIsConfirming(true)
+        try {
+            const res = await apiFetch(`/admin/orders/${order._id}/reject`, {
+                method: "PUT",
+                body: JSON.stringify({ reason: rejectReason.trim() }),
+            })
+            const data = await res.json()
+            if (res.ok) {
+                toast.success("Order rejected. The customer has been told why.")
+                setRejectReason("")
+                setIsRejectingOrder(false)
+                await fetchOrderDetails(order._id)
+                fetchOrders(1, true)
+            } else {
+                toast.error(data.message || "Could not reject the order")
+            }
+        } catch {
+            toast.error("Error connecting to server")
+        } finally {
+            setIsConfirming(false)
+        }
+    }
+
+    const statusLabel = (order: Order) =>
+        order.confirmationStatus === 'pending' ? 'awaiting confirmation' : order.status.replace(/_/g, ' ')
+
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'delivered': return "text-green-500 bg-green-500/10"
@@ -248,6 +321,7 @@ export default function OrdersPage() {
             case 'processing': return "text-blue-500 bg-blue-500/10"
             case 'shipped': return "text-purple-500 bg-purple-500/10"
             case 'pending_payment': return "text-yellow-500 bg-yellow-500/10"
+            case 'awaiting confirmation': return "text-orange-400 bg-orange-500/10"
             default: return "text-gray-500 bg-gray-500/10"
         }
     }
@@ -259,6 +333,25 @@ export default function OrdersPage() {
                     <h1 className="text-3xl font-bold text-white">Orders</h1>
                     <p className="text-gray-400 text-sm">{totalOrders > 0 && `(${totalOrders} orders)`}</p>
                 </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setOnlyAwaiting(false)}
+                    className={!onlyAwaiting ? "border-[#86efac] bg-[#86efac]/10 text-[#86efac]" : "border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"}
+                >
+                    All orders
+                </Button>
+                <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setOnlyAwaiting(true)}
+                    className={onlyAwaiting ? "border-orange-400 bg-orange-500/10 text-orange-400" : "border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"}
+                >
+                    Awaiting confirmation
+                </Button>
             </div>
 
             {/* Search Bar */}
@@ -326,8 +419,8 @@ export default function OrdersPage() {
                                         </TableCell>
                                         <TableCell className="text-white text-right font-bold">₹{order.total.toLocaleString()}</TableCell>
                                         <TableCell className="text-center">
-                                            <span className={`px-2 py-1 rounded-full text-xs font-medium uppercase ${getStatusColor(order.status)}`}>
-                                                {order.status.replace('_', ' ')}
+                                            <span className={`px-2 py-1 rounded-full text-xs font-medium uppercase ${getStatusColor(order.confirmationStatus === 'pending' ? 'awaiting confirmation' : order.status)}`}>
+                                                {statusLabel(order)}
                                             </span>
                                         </TableCell>
                                         <TableCell className="text-right">
@@ -335,7 +428,12 @@ export default function OrdersPage() {
                                                 variant="ghost"
                                                 size="sm"
                                                 className="h-8 w-8 p-0 text-white hover:bg-[#333]"
-                                                onClick={() => fetchOrderDetails(order._id)}
+                                                onClick={() => {
+                                                    setDeliveryCharge("")
+                                                    setRejectReason("")
+                                                    setIsRejectingOrder(false)
+                                                    fetchOrderDetails(order._id)
+                                                }}
                                             >
                                                 <Eye className="h-4 w-4" />
                                             </Button>
@@ -359,6 +457,72 @@ export default function OrdersPage() {
 
                     {selectedOrder && (
                         <div className="space-y-6 overflow-y-auto pr-2" style={{ maxHeight: 'calc(85vh - 100px)' }}>
+                            {/* Confirm the order and add delivery before the customer pays */}
+                            {selectedOrder.confirmationStatus === 'pending' && selectedOrder.status === 'pending_payment' && (
+                                <div className="p-4 rounded-lg border border-orange-500/40 bg-orange-500/5 space-y-3">
+                                    <div>
+                                        <h3 className="font-medium text-orange-300">Awaiting confirmation</h3>
+                                        <p className="text-xs text-gray-400">Add the delivery charge for this address, then confirm. The customer can pay only after that.</p>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3 items-end">
+                                        <div>
+                                            <Label htmlFor="deliveryCharge" className="text-gray-300">Delivery charge (₹)</Label>
+                                            <Input
+                                                id="deliveryCharge"
+                                                type="number"
+                                                min={0}
+                                                inputMode="decimal"
+                                                placeholder="0 for free delivery"
+                                                value={deliveryCharge}
+                                                onChange={(e) => setDeliveryCharge(e.target.value)}
+                                                className="bg-[#0D0D0D] border-[#333] text-white"
+                                            />
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-gray-400 text-xs block">Customer will pay</span>
+                                            <span className="text-2xl font-bold text-white">
+                                                ₹{Math.max((selectedOrder.subtotal ?? selectedOrder.total) + (Number(deliveryCharge) || 0) - (selectedOrder.discount || 0), 0).toLocaleString('en-IN')}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {isRejectingOrder ? (
+                                        <div className="space-y-2">
+                                            <Label htmlFor="rejectReason" className="text-gray-300">Reason (sent to the customer)</Label>
+                                            <Input
+                                                id="rejectReason"
+                                                placeholder="e.g. We do not deliver to this pincode"
+                                                value={rejectReason}
+                                                onChange={(e) => setRejectReason(e.target.value)}
+                                                className="bg-[#0D0D0D] border-[#333] text-white"
+                                            />
+                                            <div className="flex gap-3">
+                                                <Button variant="outline" className="flex-1 border-[#333] bg-[#0D0D0D] text-white" onClick={() => setIsRejectingOrder(false)} disabled={isConfirming}>
+                                                    Back
+                                                </Button>
+                                                <Button variant="destructive" className="flex-1" onClick={() => handleRejectOrder(selectedOrder)} disabled={isConfirming}>
+                                                    {isConfirming && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                                    Reject order
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex gap-3">
+                                            <Button className="flex-1 bg-green-500 hover:bg-green-600 text-white" onClick={() => handleConfirmOrder(selectedOrder)} disabled={isConfirming}>
+                                                {isConfirming && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                                                Confirm order
+                                            </Button>
+                                            <Button variant="destructive" className="flex-1" onClick={() => setIsRejectingOrder(true)} disabled={isConfirming}>
+                                                Reject
+                                            </Button>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                            {selectedOrder.confirmationStatus === 'rejected' && selectedOrder.confirmationNote && (
+                                <div className="p-3 rounded-lg border border-red-500/40 bg-red-500/5 text-sm text-red-300">
+                                    Not confirmed: {selectedOrder.confirmationNote}
+                                </div>
+                            )}
                             {/* Payment Section */}
                             <div className="p-4 bg-[#0D0D0D] rounded-lg border border-[#333]">
                                 <h3 className="font-medium mb-2 flex items-center gap-2">
@@ -396,7 +560,7 @@ export default function OrdersPage() {
                                         {selectedOrder.status === 'payment_uploaded' && (
                                             <div className="flex gap-3 pt-2">
                                                 <Button
-                                                    className="w-full bg-green-500 hover:bg-green-600 text-white"
+                                                    className="flex-1 bg-green-500 hover:bg-green-600 text-white"
                                                     onClick={() => selectedOrder.payment && handleVerifyPayment(selectedOrder.payment._id)}
                                                     disabled={isVerifying}
                                                 >
@@ -405,7 +569,7 @@ export default function OrdersPage() {
                                                 </Button>
                                                 <Button
                                                     variant="destructive"
-                                                    className="w-full"
+                                                    className="flex-1"
                                                     onClick={() => selectedOrder.payment && handleRejectPayment(selectedOrder.payment._id)}
                                                     disabled={isRejecting}
                                                 >
@@ -425,11 +589,24 @@ export default function OrdersPage() {
                                 <h3 className="font-medium mb-2">Items</h3>
                                 <div className="space-y-2">
                                     {selectedOrder.items.map((item: any, idx: number) => (
-                                        <div key={idx} className="flex justify-between items-center bg-[#0D0D0D] p-3 rounded border border-[#333]">
+                                        <div key={idx} className="flex justify-between items-center gap-3 bg-[#0D0D0D] p-3 rounded border border-[#333]">
                                             <span>{item.productSnapshot.name}</span>
-                                            <span className="text-gray-400">x{item.quantity}</span>
+                                            <span className="text-gray-400 whitespace-nowrap">
+                                                {item.quantity} × ₹{Number(item.pricePerUnit || 0).toLocaleString('en-IN')}
+                                            </span>
                                         </div>
                                     ))}
+                                </div>
+                                <div className="mt-3 space-y-1 text-sm">
+                                    <div className="flex justify-between text-gray-400"><span>Subtotal</span><span>₹{Number(selectedOrder.subtotal ?? selectedOrder.total).toLocaleString('en-IN')}</span></div>
+                                    <div className="flex justify-between text-gray-400">
+                                        <span>Delivery</span>
+                                        <span>{selectedOrder.confirmationStatus === 'pending' ? 'Added on confirmation' : `₹${Number(selectedOrder.deliveryFee || 0).toLocaleString('en-IN')}`}</span>
+                                    </div>
+                                    {!!selectedOrder.discount && (
+                                        <div className="flex justify-between text-gray-400"><span>Discount</span><span>−₹{Number(selectedOrder.discount).toLocaleString('en-IN')}</span></div>
+                                    )}
+                                    <div className="flex justify-between font-semibold text-white"><span>Total</span><span>₹{Number(selectedOrder.total).toLocaleString('en-IN')}</span></div>
                                 </div>
                             </div>
 
@@ -439,8 +616,13 @@ export default function OrdersPage() {
                                     <h3 className="font-medium mb-2 flex items-center gap-2">
                                         <MapPin className="w-4 h-4 text-gray-400" /> Shipping Address
                                     </h3>
+                                    {(selectedOrder.shippingAddress.fullName || selectedOrder.shippingAddress.phone) && (
+                                        <p className="text-sm text-white">
+                                            {[selectedOrder.shippingAddress.fullName, selectedOrder.shippingAddress.phone].filter(Boolean).join(' · ')}
+                                        </p>
+                                    )}
                                     <p className="text-sm text-gray-300">
-                                        {selectedOrder.shippingAddress.address}, {selectedOrder.shippingAddress.city}, {selectedOrder.shippingAddress.state} - {selectedOrder.shippingAddress.pincode}
+                                        {[selectedOrder.shippingAddress.addressLine1 || selectedOrder.shippingAddress.address, selectedOrder.shippingAddress.city, selectedOrder.shippingAddress.state].filter(Boolean).join(', ')} - {selectedOrder.shippingAddress.pincode}
                                     </p>
                                 </div>
                             )}
