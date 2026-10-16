@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { 
     Loader2, Save, Plus, Trash2, GripVertical, Image as ImageIcon, Upload, Search,
-    ArrowRight
+    ArrowRight, ChevronUp, ChevronDown
 } from "lucide-react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import * as HugeIconsFree from "@hugeicons/core-free-icons"
@@ -404,6 +404,21 @@ export default function BannersPage() {
             .filter((banner): banner is Banner => Boolean(banner)))
     }
 
+    // Moves a banner one place up (-1) or down (+1); saved with the list.
+    function moveBanner(
+        setter: React.Dispatch<React.SetStateAction<Banner[]>>,
+        index: number,
+        direction: -1 | 1,
+    ) {
+        setter(prev => {
+            const target = index + direction
+            if (target < 0 || target >= prev.length) return prev
+            const next = [...prev]
+            ;[next[index], next[target]] = [next[target], next[index]]
+            return next
+        })
+    }
+
     async function savePromoBanners() {
         setIsSavingPromo(true)
         try {
@@ -430,6 +445,8 @@ export default function BannersPage() {
         updateFn: (index: number, field: keyof Banner, value: string | boolean | number) => void,
         removeFn: (index: number) => void,
         handle?: React.ReactNode,
+        moveFn?: (index: number, direction: -1 | 1) => void,
+        count = 0,
     ) {
         const isUploading = uploadingIndex?.type === type && uploadingIndex?.index === index
         const selectedProduct = availableProducts.find((product) => product._id === banner.linkedProductId)
@@ -442,6 +459,30 @@ export default function BannersPage() {
                         <span className="text-sm font-medium text-white">Banner {index + 1}</span>
                     </div>
                     <div className="flex items-center gap-3">
+                        {moveFn && (
+                            <div className="flex items-center rounded-md border border-[#333]">
+                                <Button
+                                    variant="ghost" size="icon"
+                                    className="h-8 w-8 text-white hover:bg-[#222] disabled:opacity-30"
+                                    onClick={() => moveFn(index, -1)}
+                                    disabled={index === 0}
+                                    aria-label={`Move banner ${index + 1} up`}
+                                    title="Move up"
+                                >
+                                    <ChevronUp className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                    variant="ghost" size="icon"
+                                    className="h-8 w-8 text-white hover:bg-[#222] disabled:opacity-30"
+                                    onClick={() => moveFn(index, 1)}
+                                    disabled={index >= count - 1}
+                                    aria-label={`Move banner ${index + 1} down`}
+                                    title="Move down"
+                                >
+                                    <ChevronDown className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        )}
                         <div className="flex items-center gap-2">
                             <span className="text-xs text-[#919191]">Active</span>
                             <Switch
@@ -696,7 +737,7 @@ export default function BannersPage() {
                                 >
                                     {heroBanners.map((banner, index) => (
                                         <SortableItem key={banner.clientId} id={banner.clientId}>
-                                            {(handle) => renderBannerCard(banner, index, 'hero', updateHeroBanner, removeHeroBanner, handle)}
+                                            {(handle) => renderBannerCard(banner, index, 'hero', updateHeroBanner, removeHeroBanner, handle, (i, d) => moveBanner(setHeroBanners, i, d), heroBanners.length)}
                                         </SortableItem>
                                     ))}
                                 </SortableProvider>
@@ -739,7 +780,7 @@ export default function BannersPage() {
                                 >
                                     {promoBanners.map((banner, index) => (
                                         <SortableItem key={banner.clientId} id={banner.clientId}>
-                                            {(handle) => renderBannerCard(banner, index, 'promo', updatePromoBanner, removePromoBanner, handle)}
+                                            {(handle) => renderBannerCard(banner, index, 'promo', updatePromoBanner, removePromoBanner, handle, (i, d) => moveBanner(setPromoBanners, i, d), promoBanners.length)}
                                         </SortableItem>
                                     ))}
                                 </SortableProvider>

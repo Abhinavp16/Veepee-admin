@@ -12,7 +12,15 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Eye, User, ShoppingBag, TrendingUp, Search, Bell, Send, CheckSquare, Square, X } from "lucide-react"
+import { Loader2, Eye, User, ShoppingBag, TrendingUp, Search, Bell, Send, CheckSquare, Square, MinusSquare, X, ChevronDown } from "lucide-react"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
 import {
     Dialog,
@@ -154,11 +162,29 @@ export default function CustomersPage() {
         )
     }
 
-    const toggleSelectAll = () => {
-        if (selectedIds.length === customers.length && customers.length > 0) {
-            setSelectedIds([])
-        } else {
-            setSelectedIds(customers.map(c => c._id))
+    const [isSelectingGroup, setIsSelectingGroup] = useState(false)
+
+    // Selects every matching account, not only the rows loaded so far.
+    async function selectGroup(role: 'all' | 'buyer' | 'wholesaler') {
+        setIsSelectingGroup(true)
+        try {
+            const ids: string[] = []
+            for (let pageNum = 1; ; pageNum += 1) {
+                const params = new URLSearchParams({ page: String(pageNum), limit: '50' })
+                if (role !== 'all') params.append('role', role)
+                const res = await apiFetch(`/admin/customers?${params.toString()}`)
+                const data = await res.json()
+                if (!res.ok) throw new Error(data.message || 'Failed to load customers')
+                ids.push(...(data.data || []).map((c: Customer) => c._id))
+                if (pageNum >= (data.pagination?.totalPages || 1)) break
+            }
+            setSelectedIds(ids)
+            const label = role === 'all' ? 'accounts' : role === 'buyer' ? 'customers' : 'wholesalers'
+            toast.success(`${ids.length} ${label} selected`)
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Could not select accounts")
+        } finally {
+            setIsSelectingGroup(false)
         }
     }
 
@@ -236,7 +262,7 @@ export default function CustomersPage() {
                                             : "bg-yellow-500/5 border-yellow-500/20 text-yellow-500/70 italic"
                                         }`}>
                                         <User className="w-3.5 h-3.5" />
-                                        {selectedIds.length} {selectedIds.length === 1 ? "Customer" : "Customers"} Targetted
+                                        {selectedIds.length} {selectedIds.length === 1 ? "Customer" : "Customers"} Targeted
                                         {selectedIds.length === 0 && " — Select from list"}
                                     </div>
                                     <Button 
@@ -337,18 +363,38 @@ export default function CustomersPage() {
                                     <TableHead className="text-gray-400 text-right">Joined</TableHead>
                                     <TableHead className="text-gray-400 text-right">Actions</TableHead>
                                     {isAdmin && <TableHead className="text-gray-400 text-right w-10">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="h-8 w-8 p-0 hover:bg-[#333]"
-                                            onClick={toggleSelectAll}
-                                        >
-                                            {selectedIds.length === customers.length && customers.length > 0 ? (
-                                                <CheckSquare className="h-4 w-4 text-[#86efac]" />
-                                            ) : (
-                                                <Square className="h-4 w-4" />
-                                            )}
-                                        </Button>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-8 px-1.5 gap-0.5 hover:bg-[#333]"
+                                                    aria-label="Select accounts"
+                                                    disabled={isSelectingGroup}
+                                                >
+                                                    {isSelectingGroup ? (
+                                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                                    ) : selectedIds.length === 0 ? (
+                                                        <Square className="h-4 w-4" />
+                                                    ) : selectedIds.length >= totalCustomers ? (
+                                                        <CheckSquare className="h-4 w-4 text-[#86efac]" />
+                                                    ) : (
+                                                        <MinusSquare className="h-4 w-4 text-[#86efac]" />
+                                                    )}
+                                                    <ChevronDown className="h-3 w-3 text-gray-400" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-52 bg-[#161616] border-[#333] text-white">
+                                                <DropdownMenuLabel className="text-gray-400 text-xs">Select for notification</DropdownMenuLabel>
+                                                <DropdownMenuItem onClick={() => selectGroup('all')}>All accounts</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => selectGroup('buyer')}>Customers only</DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => selectGroup('wholesaler')}>Wholesalers only</DropdownMenuItem>
+                                                <DropdownMenuSeparator className="bg-[#333]" />
+                                                <DropdownMenuItem onClick={() => setSelectedIds([])} disabled={selectedIds.length === 0}>
+                                                    Clear selection
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
                                     </TableHead>}
                                 </TableRow>
                             </TableHeader>
