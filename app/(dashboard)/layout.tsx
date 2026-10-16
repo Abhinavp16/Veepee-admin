@@ -51,11 +51,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const routeAllowed = canAccessPath(user.role, pathname)
   return <DashboardProvider value={user}>
-    <div className="admin-page h-dvh overflow-hidden">
+    {/* `relative` on <main> keeps absolutely positioned helpers (such as the
+        hidden checkbox inside each switch) in the scroll area, so the browser
+        page itself never scrolls past the app. */}
+    <div className="admin-page relative h-dvh overflow-hidden">
       <Header user={user} onMenuClick={() => setMobileOpen(true)} />
       <div className="flex h-full min-w-0 pt-16 md:pt-20">
         <Sidebar user={user} mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
-        <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8 xl:p-9">
+        <main className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8 xl:p-9">
           {user.role === "staff" && <StaffSessionBanner />}
           {routeAllowed ? children : <div className="mx-auto flex min-h-[60vh] max-w-lg flex-col items-center justify-center text-center"><div className="mb-5 rounded-full bg-red-500/10 p-4 text-red-400"><ShieldAlert className="h-8 w-8" /></div><h1 className="text-2xl font-bold">This area is restricted</h1><p className="mt-2 text-sm text-[#919191]">Your Staff account does not have access to this administrative control.</p></div>}
         </main>
