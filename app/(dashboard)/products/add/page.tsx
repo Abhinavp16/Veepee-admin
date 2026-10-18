@@ -253,6 +253,27 @@ export default function AddProductPage() {
         }
     }, [selectedCompanyId])
 
+    const [isLinkingCategories, setIsLinkingCategories] = useState(false)
+
+    // Links the selected categories to the brand so the product can be saved.
+    async function linkSelectedCategoriesToBrand(categoryIds: string[]) {
+        if (!selectedCompanyId || selectedCompanyId === "none" || categoryIds.length === 0) return
+        setIsLinkingCategories(true)
+        try {
+            for (const categoryId of categoryIds) {
+                const response = await apiFetch(`/companies/${selectedCompanyId}/categories/${categoryId}`, { method: "PUT" })
+                const payload = await response.json().catch(() => null)
+                if (!response.ok) throw new Error(payload?.message || "Could not link the category to this brand")
+            }
+            toast.success(categoryIds.length === 1 ? "Category linked to this brand" : "Categories linked to this brand")
+            await fetchCompanyCategories(selectedCompanyId)
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Could not link the category to this brand")
+        } finally {
+            setIsLinkingCategories(false)
+        }
+    }
+
     async function fetchCompanyCategories(id: string) {
         const requestId = ++companyCategoryRequest.current
         setIsLoadingCompanyCategories(true)
@@ -997,7 +1018,18 @@ export default function AddProductPage() {
                                                         </FormDescription>
                                                         {invalidSelectedCategories.length > 0 && (
                                                             <p role="alert" className="rounded-md border border-amber-500/40 bg-amber-500/10 p-2 text-sm text-amber-300">
-                                                                {invalidSelectedCategories.length} selected {invalidSelectedCategories.length === 1 ? "category is" : "categories are"} not linked to this brand. The selection was kept; remove or replace it before saving.
+                                                                {invalidSelectedCategories.length} selected {invalidSelectedCategories.length === 1 ? "category is" : "categories are"} not linked to this brand. Link {invalidSelectedCategories.length === 1 ? "it" : "them"} to the brand, or remove {invalidSelectedCategories.length === 1 ? "it" : "them"} before saving.
+                                                                <Button
+                                                                    type="button"
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="mt-2 flex border-amber-500/50 bg-transparent text-amber-200 hover:bg-amber-500/20"
+                                                                    disabled={isLinkingCategories}
+                                                                    onClick={() => void linkSelectedCategoriesToBrand(invalidSelectedCategories)}
+                                                                >
+                                                                    {isLinkingCategories && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}
+                                                                    Link to this brand
+                                                                </Button>
                                                             </p>
                                                         )}
                                                         <FormMessage />
