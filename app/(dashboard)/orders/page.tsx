@@ -13,6 +13,8 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Loader2, Eye, Truck, CheckCircle2, XCircle, Package, MapPin, Search } from "lucide-react"
+import { ReceiptMenu } from "@/components/receipt-menu"
+import { receiptAvailable } from "@/lib/receipt"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
@@ -461,6 +463,8 @@ export default function OrdersPage() {
                                             </span>
                                         </TableCell>
                                         <TableCell className="text-right">
+                                            <div className="flex items-center justify-end gap-2">
+                                            {receiptAvailable(order) && <ReceiptMenu orderId={order._id} orderNumber={order.orderNumber} />}
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
@@ -474,6 +478,7 @@ export default function OrdersPage() {
                                             >
                                                 <Eye className="h-4 w-4" />
                                             </Button>
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -486,10 +491,17 @@ export default function OrdersPage() {
             <Dialog open={isdetailsOpen} onOpenChange={setIsDetailsOpen}>
                 <DialogContent className="bg-[#161616] border-[#333] text-white max-w-2xl max-h-[85vh] flex flex-col">
                     <DialogHeader>
-                        <DialogTitle>Order Details: {selectedOrder?.orderNumber}</DialogTitle>
-                        <DialogDescription>
-                            Customer: {selectedOrder?.customerSnapshot?.name} | {selectedOrder?.customerSnapshot?.phone}
-                        </DialogDescription>
+                        <div className="flex items-start justify-between gap-3 pr-6">
+                            <div className="space-y-1.5">
+                                <DialogTitle>Order Details: {selectedOrder?.orderNumber}</DialogTitle>
+                                <DialogDescription>
+                                    Customer: {selectedOrder?.customerSnapshot?.name} | {selectedOrder?.customerSnapshot?.phone}
+                                </DialogDescription>
+                            </div>
+                            {selectedOrder && receiptAvailable(selectedOrder) && (
+                                <ReceiptMenu orderId={selectedOrder._id} orderNumber={selectedOrder.orderNumber} size="md" />
+                            )}
+                        </div>
                     </DialogHeader>
 
                     {selectedOrder && (

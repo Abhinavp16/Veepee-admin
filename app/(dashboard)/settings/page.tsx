@@ -26,6 +26,8 @@ const settingsSchema = z.object({
     businessName: z.string().optional(),
     businessEmail: z.string().optional(),
     businessPhone: z.string().optional(),
+    businessAddress: z.string().optional(),
+    gstin: z.string().optional(),
     upiId: z.string().optional(),
     upiDisplayName: z.string().optional(),
     minOrderAmount: z.coerce.number().optional(),
@@ -62,6 +64,8 @@ export default function SettingsPage() {
             businessName: "",
             businessEmail: "",
             businessPhone: "",
+            businessAddress: "",
+            gstin: "",
             upiId: "",
             upiDisplayName: "",
             minOrderAmount: 0,
@@ -91,7 +95,11 @@ export default function SettingsPage() {
             const res = await apiFetch('/admin/settings')
             const data = await res.json()
             if (res.ok && data.data) {
-                form.reset(data.data)
+                form.reset({
+                    ...data.data,
+                    businessAddress: data.data.businessAddress ?? "",
+                    gstin: data.data.gstin ?? "",
+                })
             }
         } catch (error) {
             toast.error("Failed to load settings")
@@ -279,6 +287,38 @@ export default function SettingsPage() {
                                             <FormControl>
                                                 <Input className="bg-[#0D0D0D] border-[#333] text-white" {...field} />
                                             </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="businessAddress"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-white">Business Address</FormLabel>
+                                            <FormControl>
+                                                <Input className="bg-[#0D0D0D] border-[#333] text-white" placeholder="Shown on order receipts" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="gstin"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-white">GSTIN</FormLabel>
+                                            <FormControl>
+                                                <Input
+                                                    className="bg-[#0D0D0D] border-[#333] text-white uppercase"
+                                                    placeholder="e.g. 22AAXFV7313A1Z8 (leave empty to hide)"
+                                                    maxLength={15}
+                                                    {...field}
+                                                />
+                                            </FormControl>
+                                            <p className="text-xs text-gray-500">Printed on every order receipt.</p>
                                             <FormMessage />
                                         </FormItem>
                                     )}
