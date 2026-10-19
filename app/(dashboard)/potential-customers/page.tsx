@@ -46,15 +46,48 @@ type InterestLevel = "Hot" | "Warm" | "Browsing"
 export default function PotentialCustomersPage() {
     const [leads, setLeads] = useState<PotentialCustomer[]>([])
     const [isLoading, setIsLoading] = useState(true)
-    const [period, setPeriod] = useState("7d")
+    // Filters: when the product was last viewed, how many views, and the order.
+    const [lastViewed, setLastViewed] = useState("7d")
+    const [customFrom, setCustomFrom] = useState("")
+    const [customTo, setCustomTo] = useState("")
+    const [minViews, setMinViews] = useState("1")
+    const [sort, setSort] = useState("views")
     const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 30, total: 0, pages: 0 })
     const [scheduleTime, setScheduleTime] = useState("")
     const [scheduledAt, setScheduledAt] = useState<Date | null>(null)
     const scheduleTimeoutRef = useRef<number | null>(null)
 
     useEffect(() => {
+        // A custom range waits until both dates are chosen.
+        if (lastViewed === "custom" && (!customFrom || !customTo)) return
         fetchLeads(1)
-    }, [period])
+    }, [lastViewed, customFrom, customTo, minViews, sort])
+
+    /** The query for the chosen filters (times in this browser's time zone). */
+    function filterQuery() {
+        const params = new URLSearchParams({ minViews, sort })
+        const startOfDay = (offsetDays: number) => {
+            const day = new Date()
+            day.setHours(0, 0, 0, 0)
+            day.setDate(day.getDate() - offsetDays)
+            return day
+        }
+        if (lastViewed === "today") {
+            params.set("period", "7d")
+            params.set("lastViewedFrom", startOfDay(0).toISOString())
+        } else if (lastViewed === "yesterday") {
+            params.set("period", "7d")
+            params.set("lastViewedFrom", startOfDay(1).toISOString())
+            params.set("lastViewedTo", startOfDay(0).toISOString())
+        } else if (lastViewed === "custom") {
+            params.set("period", "30d")
+            params.set("lastViewedFrom", new Date(`${customFrom}T00:00:00`).toISOString())
+            params.set("lastViewedTo", new Date(`${customTo}T23:59:59.999`).toISOString())
+        } else {
+            params.set("period", lastViewed)
+        }
+        return params.toString()
+    }
 
     useEffect(() => {
         return () => {
@@ -67,7 +100,7 @@ export default function PotentialCustomersPage() {
     async function fetchLeads(page: number) {
         setIsLoading(true)
         try {
-            const res = await apiFetch(`/admin/analytics/potential-customers?period=${period}&page=${page}&limit=30`)
+            const res = await apiFetch(`/admin/analytics/potential-customers?${filterQuery()}&page=${page}&limit=30`)
             const data = await res.json()
             if (res.ok && data.success) {
                 setLeads(data.data.potentialCustomers || [])
@@ -83,14 +116,17 @@ export default function PotentialCustomersPage() {
         }
     }
 
-    function timeAgo(dateStr: string) {
-        const diff = Date.now() - new Date(dateStr).getTime()
-        const mins = Math.floor(diff / (1000 * 60))
-        if (mins < 60) return `${mins}m ago`
-        const hours = Math.floor(diff / (1000 * 60 * 60))
-        if (hours < 24) return `${hours}h ago`
-        const days = Math.floor(hours / 24)
-        return `${days}d ago`
+    /** e.g. "19 Oct 2026, 12:56 pm" in India time. */
+    function exactTime(dateStr: string) {
+        return new Date(dateStr).toLocaleString("en-IN", {
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+            timeZone: "Asia/Kolkata",
+        })
     }
 
     function formatPrice(price: number) {
@@ -211,12 +247,28 @@ export default function PotentialCustomersPage() {
         toast.success("Scheduled bulk message cancelled")
     }
 
-    const periods = [
-        { value: "3d", label: "Last 3 days" },
-        { value: "7d", label: "Last 7 days" },
-        { value: "14d", label: "Last 14 days" },
-        { value: "30d", label: "Last 30 days" },
+    const lastViewedOptions = [
+        { value: "today", label: "Last viewed: Today" },
+        { value: "yesterday", label: "Last viewed: Yesterday" },
+        { value: "3d", label: "Last viewed: Last 3 days" },
+        { value: "7d", label: "Last viewed: Last 7 days" },
+        { value: "14d", label: "Last viewed: Last 14 days" },
+        { value: "30d", label: "Last viewed: Last 30 days" },
+        { value: "custom", label: "Last viewed: Custom dates" },
     ]
+    const viewOptions = [
+        { value: "1", label: "Views: Any" },
+        { value: "2", label: "Views: 2+" },
+        { value: "3", label: "Views: 3+" },
+        { value: "5", label: "Views: 5+" },
+        { value: "10", label: "Views: 10+" },
+    ]
+    const sortOptions = [
+        { value: "views", label: "Sort: Most views" },
+        { value: "recent", label: "Sort: Most recent" },
+    ]
+    const selectClass = "bg-[#161616] border border-[#333] text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-[#86efac] cursor-pointer"
+    const today = new Date().toLocaleDateString("en-CA")
 
     return (
         <div className="flex flex-col gap-6">
@@ -225,18 +277,48 @@ export default function PotentialCustomersPage() {
                 <div>
                     <h1 className="text-3xl font-bold text-white">Potential Customers</h1>
                     <p className="text-sm text-[#919191] mt-1">
-                        Users who viewed products but didn&apos;t add to cart or purchase within 6 hours
+                        Users who viewed products but didn&apos;t add to cart or purchase within 5 minutes
                     </p>
                 </div>
-                <select
-                    value={period}
-                    onChange={(e) => setPeriod(e.target.value)}
-                    className="bg-[#161616] border border-[#333] text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-[#86efac] cursor-pointer"
-                >
-                    {periods.map((p) => (
-                        <option key={p.value} value={p.value}>{p.label}</option>
-                    ))}
-                </select>
+                <div className="flex flex-wrap items-center gap-2">
+                    <select aria-label="Last viewed" value={lastViewed} onChange={(e) => setLastViewed(e.target.value)} className={selectClass}>
+                        {lastViewedOptions.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                    </select>
+                    {lastViewed === "custom" && (
+                        <>
+                            <input
+                                type="date"
+                                aria-label="Last viewed from"
+                                value={customFrom}
+                                max={customTo || today}
+                                onChange={(e) => setCustomFrom(e.target.value)}
+                                className={selectClass}
+                            />
+                            <span className="text-sm text-[#919191]">to</span>
+                            <input
+                                type="date"
+                                aria-label="Last viewed to"
+                                value={customTo}
+                                min={customFrom || undefined}
+                                max={today}
+                                onChange={(e) => setCustomTo(e.target.value)}
+                                className={selectClass}
+                            />
+                        </>
+                    )}
+                    <select aria-label="Number of views" value={minViews} onChange={(e) => setMinViews(e.target.value)} className={selectClass}>
+                        {viewOptions.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                    </select>
+                    <select aria-label="Sort" value={sort} onChange={(e) => setSort(e.target.value)} className={selectClass}>
+                        {sortOptions.map((o) => (
+                            <option key={o.value} value={o.value}>{o.label}</option>
+                        ))}
+                    </select>
+                </div>
             </div>
 
             {/* Stats Cards */}
@@ -395,9 +477,9 @@ export default function PotentialCustomersPage() {
                                                 <span className="font-semibold text-sm text-white">{lead.viewCount}</span>
                                             </TableCell>
                                             <TableCell>
-                                                <div className="flex items-center gap-1 text-xs text-gray-500">
+                                                <div className="flex items-center gap-1 text-xs text-gray-400 whitespace-nowrap">
                                                     <Clock className="h-3 w-3" />
-                                                    {timeAgo(lead.lastViewed)}
+                                                    {exactTime(lead.lastViewed)}
                                                 </div>
                                             </TableCell>
                                             <TableCell>

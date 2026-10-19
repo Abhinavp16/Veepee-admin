@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import {
     Table,
     TableBody,
@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, MessageSquare, Check, X, Send, Search } from "lucide-react"
+import { Loader2, MessageSquare, Check, X, Send, Search, ArrowDown } from "lucide-react"
 import { toast } from "sonner"
 import {
     Sheet,
@@ -21,7 +21,6 @@ import {
     SheetHeader,
     SheetTitle,
 } from "@/components/ui/sheet"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
@@ -71,6 +70,27 @@ export default function NegotiationsPage() {
     const [counterPrice, setCounterPrice] = useState("")
     const [counterMessage, setCounterMessage] = useState("")
     const [isSubmitting, setIsSubmitting] = useState(false)
+
+    // The history scrolls on its own; it opens at the newest message and
+    // offers a jump back down after scrolling up.
+    const historyRef = useRef<HTMLDivElement>(null)
+    const [showLatest, setShowLatest] = useState(false)
+    const scrollHistoryToLatest = (behavior: ScrollBehavior = "smooth") => {
+        const el = historyRef.current
+        if (el) el.scrollTo({ top: el.scrollHeight, behavior })
+    }
+    const historyLength = selectedNegotiation?.history.length ?? 0
+    useEffect(() => {
+        if (!isSheetOpen || historyLength === 0) return
+        // After the sheet has laid out.
+        const frame = requestAnimationFrame(() => scrollHistoryToLatest("auto"))
+        return () => cancelAnimationFrame(frame)
+    }, [isSheetOpen, selectedNegotiation?._id, historyLength])
+    const onHistoryScroll = () => {
+        const el = historyRef.current
+        if (!el) return
+        setShowLatest(el.scrollHeight - el.scrollTop - el.clientHeight > 80)
+    }
 
     // Search & Pagination state
     const [searchQuery, setSearchQuery] = useState("")
@@ -315,7 +335,7 @@ export default function NegotiationsPage() {
                     </SheetHeader>
 
                     {selectedNegotiation && (
-                        <div className="flex-1 flex flex-col gap-6 mt-6 overflow-hidden">
+                        <div className="flex-1 min-h-0 flex flex-col gap-6 mt-6 overflow-hidden">
                             {/* Summary Card */}
                             <div className="bg-[#0D0D0D] p-4 rounded-lg border border-[#333] grid grid-cols-2 gap-4">
                                 <div>
@@ -339,10 +359,15 @@ export default function NegotiationsPage() {
                             <Separator className="bg-[#333]" />
 
                             {/* Chat History */}
-                            <div className="flex-1 overflow-hidden flex flex-col">
+                            <div className="flex-1 min-h-0 flex flex-col">
                                 <h3 className="text-sm font-medium mb-2">History</h3>
-                                <ScrollArea className="flex-1 pr-4">
-                                    <div className="space-y-4">
+                                <div className="relative flex-1 min-h-0">
+                                <div
+                                    ref={historyRef}
+                                    onScroll={onHistoryScroll}
+                                    className="h-full overflow-y-auto overscroll-contain pr-3"
+                                >
+                                    <div className="space-y-4 pb-2">
                                         {selectedNegotiation.history.map((entry, idx) => (
                                             <div key={idx} className={`flex flex-col gap-1 ${entry.by === 'admin' ? 'items-end' : 'items-start'}`}>
                                                 <div className={`p-3 rounded-lg max-w-[80%] ${entry.by === 'admin' ? 'bg-[#86efac] text-black' : 'bg-[#333] text-white'}`}>
@@ -358,7 +383,17 @@ export default function NegotiationsPage() {
                                             </div>
                                         ))}
                                     </div>
-                                </ScrollArea>
+                                </div>
+                                {showLatest && (
+                                    <button
+                                        type="button"
+                                        onClick={() => scrollHistoryToLatest()}
+                                        className="absolute bottom-2 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full bg-[#86efac] px-3 py-1 text-xs font-semibold text-black shadow-lg"
+                                    >
+                                        <ArrowDown className="h-3 w-3" /> Latest
+                                    </button>
+                                )}
+                                </div>
                             </div>
 
                             {/* Actions */}

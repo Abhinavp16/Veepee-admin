@@ -36,6 +36,9 @@ interface Order {
     subtotal?: number
     deliveryFee?: number
     discount?: number
+    // Given by the shop at confirmation, on top of any coupon.
+    extraDiscount?: number
+    extraDiscountPercent?: number | null
     total: number
     status: string
     // New orders wait for the shop to add delivery and confirm them.
@@ -79,6 +82,9 @@ export default function OrdersPage() {
 
     // Confirming a new order: delivery charge or rejection reason.
     const [deliveryCharge, setDeliveryCharge] = useState("")
+    // Optional extra discount, in rupees or as a % of the products.
+    const [extraDiscount, setExtraDiscount] = useState("")
+    const [extraDiscountType, setExtraDiscountType] = useState<'amount' | 'percent'>('amount')
     const [rejectReason, setRejectReason] = useState("")
     const [isRejectingOrder, setIsRejectingOrder] = useState(false)
     const [isConfirming, setIsConfirming] = useState(false)
@@ -254,22 +260,53 @@ export default function OrdersPage() {
         }
     }
 
+    /** What the customer will pay with the delivery charge and extra discount entered. */
+    function confirmationPreview(order: Order) {
+        const round2 = (value: number) => Math.round(value * 100) / 100
+        const subtotal = order.subtotal ?? order.total
+        const coupon = order.discount || 0
+        const delivery = Math.max(Number(deliveryCharge) || 0, 0)
+        const value = Math.max(Number(extraDiscount) || 0, 0)
+        const extra = extraDiscountType === 'percent'
+            ? round2((Math.max(subtotal - coupon, 0) * value) / 100)
+            : round2(value)
+        const maxExtra = round2(Math.max(subtotal + delivery - coupon, 0))
+        const error = extraDiscountType === 'percent' && value > 100
+            ? "The extra discount can be at most 100%"
+            : extra > maxExtra
+                ? `The extra discount can be at most ₹${maxExtra.toLocaleString('en-IN')}`
+                : null
+        return { subtotal, coupon, delivery, extra, error, total: round2(Math.max(subtotal + delivery - coupon - extra, 0)) }
+    }
+
     async function handleConfirmOrder(order: Order) {
         const charge = Number(deliveryCharge)
         if (deliveryCharge.trim() === "" || !Number.isFinite(charge) || charge < 0) {
             toast.error("Enter the delivery charge (0 for free delivery)")
             return
         }
+        const discountValue = Number(extraDiscount) || 0
+        if (!Number.isFinite(discountValue) || discountValue < 0) {
+            toast.error("Enter a valid extra discount (or leave it empty)")
+            return
+        }
+        const preview = confirmationPreview(order)
+        if (preview.error) {
+            toast.error(preview.error)
+            return
+        }
         setIsConfirming(true)
         try {
             const res = await apiFetch(`/admin/orders/${order._id}/confirm`, {
                 method: "PUT",
-                body: JSON.stringify({ deliveryCharge: charge }),
+                body: JSON.stringify({ deliveryCharge: charge, extraDiscount: discountValue, extraDiscountType }),
             })
             const data = await res.json()
             if (res.ok) {
                 toast.success(`Order confirmed. The customer will pay ₹${Number(data.data?.total ?? 0).toLocaleString('en-IN')}.`)
                 setDeliveryCharge("")
+                setExtraDiscount("")
+                setExtraDiscountType('amount')
                 await fetchOrderDetails(order._id)
                 fetchOrders(1, true)
             } else {
@@ -462,29 +499,77 @@ export default function OrdersPage() {
                                 <div className="p-4 rounded-lg border border-orange-500/40 bg-orange-500/5 space-y-3">
                                     <div>
                                         <h3 className="font-medium text-orange-300">Awaiting confirmation</h3>
-                                        <p className="text-xs text-gray-400">Add the delivery charge for this address, then confirm. The customer can pay only after that.</p>
+                                        <p className="text-xs text-gray-400">Add the delivery charge for this address and any extra discount, then confirm. The customer can pay only after that. The discount can&apos;t be changed later.</p>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3 items-end">
-                                        <div>
-                                            <Label htmlFor="deliveryCharge" className="text-gray-300">Delivery charge (₹)</Label>
-                                            <Input
-                                                id="deliveryCharge"
-                                                type="number"
-                                                min={0}
-                                                inputMode="decimal"
-                                                placeholder="0 for free delivery"
-                                                value={deliveryCharge}
-                                                onChange={(e) => setDeliveryCharge(e.target.value)}
-                                                className="bg-[#0D0D0D] border-[#333] text-white"
-                                            />
-                                        </div>
-                                        <div className="text-right">
-                                            <span className="text-gray-400 text-xs block">Customer will pay</span>
-                                            <span className="text-2xl font-bold text-white">
-                                                ₹{Math.max((selectedOrder.subtotal ?? selectedOrder.total) + (Number(deliveryCharge) || 0) - (selectedOrder.discount || 0), 0).toLocaleString('en-IN')}
-                                            </span>
-                                        </div>
-                                    </div>
+                                    {(() => {
+                                        const preview = confirmationPreview(selectedOrder)
+                                        const rupees = (value: number) => `₹${value.toLocaleString('en-IN')}`
+                                        return (
+                                            <>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                    <div>
+                                                        <Label htmlFor="deliveryCharge" className="text-gray-300">Delivery charge (₹)</Label>
+                                                        <Input
+                                                            id="deliveryCharge"
+                                                            type="number"
+                                                            min={0}
+                                                            inputMode="decimal"
+                                                            placeholder="0 for free delivery"
+                                                            value={deliveryCharge}
+                                                            onChange={(e) => setDeliveryCharge(e.target.value)}
+                                                            className="bg-[#0D0D0D] border-[#333] text-white"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <Label htmlFor="extraDiscount" className="text-gray-300">Extra discount (optional)</Label>
+                                                        <div className="flex gap-2">
+                                                            <Input
+                                                                id="extraDiscount"
+                                                                type="number"
+                                                                min={0}
+                                                                max={extraDiscountType === 'percent' ? 100 : undefined}
+                                                                inputMode="decimal"
+                                                                placeholder="0"
+                                                                value={extraDiscount}
+                                                                onChange={(e) => setExtraDiscount(e.target.value)}
+                                                                className="bg-[#0D0D0D] border-[#333] text-white"
+                                                            />
+                                                            <div className="flex rounded-md border border-[#333] overflow-hidden shrink-0" role="group" aria-label="Discount in rupees or percent">
+                                                                {(['amount', 'percent'] as const).map((type) => (
+                                                                    <button
+                                                                        key={type}
+                                                                        type="button"
+                                                                        aria-pressed={extraDiscountType === type}
+                                                                        onClick={() => setExtraDiscountType(type)}
+                                                                        className={`px-3 text-sm font-semibold ${extraDiscountType === type ? 'bg-[#86efac] text-black' : 'bg-[#0D0D0D] text-gray-300'}`}
+                                                                    >
+                                                                        {type === 'amount' ? '₹' : '%'}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="rounded-md bg-[#0D0D0D] border border-[#333] p-3 text-sm space-y-1">
+                                                    <div className="flex justify-between text-gray-400"><span>Products</span><span>{rupees(preview.subtotal)}</span></div>
+                                                    {preview.coupon > 0 && (
+                                                        <div className="flex justify-between text-gray-400"><span>Coupon discount</span><span>−{rupees(preview.coupon)}</span></div>
+                                                    )}
+                                                    <div className="flex justify-between text-gray-400"><span>Delivery</span><span>+{rupees(preview.delivery)}</span></div>
+                                                    {preview.extra > 0 && (
+                                                        <div className="flex justify-between text-[#86efac]">
+                                                            <span>Extra discount{extraDiscountType === 'percent' ? ` (${Number(extraDiscount)}%)` : ''}</span>
+                                                            <span>−{rupees(preview.extra)}</span>
+                                                        </div>
+                                                    )}
+                                                    <div className="flex justify-between border-t border-[#333] pt-1 font-bold text-white text-base">
+                                                        <span>Customer will pay</span><span>{rupees(preview.total)}</span>
+                                                    </div>
+                                                    {preview.error && <p role="alert" className="text-xs text-red-400">{preview.error}</p>}
+                                                </div>
+                                            </>
+                                        )
+                                    })()}
                                     {isRejectingOrder ? (
                                         <div className="space-y-2">
                                             <Label htmlFor="rejectReason" className="text-gray-300">Reason (sent to the customer)</Label>
@@ -605,6 +690,12 @@ export default function OrdersPage() {
                                     </div>
                                     {!!selectedOrder.discount && (
                                         <div className="flex justify-between text-gray-400"><span>Discount</span><span>−₹{Number(selectedOrder.discount).toLocaleString('en-IN')}</span></div>
+                                    )}
+                                    {!!selectedOrder.extraDiscount && (
+                                        <div className="flex justify-between text-[#86efac]">
+                                            <span>Extra discount{selectedOrder.extraDiscountPercent != null ? ` (${selectedOrder.extraDiscountPercent}%)` : ''}</span>
+                                            <span>−₹{Number(selectedOrder.extraDiscount).toLocaleString('en-IN')}</span>
+                                        </div>
                                     )}
                                     <div className="flex justify-between font-semibold text-white"><span>Total</span><span>₹{Number(selectedOrder.total).toLocaleString('en-IN')}</span></div>
                                 </div>
