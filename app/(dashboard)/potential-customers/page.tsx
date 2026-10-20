@@ -10,7 +10,7 @@ import {
     TableRow
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Loader2, Eye, UserSearch, Phone, Mail, Package, ChevronLeft, ChevronRight, Clock, TrendingUp, MessageCircle } from "lucide-react"
+import { Loader2, Eye, UserSearch, Phone, Mail, Package, ChevronLeft, ChevronRight, Clock, TrendingUp, MessageCircle, Timer, CheckCircle2, Undo2 } from "lucide-react"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
 
@@ -19,6 +19,10 @@ interface PotentialCustomer {
     productId: string
     viewCount: number
     lastViewed: string
+    // Seconds spent on the product page (reported by the app).
+    watchSeconds?: number
+    // Set in the "Contacted" tab: when and by whom the lead was messaged.
+    contact?: { lastContactAt: string; lastContactByName?: string; contactCount?: number }
     user: {
         name: string
         email: string
@@ -52,6 +56,9 @@ export default function PotentialCustomersPage() {
     const [customTo, setCustomTo] = useState("")
     const [minViews, setMinViews] = useState("1")
     const [sort, setSort] = useState("views")
+    // "To contact" or "Contacted" (already messaged by the team).
+    const [view, setView] = useState<"todo" | "contacted">("todo")
+    const [counts, setCounts] = useState({ todo: 0, contacted: 0 })
     const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 30, total: 0, pages: 0 })
     const [scheduleTime, setScheduleTime] = useState("")
     const [scheduledAt, setScheduledAt] = useState<Date | null>(null)
@@ -61,11 +68,11 @@ export default function PotentialCustomersPage() {
         // A custom range waits until both dates are chosen.
         if (lastViewed === "custom" && (!customFrom || !customTo)) return
         fetchLeads(1)
-    }, [lastViewed, customFrom, customTo, minViews, sort])
+    }, [lastViewed, customFrom, customTo, minViews, sort, view])
 
     /** The query for the chosen filters (times in this browser's time zone). */
     function filterQuery() {
-        const params = new URLSearchParams({ minViews, sort })
+        const params = new URLSearchParams({ minViews, sort, view })
         const startOfDay = (offsetDays: number) => {
             const day = new Date()
             day.setHours(0, 0, 0, 0)
@@ -105,6 +112,7 @@ export default function PotentialCustomersPage() {
             if (res.ok && data.success) {
                 setLeads(data.data.potentialCustomers || [])
                 setPagination(data.data.pagination)
+                if (data.data.counts) setCounts(data.data.counts)
             } else {
                 toast.error("Failed to fetch potential customers")
             }
@@ -133,10 +141,53 @@ export default function PotentialCustomersPage() {
         return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(price)
     }
 
-    function getInterestLevel(viewCount: number): InterestLevel {
-        if (viewCount >= 5) return "Hot"
-        if (viewCount >= 3) return "Warm"
+    // Like Laxmi Agro: repeat views or time spent on the page.
+    function getInterestLevel(lead: PotentialCustomer): InterestLevel {
+        const seconds = lead.watchSeconds || 0
+        if (lead.viewCount >= 5 || seconds >= 120) return "Hot"
+        if (lead.viewCount >= 3 || seconds >= 45) return "Warm"
         return "Browsing"
+    }
+
+    /** "45s", "2m 30s", "1h 5m"; "—" when nothing was reported. */
+    function formatWatch(seconds?: number) {
+        const total = Math.round(seconds || 0)
+        if (total <= 0) return "—"
+        if (total < 60) return `${total}s`
+        const minutes = Math.floor(total / 60)
+        if (minutes < 60) return `${minutes}m${total % 60 ? ` ${total % 60}s` : ""}`
+        return `${Math.floor(minutes / 60)}h${minutes % 60 ? ` ${minutes % 60}m` : ""}`
+    }
+
+    /** The team messaged these leads: they move to "Contacted". */
+    async function markContacted(list: PotentialCustomer[]) {
+        if (list.length === 0) return
+        try {
+            const res = await apiFetch('/admin/analytics/potential-customers/contacted', {
+                method: 'POST',
+                body: JSON.stringify({ leads: list.map((lead) => ({ userId: lead.userId, productId: lead.productId })) }),
+            })
+            const data = await res.json().catch(() => ({}))
+            if (!res.ok) throw new Error(data.message || "Could not mark as contacted")
+            toast.success(data.message || "Moved to Contacted")
+            fetchLeads(pagination.page)
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Could not mark as contacted")
+        }
+    }
+
+    async function undoContacted(lead: PotentialCustomer) {
+        try {
+            const res = await apiFetch('/admin/analytics/potential-customers/contacted', {
+                method: 'DELETE',
+                body: JSON.stringify({ userId: lead.userId, productId: lead.productId }),
+            })
+            if (!res.ok) throw new Error()
+            toast.success("Moved back to To contact")
+            fetchLeads(pagination.page)
+        } catch {
+            toast.error("Could not undo")
+        }
     }
 
     function formatWhatsappNumber(phone: string): string | null {
@@ -164,13 +215,14 @@ export default function PotentialCustomersPage() {
             return
         }
         window.open(whatsappUrl, "_blank", "noopener,noreferrer")
+        void markContacted([lead])
     }
 
     function getWhatsappUrlForLead(lead: PotentialCustomer): string | null {
         if (!lead.user.phone) return null
         const phone = formatWhatsappNumber(lead.user.phone)
         if (!phone) return null
-        const interest = getInterestLevel(lead.viewCount)
+        const interest = getInterestLevel(lead)
         const message = buildLeadMessage(lead, interest)
         return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`
     }
@@ -195,6 +247,7 @@ export default function PotentialCustomersPage() {
                 window.open(url, "_blank", "noopener,noreferrer")
             }, index * 250)
         })
+        void markContacted(leads.filter((lead) => !!getWhatsappUrlForLead(lead)))
 
         const skipped = leads.length - urls.length
         if (skipped > 0) {
@@ -349,9 +402,9 @@ export default function PotentialCustomersPage() {
                     </div>
                     <div>
                         <p className="text-3xl font-bold text-white">
-                            {leads.filter(l => l.viewCount >= 3).length}
+                            {leads.filter(l => getInterestLevel(l) !== "Browsing").length}
                         </p>
-                        <p className="text-xs text-[#919191]">High Interest (3+ views)</p>
+                        <p className="text-xs text-[#919191]">High Interest (Hot + Warm)</p>
                     </div>
                 </div>
             </div>
@@ -359,7 +412,26 @@ export default function PotentialCustomersPage() {
             {/* Table */}
             <div className="bg-[#161616] border border-[#333] rounded-2xl">
                 <div className="px-6 py-4 border-b border-[#333] flex items-center justify-between gap-3">
-                    <h2 className="text-lg font-semibold text-white">Lead Details</h2>
+                    <div className="flex items-center gap-3 flex-wrap">
+                        <h2 className="text-lg font-semibold text-white">Lead Details</h2>
+                        <div className="flex rounded-lg border border-[#333] p-0.5" role="tablist" aria-label="Lead status">
+                            {([
+                                { value: "todo", label: "To contact" },
+                                { value: "contacted", label: "Contacted" },
+                            ] as const).map((tab) => (
+                                <button
+                                    key={tab.value}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={view === tab.value}
+                                    onClick={() => setView(tab.value)}
+                                    className={`rounded-md px-3 py-1.5 text-xs font-semibold ${view === tab.value ? "bg-[#86efac] text-black" : "text-gray-300 hover:bg-[#222]"}`}
+                                >
+                                    {tab.label} <span className="opacity-70">({counts[tab.value]})</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
                     <div className="flex items-center gap-2 flex-wrap justify-end">
                         <input
                             type="datetime-local"
@@ -410,8 +482,12 @@ export default function PotentialCustomersPage() {
                     ) : leads.length === 0 ? (
                         <div className="text-center py-16">
                             <UserSearch className="h-12 w-12 mx-auto mb-3 text-[#333]" />
-                            <p className="font-medium text-gray-400">No potential customers found</p>
-                            <p className="text-sm text-[#919191] mt-1">All viewers have converted or the window hasn&apos;t elapsed yet</p>
+                            <p className="font-medium text-gray-400">{view === "contacted" ? "No contacted leads yet" : "No potential customers found"}</p>
+                            <p className="text-sm text-[#919191] mt-1">
+                                {view === "contacted"
+                                    ? "Leads you message move here, so nobody is messaged twice."
+                                    : "All viewers have converted or the window hasn't elapsed yet"}
+                            </p>
                         </div>
                     ) : (
                         <>
@@ -421,6 +497,7 @@ export default function PotentialCustomersPage() {
                                         <TableHead className="text-gray-400">Customer</TableHead>
                                         <TableHead className="text-gray-400">Product Viewed</TableHead>
                                         <TableHead className="text-gray-400 text-center">Views</TableHead>
+                                        <TableHead className="text-gray-400 text-center">Watch Time</TableHead>
                                         <TableHead className="text-gray-400">Last Viewed</TableHead>
                                         <TableHead className="text-gray-400">Stock</TableHead>
                                         <TableHead className="text-gray-400">Interest</TableHead>
@@ -429,7 +506,7 @@ export default function PotentialCustomersPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {leads.map((lead, i) => {
-                                        const interest = getInterestLevel(lead.viewCount)
+                                        const interest = getInterestLevel(lead)
                                         return (
                                         <TableRow key={`${lead.userId}-${lead.productId}-${i}`} className="border-[#333] hover:bg-[#1A1A1A]">
                                             <TableCell>
@@ -476,6 +553,12 @@ export default function PotentialCustomersPage() {
                                             <TableCell className="text-center">
                                                 <span className="font-semibold text-sm text-white">{lead.viewCount}</span>
                                             </TableCell>
+                                            <TableCell className="text-center">
+                                                <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-300 whitespace-nowrap">
+                                                    {(lead.watchSeconds || 0) > 0 && <Timer className="h-3 w-3 text-[#86efac]" />}
+                                                    {formatWatch(lead.watchSeconds)}
+                                                </span>
+                                            </TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-1 text-xs text-gray-400 whitespace-nowrap">
                                                     <Clock className="h-3 w-3" />
@@ -501,14 +584,32 @@ export default function PotentialCustomersPage() {
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <Button
-                                                    size="sm"
-                                                    className="bg-[#86efac] text-black hover:bg-[#86efac]/90"
-                                                    onClick={() => sendInterestMessage(lead)}
-                                                >
-                                                    <MessageCircle className="h-4 w-4 mr-1" />
-                                                    Send Message
-                                                </Button>
+                                                {view === "contacted" && lead.contact ? (
+                                                    <div className="flex flex-col items-end gap-1.5">
+                                                        <span className="inline-flex items-center gap-1 text-xs text-[#86efac] whitespace-nowrap">
+                                                            <CheckCircle2 className="h-3.5 w-3.5" />
+                                                            {exactTime(lead.contact.lastContactAt)}
+                                                            {lead.contact.lastContactByName ? ` · ${lead.contact.lastContactByName}` : ""}
+                                                        </span>
+                                                        <div className="flex gap-2">
+                                                            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-gray-300 hover:bg-[#333]" onClick={() => undoContacted(lead)}>
+                                                                <Undo2 className="h-3.5 w-3.5 mr-1" /> Undo
+                                                            </Button>
+                                                            <Button size="sm" variant="outline" className="h-7 px-2 text-xs border-[#86efac] text-[#86efac] hover:bg-[#86efac]/10" onClick={() => sendInterestMessage(lead)}>
+                                                                <MessageCircle className="h-3.5 w-3.5 mr-1" /> Message again
+                                                            </Button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <Button
+                                                        size="sm"
+                                                        className="bg-[#86efac] text-black hover:bg-[#86efac]/90"
+                                                        onClick={() => sendInterestMessage(lead)}
+                                                    >
+                                                        <MessageCircle className="h-4 w-4 mr-1" />
+                                                        Send Message
+                                                    </Button>
+                                                )}
                                             </TableCell>
                                         </TableRow>
                                         )

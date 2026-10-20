@@ -109,6 +109,7 @@ const productSchema = z.object({
     minCustomerQuantity: z.string().refine((val) => Number.isInteger(Number(val)) && Number(val) >= 1, "Whole number, at least 1").default("1"),
     comingSoon: z.boolean().default(false),
     expectedLaunchDate: z.string().optional(),
+    autoLaunch: z.boolean().default(false),
     hidePriceWhileComingSoon: z.boolean().default(false),
     status: z.enum(["active", "draft", "archived"]),
     isFeatured: z.boolean().default(false),
@@ -149,6 +150,8 @@ export default function AddProductPage() {
     const returnTo = safeInternalReturnTo(searchParams.get("returnTo"))
 
     const [isLoading, setIsLoading] = useState(false)
+    // While editing a coming-soon product: how many shoppers asked to be notified.
+    const [launchInfo, setLaunchInfo] = useState({ wasComingSoon: false, notifyMeCount: 0 })
     const [isLoadingProduct, setIsLoadingProduct] = useState(false)
     const [isInitialLoading, setIsInitialLoading] = useState(true)
     const [companies, setCompanies] = useState<Company[]>([])
@@ -197,6 +200,7 @@ export default function AddProductPage() {
             minCustomerQuantity: "1",
             comingSoon: false,
             expectedLaunchDate: "",
+            autoLaunch: false,
             hidePriceWhileComingSoon: false,
             status: "active",
             isFeatured: false,
@@ -304,6 +308,7 @@ export default function AddProductPage() {
 
             const data = await res.json()
             const product = data.data
+            setLaunchInfo({ wasComingSoon: product.comingSoon === true, notifyMeCount: Number(product.notifyMeCount) || 0 })
 
             if (!product) throw new Error("Product data is empty")
 
@@ -344,6 +349,9 @@ export default function AddProductPage() {
                 minCustomerQuantity: String(product.minCustomerQuantity || "1"),
                 comingSoon: product.comingSoon === true,
                 expectedLaunchDate: toLocalDateTimeInput(product.expectedLaunchDate),
+                // Products saved before this option existed went live by date.
+                autoLaunch: product.autoLaunch === true
+                    || (product.autoLaunch === undefined && Boolean(product.expectedLaunchDate)),
                 hidePriceWhileComingSoon: product.hidePriceWhileComingSoon === true,
                 status: product.status || "draft",
                 isFeatured: product.isFeatured || false,
@@ -723,6 +731,7 @@ export default function AddProductPage() {
                 expectedLaunchDate: values.comingSoon && values.expectedLaunchDate
                     ? new Date(values.expectedLaunchDate).toISOString()
                     : null,
+                autoLaunch: values.comingSoon && Boolean(values.expectedLaunchDate) && values.autoLaunch,
                 hidePriceWhileComingSoon: values.comingSoon && values.hidePriceWhileComingSoon,
                 isFeatured: values.isFeatured,
                 isHot: values.isHot,
@@ -785,7 +794,9 @@ export default function AddProductPage() {
                 }
             }
 
-            toast.success(isEditMode ? "Product updated successfully" : "Product created successfully")
+            // A launch says how many customers were notified.
+            const saved = await response.clone().json().catch(() => null)
+            toast.success(saved?.message || (isEditMode ? "Product updated successfully" : "Product created successfully"))
             router.push(returnTo)
         } catch (error) {
             console.error(error)
@@ -1561,6 +1572,19 @@ export default function AddProductPage() {
                                                 </FormItem>
                                             )}
                                         />
+                                        {isEditMode && launchInfo.wasComingSoon && (
+                                            form.watch("comingSoon") ? (
+                                                <p className="rounded-md bg-blue-500/10 px-3 py-2 text-xs text-blue-300">
+                                                    {launchInfo.notifyMeCount === 1 ? "1 person has" : `${launchInfo.notifyMeCount} people have`} asked to be notified.
+                                                </p>
+                                            ) : (
+                                                <p className="rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                                                    Saving launches this product now{launchInfo.notifyMeCount > 0
+                                                        ? ` and notifies ${launchInfo.notifyMeCount === 1 ? "1 customer" : `${launchInfo.notifyMeCount} customers`}`
+                                                        : ""}.
+                                                </p>
+                                            )
+                                        )}
                                         {form.watch("comingSoon") && (
                                             <>
                                                 <FormField
@@ -1573,12 +1597,31 @@ export default function AddProductPage() {
                                                                 <Input type="datetime-local" {...field} value={field.value ?? ""} className="bg-[#0D0D0D] border-[#333] text-white" />
                                                             </FormControl>
                                                             <p className="text-xs text-gray-400">
-                                                                Goes live by itself after this date once the product has stock. Leave empty to launch manually.
+                                                                Shown to shoppers as "Expected …". Leave empty if you don't know yet.
                                                             </p>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )}
                                                 />
+                                                {form.watch("expectedLaunchDate") && (
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="autoLaunch"
+                                                        render={({ field }) => (
+                                                            <FormItem className="flex flex-row items-start gap-3 space-y-0">
+                                                                <FormControl>
+                                                                    <Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(checked === true)} />
+                                                                </FormControl>
+                                                                <div className="space-y-0.5">
+                                                                    <FormLabel className="text-white">Go live automatically on this date</FormLabel>
+                                                                    <p className="text-xs text-gray-400">
+                                                                        Becomes orderable by itself (checked each morning) and notifies everyone who asked. Unticked: you switch it live yourself.
+                                                                    </p>
+                                                                </div>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                )}
                                                 <FormField
                                                     control={form.control}
                                                     name="hidePriceWhileComingSoon"

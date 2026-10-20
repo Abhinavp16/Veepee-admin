@@ -80,7 +80,8 @@ export default function OrdersPage() {
     const [totalPages, setTotalPages] = useState(1)
     const [totalOrders, setTotalOrders] = useState(0)
     const [hasMore, setHasMore] = useState(false)
-    const [onlyAwaiting, setOnlyAwaiting] = useState(false)
+    // Status filter: all, awaiting confirmation, or one order status.
+    const [statusFilter, setStatusFilter] = useState("all")
 
     // Confirming a new order: delivery charge or rejection reason.
     const [deliveryCharge, setDeliveryCharge] = useState("")
@@ -93,7 +94,7 @@ export default function OrdersPage() {
 
     useEffect(() => {
         fetchOrders(1, true)
-    }, [onlyAwaiting])
+    }, [statusFilter])
 
     async function fetchOrders(pageNum: number = 1, reset: boolean = false) {
         if (reset) {
@@ -110,7 +111,12 @@ export default function OrdersPage() {
             if (searchQuery.trim()) {
                 params.append('search', searchQuery.trim())
             }
-            if (onlyAwaiting) params.append('confirmation', 'pending')
+            if (statusFilter === 'awaiting') {
+                params.append('confirmation', 'pending')
+            } else if (statusFilter !== 'all') {
+                params.append('status', statusFilter)
+                if (statusFilter === 'pending_payment') params.append('confirmation', 'notPending')
+            }
 
             const res = await apiFetch(`/admin/orders?${params.toString()}`)
             const data = await res.json()
@@ -374,23 +380,30 @@ export default function OrdersPage() {
                 </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setOnlyAwaiting(false)}
-                    className={!onlyAwaiting ? "border-[#86efac] bg-[#86efac]/10 text-[#86efac]" : "border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"}
-                >
-                    All orders
-                </Button>
-                <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setOnlyAwaiting(true)}
-                    className={onlyAwaiting ? "border-orange-400 bg-orange-500/10 text-orange-400" : "border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"}
-                >
-                    Awaiting confirmation
-                </Button>
+            <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by status">
+                {[
+                    { value: "all", label: "All orders", active: "border-[#86efac] bg-[#86efac]/10 text-[#86efac]" },
+                    { value: "awaiting", label: "Awaiting confirmation", active: "border-orange-400 bg-orange-500/10 text-orange-400" },
+                    { value: "pending_payment", label: "Pending payment", active: "border-yellow-400 bg-yellow-500/10 text-yellow-400" },
+                    { value: "payment_uploaded", label: "Payment uploaded", active: "border-indigo-400 bg-indigo-500/10 text-indigo-300" },
+                    { value: "payment_verified", label: "Payment verified", active: "border-blue-400 bg-blue-500/10 text-blue-300" },
+                    { value: "processing", label: "Processing", active: "border-violet-400 bg-violet-500/10 text-violet-300" },
+                    { value: "shipped", label: "Shipped", active: "border-purple-400 bg-purple-500/10 text-purple-300" },
+                    { value: "delivered", label: "Delivered", active: "border-green-400 bg-green-500/10 text-green-400" },
+                    { value: "cancelled", label: "Cancelled", active: "border-gray-400 bg-gray-500/10 text-gray-300" },
+                ].map((option) => (
+                    <Button
+                        key={option.value}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        aria-pressed={statusFilter === option.value}
+                        onClick={() => setStatusFilter(option.value)}
+                        className={statusFilter === option.value ? option.active : "border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"}
+                    >
+                        {option.label}
+                    </Button>
+                ))}
             </div>
 
             {/* Search Bar */}
