@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
@@ -8,18 +9,22 @@ import { VeepeeBrand } from "@/components/veepee-brand"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { apiFetch, saveSession } from "@/lib/api"
+import { apiFetch, getUser, loginPath, saveSession } from "@/lib/api"
 
-// Shown after an administrator issued a temporary password.
+// Forced after an administrator issued a temporary password; otherwise
+// opened from the profile menu to change your own password.
 export default function MemberChangePasswordPage() {
   const router = useRouter()
   const [current, setCurrent] = useState("")
   const [next, setNext] = useState("")
   const [confirm, setConfirm] = useState("")
   const [isLoading, setIsLoading] = useState(false)
+  // A temporary password must be replaced before anything else.
+  const [forced, setForced] = useState(true)
 
   useEffect(() => {
-    if (!localStorage.getItem("accessToken")) router.replace("/member/login")
+    if (!localStorage.getItem("accessToken")) router.replace(loginPath())
+    setForced(getUser()?.mustChangePassword === true)
   }, [router])
 
   async function onSubmit(event: React.FormEvent) {
@@ -44,17 +49,18 @@ export default function MemberChangePasswordPage() {
       <Card className="w-full max-w-md border-[#333] bg-[#161616]">
         <CardHeader className="space-y-2">
           <div className="flex justify-center pb-2"><VeepeeBrand /></div>
-          <CardTitle className="text-center text-2xl font-bold text-white">Choose your password</CardTitle>
-          <CardDescription className="text-center text-gray-400">Replace the temporary password you were given</CardDescription>
+          <CardTitle className="text-center text-2xl font-bold text-white">{forced ? "Choose your password" : "Change your password"}</CardTitle>
+          <CardDescription className="text-center text-gray-400">{forced ? "Replace the temporary password you were given" : "Enter your current password and a new one"}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={onSubmit} className="space-y-4">
-            <Input required type="password" placeholder="Temporary password" value={current} onChange={(e) => setCurrent(e.target.value)} className="border-[#333] bg-[#0D0D0D] text-white" />
+            <Input required type="password" aria-label={forced ? "Temporary password" : "Current password"} placeholder={forced ? "Temporary password" : "Current password"} value={current} onChange={(e) => setCurrent(e.target.value)} className="border-[#333] bg-[#0D0D0D] text-white" />
             <Input required type="password" placeholder="New password (8+ characters)" value={next} onChange={(e) => setNext(e.target.value)} className="border-[#333] bg-[#0D0D0D] text-white" />
             <Input required type="password" placeholder="Repeat new password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className="border-[#333] bg-[#0D0D0D] text-white" />
             <Button type="submit" className="w-full bg-[#86efac] text-black hover:bg-[#86efac]/90" disabled={isLoading}>
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Change password
             </Button>
+            {!forced && <Link href="/" className="block text-center text-sm text-gray-400 hover:text-white">Cancel</Link>}
           </form>
         </CardContent>
       </Card>

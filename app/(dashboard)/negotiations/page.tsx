@@ -299,8 +299,8 @@ export default function NegotiationsPage() {
                                             {negotiation.negotiationNumber}
                                             {negotiation.requestGroup && <Badge variant="outline" className="ml-2 border-[#86efac] text-[#86efac]">{negotiation.requestGroup.number}</Badge>}
                                         </TableCell>
-                                        <TableCell className="text-white">{negotiation.wholesaler?.name || 'Unknown'}</TableCell>
-                                        <TableCell className="text-gray-400">{negotiation.product?.name || 'Unknown'}</TableCell>
+                                        <TableCell className="text-white whitespace-normal min-w-[110px]">{negotiation.wholesaler?.name || 'Unknown'}</TableCell>
+                                        <TableCell className="text-gray-400 whitespace-normal min-w-[140px] max-w-[240px]">{negotiation.product?.name || 'Unknown'}</TableCell>
                                         <TableCell className="text-white text-right">{negotiation.requestedQuantity}</TableCell>
                                         <TableCell className="text-white text-right">₹{negotiation.requestedPricePerUnit.toLocaleString()}</TableCell>
                                         <TableCell className="text-center">
@@ -377,7 +377,7 @@ export default function NegotiationsPage() {
                                                     </div>
                                                     {entry.message && <p className="text-sm">{entry.message}</p>}
                                                 </div>
-                                                <span className="text-[10px] text-gray-500">
+                                                <span className="text-[11px] text-gray-500">
                                                     {new Date(entry.timestamp).toLocaleString()}
                                                 </span>
                                             </div>
@@ -429,7 +429,7 @@ export default function NegotiationsPage() {
 
                                         <div className="flex gap-3">
                                             <Button
-                                                className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                                                className="flex-1 bg-[#86efac] hover:bg-[#86efac]/90 text-black"
                                                 disabled={isSubmitting}
                                                 onClick={() => handleAction('accept')}
                                             >

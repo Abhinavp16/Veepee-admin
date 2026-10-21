@@ -64,6 +64,24 @@ interface Order {
     }
 }
 
+// Status filters (and the title shown for each).
+const STATUS_FILTERS = [
+    { value: "all", label: "All orders", active: "border-[#86efac] bg-[#86efac]/10 text-[#86efac]" },
+    { value: "awaiting", label: "Awaiting confirmation", active: "border-orange-400 bg-orange-500/10 text-orange-400" },
+    { value: "pending_payment", label: "Pending payment", active: "border-yellow-400 bg-yellow-500/10 text-yellow-400" },
+    { value: "payment_uploaded", label: "Payment uploaded", active: "border-indigo-400 bg-indigo-500/10 text-indigo-300" },
+    { value: "payment_verified", label: "Payment verified", active: "border-blue-400 bg-blue-500/10 text-blue-300" },
+    { value: "processing", label: "Processing", active: "border-violet-400 bg-violet-500/10 text-violet-300" },
+    { value: "shipped", label: "Shipped", active: "border-purple-400 bg-purple-500/10 text-purple-300" },
+    { value: "delivered", label: "Delivered", active: "border-green-400 bg-green-500/10 text-green-400" },
+    { value: "cancelled", label: "Cancelled", active: "border-gray-400 bg-gray-500/10 text-gray-300" },
+]
+
+/** e.g. "21 Oct 2026, 1:51 pm" in India time. */
+function orderTime(value: string) {
+    return new Date(value).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
+}
+
 export default function OrdersPage() {
     // Payments are verified by admins only (the server refuses staff).
     const isAdmin = useDashboardUser()?.role === "admin"
@@ -376,7 +394,7 @@ export default function OrdersPage() {
             case 'payment_verified': return "text-green-500 bg-green-500/10"
             case 'payment_uploaded': return "text-blue-500 bg-blue-500/10"
             case 'processing': return "text-blue-500 bg-blue-500/10"
-            case 'shipped': return "text-purple-500 bg-purple-500/10"
+            case 'shipped': return "text-purple-300 bg-purple-500/10"
             case 'pending_payment': return "text-yellow-500 bg-yellow-500/10"
             case 'awaiting confirmation': return "text-orange-400 bg-orange-500/10"
             default: return "text-gray-500 bg-gray-500/10"
@@ -393,17 +411,7 @@ export default function OrdersPage() {
             </div>
 
             <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by status">
-                {[
-                    { value: "all", label: "All orders", active: "border-[#86efac] bg-[#86efac]/10 text-[#86efac]" },
-                    { value: "awaiting", label: "Awaiting confirmation", active: "border-orange-400 bg-orange-500/10 text-orange-400" },
-                    { value: "pending_payment", label: "Pending payment", active: "border-yellow-400 bg-yellow-500/10 text-yellow-400" },
-                    { value: "payment_uploaded", label: "Payment uploaded", active: "border-indigo-400 bg-indigo-500/10 text-indigo-300" },
-                    { value: "payment_verified", label: "Payment verified", active: "border-blue-400 bg-blue-500/10 text-blue-300" },
-                    { value: "processing", label: "Processing", active: "border-violet-400 bg-violet-500/10 text-violet-300" },
-                    { value: "shipped", label: "Shipped", active: "border-purple-400 bg-purple-500/10 text-purple-300" },
-                    { value: "delivered", label: "Delivered", active: "border-green-400 bg-green-500/10 text-green-400" },
-                    { value: "cancelled", label: "Cancelled", active: "border-gray-400 bg-gray-500/10 text-gray-300" },
-                ].map((option) => (
+                {STATUS_FILTERS.map((option) => (
                     <Button
                         key={option.value}
                         type="button"
@@ -454,7 +462,7 @@ export default function OrdersPage() {
 
             <Card className="bg-[#161616] border-[#333]">
                 <CardHeader>
-                    <CardTitle className="text-white">All Orders</CardTitle>
+                    <CardTitle className="text-white">{STATUS_FILTERS.find((option) => option.value === statusFilter)?.label ?? "All orders"}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
@@ -466,8 +474,9 @@ export default function OrdersPage() {
                             <TableHeader>
                                 <TableRow className="border-[#333] hover:bg-[#1A1A1A]">
                                     <TableHead className="text-gray-400">Order #</TableHead>
+                                    <TableHead className="text-gray-400">Placed</TableHead>
                                     <TableHead className="text-gray-400">Customer</TableHead>
-                                    <TableHead className="text-gray-400">Items</TableHead>
+                                    <TableHead className="text-gray-400 max-xl:hidden">Items</TableHead>
                                     <TableHead className="text-gray-400 text-right">Total</TableHead>
                                     <TableHead className="text-gray-400 text-center">Status</TableHead>
                                     <TableHead className="text-gray-400 text-right">Actions</TableHead>
@@ -477,9 +486,10 @@ export default function OrdersPage() {
                                 {orders.map((order) => (
                                     <TableRow key={order._id} className="border-[#333] hover:bg-[#1A1A1A]">
                                         <TableCell className="text-white font-medium">{order.orderNumber}</TableCell>
+                                        <TableCell className="text-gray-400 text-xs whitespace-nowrap">{orderTime(order.createdAt)}</TableCell>
                                         <TableCell className="text-white font-medium">{order.customerSnapshot?.name}</TableCell>
-                                        <TableCell className="text-gray-400 text-xs">
-                                            {order.items.length} items ({order.items[0]?.productSnapshot.name}...)
+                                        <TableCell className="text-gray-400 text-xs whitespace-normal min-w-[150px] max-w-[220px] max-xl:hidden">
+                                            {order.items.length} {order.items.length === 1 ? "item" : "items"} · {order.items[0]?.productSnapshot.name}{order.items.length > 1 ? " …" : ""}
                                         </TableCell>
                                         <TableCell className="text-white text-right font-bold">₹{order.total.toLocaleString()}</TableCell>
                                         <TableCell className="text-center">
@@ -629,7 +639,7 @@ export default function OrdersPage() {
                                         </div>
                                     ) : (
                                         <div className="flex gap-3">
-                                            <Button className="flex-1 bg-green-500 hover:bg-green-600 text-white" onClick={() => handleConfirmOrder(selectedOrder)} disabled={isConfirming}>
+                                            <Button className="flex-1 bg-[#86efac] hover:bg-[#86efac]/90 text-black" onClick={() => handleConfirmOrder(selectedOrder)} disabled={isConfirming}>
                                                 {isConfirming && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                                                 Confirm order
                                             </Button>
@@ -676,14 +686,14 @@ export default function OrdersPage() {
                                                 <span className="text-gray-400 block mb-2 text-sm">
                                                     {selectedOrder.payment.status === 'rejected' ? 'Rejected Screenshot' : 'Payment Screenshot'}
                                                 </span>
-                                                <div className="relative aspect-video w-full rounded-md overflow-hidden border border-[#333]">
-                                                    {/* Using standard img tag for external URLs if standard domain not configured in next.config */}
+                                                {/* Opens full size in a new tab to check the details. */}
+                                                <a href={selectedOrder.payment.screenshotUrl} target="_blank" rel="noopener noreferrer" title="Open full size" className="relative block aspect-video w-full rounded-md overflow-hidden border border-[#333] cursor-zoom-in">
                                                     <img
                                                         src={selectedOrder.payment.screenshotUrl}
-                                                        alt="Payment Proof"
+                                                        alt="Payment proof (click to open full size)"
                                                         className="object-contain w-full h-full bg-black/50"
                                                     />
-                                                </div>
+                                                </a>
                                             </div>
                                         )}
 
@@ -719,7 +729,7 @@ export default function OrdersPage() {
                                         {selectedOrder.status === 'payment_uploaded' && isAdmin && (
                                             <div className="flex gap-3 pt-2">
                                                 <Button
-                                                    className="flex-1 bg-green-500 hover:bg-green-600 text-white"
+                                                    className="flex-1 bg-[#86efac] hover:bg-[#86efac]/90 text-black"
                                                     onClick={() => selectedOrder.payment && handleVerifyPayment(selectedOrder.payment._id)}
                                                     disabled={isVerifying}
                                                 >
@@ -878,7 +888,7 @@ export default function OrdersPage() {
 
                             {selectedOrder.status === 'shipped' && (
                                 <Button
-                                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                                    className="w-full bg-[#86efac] hover:bg-[#86efac]/90 text-black"
                                     onClick={() => updateOrderStatus(selectedOrder._id, 'delivered', 'Marked as delivered')}
                                     disabled={isUpdatingStatus}
                                 >

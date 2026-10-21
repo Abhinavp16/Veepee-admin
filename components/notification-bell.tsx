@@ -84,7 +84,7 @@ export function NotificationBell() {
             <PopoverTrigger asChild>
                 <button type="button" className="relative rounded-full border border-[#333] p-2 text-[#bdbdbd] transition-colors hover:text-white focus:outline-none focus:ring-2 focus:ring-[#86efac]/50" aria-label={`Notifications${unread ? `, ${unread} unread` : ""}`}>
                     <Bell className="h-5 w-5" />
-                    {unread > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#86efac] px-1 text-[10px] font-bold text-black">{unread > 99 ? "99+" : unread}</span>}
+                    {unread > 0 && <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#86efac] px-1 text-[11px] font-bold text-black">{unread > 99 ? "99+" : unread}</span>}
                 </button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-[min(92vw,22rem)] border-[#1F1F1F] bg-[#0D0D0D] p-0 text-white">
@@ -101,7 +101,7 @@ export function NotificationBell() {
                                 <div className="min-w-0">
                                     <p className="truncate text-sm font-semibold">{item.title}</p>
                                     <p className="line-clamp-2 text-xs text-[#919191]">{item.body}</p>
-                                    <p className="mt-1 text-[10px] text-[#666]">{timeAgo(item.createdAt)}</p>
+                                    <p className="mt-1 text-[11px] text-[#666]">{timeAgo(item.createdAt)}</p>
                                 </div>
                             </div>
                         </button>

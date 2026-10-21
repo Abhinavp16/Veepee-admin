@@ -104,7 +104,7 @@ export function RecentOrders() {
                                     <td className="admin-heading whitespace-nowrap py-4 pr-3 text-right text-xs font-bold">₹{order.total.toLocaleString('en-IN')}</td>
                                     <td className="py-4 text-right">
                                         <div className="flex justify-end">
-                                            <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[10px] font-semibold ${getStatusStyle(order.status)}`}>
+                                            <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold ${getStatusStyle(order.status)}`}>
                                                  {formatStatus(order.status)}
                                             </span>
                                         </div>

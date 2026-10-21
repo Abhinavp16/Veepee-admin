@@ -1038,7 +1038,7 @@ export default function ManageWebsitePage() {
                                                     <div className="w-full h-full flex items-center justify-center text-xs text-[#666]">No Image</div>
                                                 )}
                                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
-                                                <div className="absolute top-2 right-2 rounded-full border border-[#4b6738] bg-[#182411] px-2 py-1 text-[10px] font-medium text-[#c3eca0]">
+                                                <div className="absolute top-2 right-2 rounded-full border border-[#4b6738] bg-[#182411] px-2 py-1 text-[11px] font-medium text-[#c3eca0]">
                                                     Draft
                                                 </div>
                                             </div>
@@ -1168,7 +1168,7 @@ export default function ManageWebsitePage() {
                                                         <div className="w-full h-full flex items-center justify-center text-xs text-[#666]">No Image</div>
                                                     )}
                                                     {item.badge && (
-                                                        <span className="absolute top-2 left-2 text-[10px] px-2 py-1 rounded-full bg-white/90 text-black font-semibold">
+                                                        <span className="absolute top-2 left-2 text-[11px] px-2 py-1 rounded-full bg-white/90 text-black font-semibold">
                                                             {item.badge}
                                                         </span>
                                                     )}

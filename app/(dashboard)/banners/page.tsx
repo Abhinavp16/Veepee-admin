@@ -538,7 +538,7 @@ export default function BannersPage() {
                         ) : (
                             <div className="flex flex-col items-center gap-1 text-[#555]">
                                 <ImageIcon className="h-8 w-8" />
-                                <span className="text-[10px]">No Image</span>
+                                <span className="text-[11px]">No Image</span>
                             </div>
                         )}
 
@@ -602,7 +602,7 @@ export default function BannersPage() {
                                     </span>
                                 </Button>
                                 {banner.imageUrl && (
-                                    <p className="text-[10px] text-[#555] mt-1 truncate max-w-xs">{banner.imageUrl}</p>
+                                    <p className="text-[11px] text-[#555] mt-1 truncate max-w-xs">{banner.imageUrl}</p>
                                 )}
                             </div>
                             <div>
@@ -642,7 +642,7 @@ export default function BannersPage() {
                                                     </option>
                                                 ))}
                                             </select>
-                                            <p className="text-[10px] text-[#777]">
+                                            <p className="text-[11px] text-gray-400">
                                                 {selectedProduct
                                                     ? `Product link: ${buildProductLink(selectedProduct._id)}`
                                                     : "The banner will automatically use the selected product link."}
@@ -656,7 +656,7 @@ export default function BannersPage() {
                                                 value={banner.linkUrl}
                                                 onChange={(e) => updateFn(index, 'linkUrl', e.target.value)}
                                             />
-                                            <p className="text-[10px] text-[#777]">Use this if you want to enter a custom destination manually.</p>
+                                            <p className="text-[11px] text-gray-400">Use this if you want to enter a custom destination manually.</p>
                                         </div>
                                     )}
                                 </div>
@@ -684,7 +684,7 @@ export default function BannersPage() {
                                                 key={suggestion}
                                                 type="button"
                                                 onClick={() => updateFn(index, 'buttonText', suggestion)}
-                                                className="text-[10px] px-2 py-1 rounded bg-[#333] text-white hover:bg-[#444] transition-colors"
+                                                className="text-[11px] px-2 py-1 rounded bg-[#333] text-white hover:bg-[#444] transition-colors"
                                             >
                                                 {suggestion}
                                             </button>
@@ -698,7 +698,7 @@ export default function BannersPage() {
                                     value={banner.buttonIcon}
                                     onSelect={(val) => updateFn(index, 'buttonIcon', val)}
                                 />
-                                <p className="text-[10px] text-[#555] mt-1">Select an icon for the button. Only top 4 suggested by default.</p>
+                                <p className="text-[11px] text-[#555] mt-1">Select an icon for the button. Only top 4 suggested by default.</p>
                             </div>
                         </div>
                     </div>

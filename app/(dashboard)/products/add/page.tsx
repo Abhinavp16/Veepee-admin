@@ -1185,7 +1185,7 @@ export default function AddProductPage() {
                                                                     {uploadStatus === 'converting' ? (
                                                                         <Loader2 className="h-3 w-3 animate-spin" />
                                                                     ) : (
-                                                                        <span className="text-[10px]">✓</span>
+                                                                        <span className="text-[11px]">✓</span>
                                                                     )}
                                                                     Converting to WebP
                                                                 </span>
@@ -1199,9 +1199,9 @@ export default function AddProductPage() {
                                                                     {uploadStatus === 'uploading' ? (
                                                                         <Loader2 className="h-3 w-3 animate-spin" />
                                                                     ) : uploadStatus === 'done' ? (
-                                                                        <span className="text-[10px]">✓</span>
+                                                                        <span className="text-[11px]">✓</span>
                                                                     ) : (
-                                                                        <span className="text-[10px]">○</span>
+                                                                        <span className="text-[11px]">○</span>
                                                                     )}
                                                                     Uploading
                                                                 </span>
@@ -1211,9 +1211,9 @@ export default function AddProductPage() {
                                                                     : 'bg-gray-500/20 text-gray-500'
                                                                     }`}>
                                                                     {uploadStatus === 'done' ? (
-                                                                        <span className="text-[10px]">✓</span>
+                                                                        <span className="text-[11px]">✓</span>
                                                                     ) : (
-                                                                        <span className="text-[10px]">○</span>
+                                                                        <span className="text-[11px]">○</span>
                                                                     )}
                                                                     Done
                                                                 </span>
@@ -1274,14 +1274,14 @@ export default function AddProductPage() {
                                                     />
                                                     {/* Featured Badge */}
                                                     {img.isPrimary && (
-                                                        <div className="absolute top-1 left-1 bg-[#86efac] text-black text-[10px] px-1.5 py-0.5 rounded flex items-center gap-1">
+                                                        <div className="absolute top-1 left-1 bg-[#86efac] text-black text-[11px] px-1.5 py-0.5 rounded flex items-center gap-1">
                                                             <Crown className="h-3 w-3" />
                                                             Featured
                                                         </div>
                                                     )}
                                                     {/* WebP savings badge */}
                                                     {img.savings && (
-                                                        <div className="absolute bottom-1 left-1 bg-blue-600/80 text-white text-[9px] px-1.5 py-0.5 rounded">
+                                                        <div className="absolute bottom-1 left-1 bg-blue-600/80 text-white text-[11px] px-1.5 py-0.5 rounded">
                                                             WebP {img.savings} saved
                                                         </div>
                                                     )}

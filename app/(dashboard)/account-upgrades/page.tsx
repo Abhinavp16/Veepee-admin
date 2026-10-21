@@ -227,7 +227,7 @@ export default function AccountUpgradesPage() {
                                             <TableCell className="py-3">
                                                 <Badge
                                                     variant="outline"
-                                                    className={`text-[10px] uppercase font-bold ${cust.businessInfo?.status === 'accepted'
+                                                    className={`text-[11px] uppercase font-bold ${cust.businessInfo?.status === 'accepted'
                                                             ? "text-green-400 border-green-500/20 bg-green-500/5"
                                                             : "text-red-400 border-red-500/20 bg-red-500/5"
                                                         }`}

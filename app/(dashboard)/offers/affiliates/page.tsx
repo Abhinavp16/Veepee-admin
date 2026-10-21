@@ -225,7 +225,7 @@ export default function AffiliateCodesPage() {
                   <TableHead className="text-gray-400">Code</TableHead>
                   <TableHead className="text-gray-400">Discount</TableHead>
                   <TableHead className="text-gray-400">Usage</TableHead>
-                  <TableHead className="text-gray-400">Total Discount</TableHead>
+                  <TableHead className="text-gray-400 max-xl:hidden">Total Discount</TableHead>
                   <TableHead className="text-gray-400">Total Commission</TableHead>
                   <TableHead className="text-gray-400">Status</TableHead>
                   <TableHead className="text-gray-400 text-right">Actions</TableHead>
@@ -254,7 +254,7 @@ export default function AffiliateCodesPage() {
                       <div className="font-bold text-white">{code.usageCount}</div>
                       <div>limit: {code.usageLimit || "∞"}</div>
                     </TableCell>
-                    <TableCell className="text-white">{formatInr(code.totalDiscountGenerated || 0)}</TableCell>
+                    <TableCell className="text-white max-xl:hidden">{formatInr(code.totalDiscountGenerated || 0)}</TableCell>
                     <TableCell className="text-[#86efac]">{formatInr(code.totalCommissionAccrued || 0)}</TableCell>
                     <TableCell>
                       <Badge
@@ -410,7 +410,7 @@ export default function AffiliateCodesPage() {
                           <p className="text-[11px] text-gray-400 mt-1">
                             Discount: {formatInr(usage.discount || 0)} | Commission: {formatInr(usage.commissionAmount || 0)}
                           </p>
-                          <p className="text-[10px] text-gray-600 mt-1">
+                          <p className="text-[11px] text-gray-600 mt-1">
                             {new Date(usage.createdAt).toLocaleDateString(undefined, { dateStyle: "medium" })}
                           </p>
                         </div>
@@ -418,7 +418,7 @@ export default function AffiliateCodesPage() {
                       <div className="text-right">
                         <p className="font-bold text-[#86efac] text-lg">{formatInr(usage.total || 0)}</p>
                         <span
-                          className={`text-[10px] px-2 py-0.5 rounded-full inline-block border ${
+                          className={`text-[11px] px-2 py-0.5 rounded-full inline-block border ${
                             usage.status === "delivered"
                               ? "bg-green-500/5 text-green-500 border-green-500/20"
                               : usage.status === "cancelled"

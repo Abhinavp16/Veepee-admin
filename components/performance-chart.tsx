@@ -115,7 +115,7 @@ export function PerformanceChart() {
           </div>
           <div className="flex items-center gap-2">
             <span className="dashboard-icon dashboard-icon-primary !h-7 !w-7"><TrendingUp className="h-3.5 w-3.5" /></span>
-            <span><span className="admin-muted block text-[10px] uppercase tracking-wider">Period revenue</span><span className="admin-heading block text-sm font-bold">{formatCurrency(periodRevenue)}</span></span>
+            <span><span className="admin-muted block text-[11px] uppercase tracking-wider">Period revenue</span><span className="admin-heading block text-sm font-bold">{formatCurrency(periodRevenue)}</span></span>
           </div>
         </div>
       )}
@@ -173,7 +173,7 @@ export function PerformanceChart() {
                     const d = payload[0].payload as ChartPoint
                     return (
                       <div className="admin-card min-w-40 rounded-xl border p-3 shadow-xl">
-                        <p className="dashboard-eyebrow !text-[9px]">{d.date}</p>
+                        <p className="dashboard-eyebrow !text-[11px]">{d.date}</p>
                         <p className="admin-heading mt-1.5 text-base font-bold">₹{d.revenue.toLocaleString('en-IN')}</p>
                         <p className="admin-muted mt-1 text-xs">{d.orders} paid {d.orders === 1 ? 'order' : 'orders'}</p>
                       </div>

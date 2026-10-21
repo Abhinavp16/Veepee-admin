@@ -520,9 +520,9 @@ export default function PotentialCustomersPage() {
             <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-medium text-sm text-white">{user.name}</p>
                 {user.role === "wholesaler" ? (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide text-purple-300 bg-purple-500/15">Wholesaler</span>
+                    <span className="px-1.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide text-purple-300 bg-purple-500/15">Wholesaler</span>
                 ) : (
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide text-gray-400 bg-gray-500/15">Buyer</span>
+                    <span className="px-1.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide text-gray-400 bg-gray-500/15">Buyer</span>
                 )}
             </div>
             {(user.businessName || user.city) && (
@@ -832,8 +832,8 @@ export default function PotentialCustomersPage() {
                                             <TableHead className="w-8" />
                                             <TableHead className="text-gray-400">Customer</TableHead>
                                             <TableHead className="text-gray-400">Products viewed</TableHead>
-                                            <TableHead className="text-gray-400 text-center">Views</TableHead>
-                                            <TableHead className="text-gray-400 text-center">Watch</TableHead>
+                                            <TableHead className="text-gray-400 text-center max-xl:hidden">Views</TableHead>
+                                            <TableHead className="text-gray-400 text-center max-xl:hidden">Watch</TableHead>
                                             <TableHead className="text-gray-400">Last Active</TableHead>
                                             <TableHead className="text-gray-400">Interest</TableHead>
                                             <TableHead className="text-gray-400">Contacted</TableHead>
@@ -866,14 +866,14 @@ export default function PotentialCustomersPage() {
                                                                 </div>
                                                                 <div>
                                                                     <p className="text-sm font-semibold text-white">{person.productCount} {person.productCount === 1 ? "product" : "products"}</p>
-                                                                    <p className="text-xs text-[#919191] line-clamp-1 max-w-[150px]">{person.products[0]?.product.name}</p>
+                                                                    <p className="text-xs text-[#919191] line-clamp-1 max-w-[150px] max-xl:max-w-[110px]">{person.products[0]?.product.name}</p>
                                                                 </div>
                                                             </div>
                                                         </TableCell>
-                                                        <TableCell className="text-center">
+                                                        <TableCell className="text-center max-xl:hidden">
                                                             <span className="font-semibold text-sm text-white">{person.viewCount}</span>
                                                         </TableCell>
-                                                        <TableCell className="text-center">
+                                                        <TableCell className="text-center max-xl:hidden">
                                                             <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-300 whitespace-nowrap">
                                                                 {person.watchSeconds > 0 && <Timer className="h-3 w-3 text-[#86efac]" />}
                                                                 {formatWatch(person.watchSeconds)}

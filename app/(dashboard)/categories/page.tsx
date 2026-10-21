@@ -889,7 +889,7 @@ export default function CategoriesPage() {
                                         <div className="flex flex-col items-center justify-center py-3">
                                             {isUploadingImage ? (
                                                 <div className="flex flex-col items-center gap-1.5 w-full px-4">
-                                                    <div className="flex items-center gap-1 text-[10px]">
+                                                    <div className="flex items-center gap-1 text-[11px]">
                                                         <span className={`px-1.5 py-0.5 rounded-full ${
                                                             uploadStatus === 'converting' 
                                                                 ? 'bg-yellow-500/20 text-yellow-400' 
