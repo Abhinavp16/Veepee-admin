@@ -44,16 +44,16 @@ export const SALE_THEMES: SaleTheme[] = [
         glow: "#FFE9A8",
     },
     {
-        // The app's own dark green-black, with its marigold.
+        // OXON's brown-black and amber.
         key: "flash",
         label: "Flash Sale",
         forWhat: "One-day or few-hour deals",
         tagline: "Today only",
-        gradient: ["#14261A", "#2A3D31"],
-        accent: "#F2A93B",
-        onAccent: "#14261A",
-        eyebrow: "#F2A93B",
-        glow: "#F7C66A",
+        gradient: ["#1C1917", "#44300F"],
+        accent: "#F59E0B",
+        onAccent: "#1C1917",
+        eyebrow: "#FBBF24",
+        glow: "#FCD34D",
     },
     {
         // Exactly the app's Home header green.
