@@ -178,6 +178,9 @@ export default function AddProductPage() {
     const companyCategoryRequest = useRef(0)
     // Prices as loaded, so an edit only sends the price tiers the admin actually changed.
     const originalPrices = useRef<{ mrp: number; retailPrice: number; wholesalePrice: number } | null>(null)
+    // Stock when the form opened. Saving sends only the change made here, so
+    // orders placed meanwhile are not undone.
+    const originalStock = useRef<number | null>(null)
     const [pendingPriceNotice, setPendingPriceNotice] = useState<string | null>(null)
 
     const form = useForm<z.infer<typeof productSchema>>({
@@ -364,6 +367,7 @@ export default function AddProductPage() {
                 purchaseCountMin: String(product.purchaseCountMin || "0"),
                 purchaseCountMax: String(product.purchaseCountMax || "0"),
             })
+            originalStock.current = Number(product.stock) || 0
             originalPrices.current = {
                 mrp: Number(product.mrp) || 0,
                 retailPrice: Number(product.retailPrice) || 0,
@@ -722,7 +726,8 @@ export default function AddProductPage() {
                     retailPrice: Number(values.retailPrice),
                     wholesalePrice: Number(values.wholesalePrice),
                 } : {}),
-                stock: Number(values.stock),
+                // Edits change stock through the logged stock API below.
+                ...(!isEditMode ? { stock: Number(values.stock) } : {}),
                 minWholesaleQuantity: Number(values.minWholesaleQuantity),
                 priceUnit: values.priceUnit,
                 packSize: Number(values.packSize),
@@ -768,6 +773,14 @@ export default function AddProductPage() {
                 }
             }
 
+            const stockChange = isEditMode && originalStock.current !== null
+                ? Number(values.stock) - originalStock.current
+                : 0
+            if (!Number.isSafeInteger(Number(values.stock)) || Number(values.stock) < 0) {
+                toast.error("Stock must be a whole number, 0 or more")
+                return
+            }
+
             const endpoint = isEditMode
                 ? `/admin/products/${editId}`
                 : "/admin/products"
@@ -779,6 +792,21 @@ export default function AddProductPage() {
 
             if (!response.ok) {
                 throw new Error(isEditMode ? "Failed to update product" : "Failed to create product")
+            }
+
+            if (stockChange !== 0) {
+                const stockResponse = await apiFetch(`/admin/products/${editId}/stock`, {
+                    method: "PUT",
+                    body: JSON.stringify({
+                        adjustment: `${stockChange > 0 ? "+" : ""}${stockChange}`,
+                        reason: `Product form: ${originalStock.current} → ${values.stock} (${stockChange > 0 ? "+" : ""}${stockChange})`,
+                    }),
+                })
+                if (!stockResponse.ok) {
+                    const stockError = await stockResponse.json().catch(() => ({}))
+                    toast.error(`Product saved, but the stock change failed: ${stockError?.message || "please try again"}`)
+                    return
+                }
             }
 
             if (isEditMode && Object.keys(priceChanges).length > 0) {
@@ -1473,8 +1501,13 @@ export default function AddProductPage() {
                                                 <FormItem>
                                                     <FormLabel className="text-white">Stock</FormLabel>
                                                     <FormControl>
-                                                        <Input type="number" placeholder="0" {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
+                                                        <Input type="number" min={0} step={1} placeholder="0" {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
                                                     </FormControl>
+                                                    {isEditMode && originalStock.current !== null && (
+                                                        <FormDescription className="text-gray-500">
+                                                            {originalStock.current} when opened. Saving adds or removes only what you change here; orders placed meanwhile are kept.
+                                                        </FormDescription>
+                                                    )}
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
