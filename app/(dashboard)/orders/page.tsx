@@ -57,6 +57,9 @@ interface Order {
         upiId: string
         screenshotUrl: string
         status: string
+        rejectionReason?: string
+        // Screenshots rejected before the current one (newest last).
+        previousAttempts?: { screenshotUrl?: string; uploadedAt?: string; rejectionReason?: string; rejectedAt?: string }[]
     }
 }
 
@@ -653,9 +656,17 @@ export default function OrdersPage() {
                                             </div>
                                         </div>
 
+                                        {selectedOrder.payment.status === 'rejected' && (
+                                            <div className="p-3 rounded-lg border border-red-500/40 bg-red-500/5 text-sm text-red-300">
+                                                Rejected{selectedOrder.payment.rejectionReason ? `: ${selectedOrder.payment.rejectionReason}` : ''}. Waiting for the customer to upload a new screenshot.
+                                            </div>
+                                        )}
+
                                         {selectedOrder.payment.screenshotUrl && (
                                             <div>
-                                                <span className="text-gray-400 block mb-2 text-sm">Payment Screenshot</span>
+                                                <span className="text-gray-400 block mb-2 text-sm">
+                                                    {selectedOrder.payment.status === 'rejected' ? 'Rejected Screenshot' : 'Payment Screenshot'}
+                                                </span>
                                                 <div className="relative aspect-video w-full rounded-md overflow-hidden border border-[#333]">
                                                     {/* Using standard img tag for external URLs if standard domain not configured in next.config */}
                                                     <img
@@ -663,6 +674,31 @@ export default function OrdersPage() {
                                                         alt="Payment Proof"
                                                         className="object-contain w-full h-full bg-black/50"
                                                     />
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {!!selectedOrder.payment.previousAttempts?.length && (
+                                            <div>
+                                                <span className="text-gray-400 block mb-2 text-sm">
+                                                    Earlier screenshots ({selectedOrder.payment.previousAttempts.length} rejected)
+                                                </span>
+                                                <div className="space-y-2">
+                                                    {[...selectedOrder.payment.previousAttempts].reverse().map((attempt, idx) => (
+                                                        <div key={idx} className="flex items-center gap-3 p-2 rounded border border-[#333] text-xs">
+                                                            {attempt.screenshotUrl && (
+                                                                <a href={attempt.screenshotUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                                                                    <img src={attempt.screenshotUrl} alt="Rejected payment proof" className="w-12 h-12 object-cover rounded bg-black/50" />
+                                                                </a>
+                                                            )}
+                                                            <div className="min-w-0">
+                                                                <p className="text-red-300">{attempt.rejectionReason || 'Rejected'}</p>
+                                                                {attempt.rejectedAt && (
+                                                                    <p className="text-gray-500">{new Date(attempt.rejectedAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}</p>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             </div>
                                         )}
