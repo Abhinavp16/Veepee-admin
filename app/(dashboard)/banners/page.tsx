@@ -12,6 +12,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import * as HugeIconsFree from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { apiFetch, buildApiUrl } from "@/lib/api"
+import { formatDate } from "@/lib/format"
 import { placeholderImage } from "@/lib/placeholder-image"
 import { SortableItem, SortableProvider } from "@/components/sortable"
 import { Switch } from "@/components/ui/switch"
@@ -67,7 +68,14 @@ function getIconComponent(iconName: string) {
     return <ArrowRight className="h-4 w-4 text-white" />
 }
 
-type BannerLinkType = "url" | "product"
+type BannerLinkType = "url" | "product" | "sale"
+
+interface BannerSaleOption {
+    id: string
+    name: string
+    status: string
+    startsAt: string
+}
 
 interface BannerProductOption {
     _id: string
@@ -87,6 +95,8 @@ interface Banner {
     linkUrl: string
     linkType: BannerLinkType
     linkedProductId: string
+    // A sale page (/sale/<id>): the banner shows only while that sale is live.
+    linkedSaleId: string
     buttonText: string
     buttonIcon: string
     isActive: boolean
@@ -100,6 +110,15 @@ function buildProductLink(productId: string) {
 function inferLinkedProductId(linkUrl: unknown) {
     const value = String(linkUrl || "").trim()
     const match = value.match(/^\/product\/([^/?#]+)/i)
+    return match?.[1] || ""
+}
+
+function buildSaleLink(saleId: string) {
+    return saleId ? `/sale/${saleId}` : ""
+}
+
+function inferLinkedSaleId(linkUrl: unknown) {
+    const match = String(linkUrl || "").trim().match(/^\/sale\/([a-f0-9]{24})/i)
     return match?.[1] || ""
 }
 
@@ -122,6 +141,7 @@ function createEmptyBanner(order: number): Banner {
         linkUrl: "",
         linkType: "url",
         linkedProductId: "",
+        linkedSaleId: "",
         buttonText: "Shop Now",
         buttonIcon: "ArrowRight",
         isActive: true,
@@ -131,7 +151,10 @@ function createEmptyBanner(order: number): Banner {
 
 function normalizeBanner(banner: any, index: number): Banner {
     const linkedProductId = String(banner?.linkedProductId || inferLinkedProductId(banner?.linkUrl))
-    const linkType: BannerLinkType = banner?.linkType === "product" || linkedProductId ? "product" : "url"
+    const linkedSaleId = inferLinkedSaleId(banner?.linkUrl)
+    const linkType: BannerLinkType = linkedSaleId
+        ? "sale"
+        : banner?.linkType === "product" || linkedProductId ? "product" : "url"
 
     return {
         clientId: newClientId(),
@@ -143,6 +166,7 @@ function normalizeBanner(banner: any, index: number): Banner {
         linkUrl: String(banner?.linkUrl || (linkType === "product" ? buildProductLink(linkedProductId) : "")),
         linkType,
         linkedProductId,
+        linkedSaleId,
         buttonText: String(banner?.buttonText || "Shop Now"),
         buttonIcon: String(banner?.buttonIcon || "ArrowRight"),
         isActive: banner?.isActive !== false,
@@ -247,6 +271,19 @@ export default function BannersPage() {
     const [promoBanners, setPromoBanners] = useState<Banner[]>([])
     const [availableProducts, setAvailableProducts] = useState<BannerProductOption[]>([])
     const [isLoadingProductOptions, setIsLoadingProductOptions] = useState(false)
+    // Sales a banner can link to (not ended).
+    const [saleOptions, setSaleOptions] = useState<BannerSaleOption[]>([])
+    useEffect(() => {
+        apiFetch("/admin/sales")
+            .then((res) => res.json())
+            .then((body) => {
+                const list = Array.isArray(body?.data) ? body.data : []
+                setSaleOptions(list
+                    .filter((sale: any) => sale?.status !== "ended")
+                    .map((sale: any) => ({ id: String(sale.id), name: String(sale.name || ""), status: String(sale.status || ""), startsAt: String(sale.startsAt || "") })))
+            })
+            .catch(() => setSaleOptions([]))
+    }, [])
     const [isSavingHero, setIsSavingHero] = useState(false)
     const [isSavingPromo, setIsSavingPromo] = useState(false)
     // What was last loaded or saved: edits only count once saved.
@@ -615,13 +652,38 @@ export default function BannersPage() {
                                             if (nextType === 'product') {
                                                 updateFn(index, 'linkUrl', buildProductLink(banner.linkedProductId))
                                             }
+                                            if (nextType === 'sale') {
+                                                updateFn(index, 'linkUrl', buildSaleLink(banner.linkedSaleId))
+                                            }
                                         }}
                                     >
                                         <option value="url">Custom URL</option>
                                         <option value="product">Link Product</option>
+                                        <option value="sale">Link Sale</option>
                                     </select>
 
-                                    {banner.linkType === 'product' ? (
+                                    {banner.linkType === 'sale' ? (
+                                        <div className="space-y-2">
+                                            <select
+                                                className="h-10 w-full rounded-md border border-[#333] bg-[#161616] px-3 text-sm text-white"
+                                                value={banner.linkedSaleId}
+                                                onChange={(e) => {
+                                                    updateFn(index, 'linkedSaleId', e.target.value)
+                                                    updateFn(index, 'linkUrl', buildSaleLink(e.target.value))
+                                                }}
+                                            >
+                                                <option value="">{saleOptions.length ? "Select sale to link" : "No upcoming or live sales"}</option>
+                                                {saleOptions.map((sale) => (
+                                                    <option key={sale.id} value={sale.id}>
+                                                        {sale.name} ({sale.status === "live" ? "live" : sale.status === "upcoming" ? `starts ${formatDate(sale.startsAt)}` : sale.status})
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <p className="text-[11px] text-gray-400">
+                                                Opens the sale page. The banner shows only while the sale is live, so you can set it up early.
+                                            </p>
+                                        </div>
+                                    ) : banner.linkType === 'product' ? (
                                         <div className="space-y-2">
                                             <select
                                                 className="h-10 w-full rounded-md border border-[#333] bg-[#161616] px-3 text-sm text-white"

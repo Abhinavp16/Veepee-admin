@@ -3,6 +3,7 @@ import {
   BarChart3,
   Bell,
   BadgeCheck,
+  BadgePercent,
   CalendarClock,
   Building2,
   FolderTree,
@@ -58,6 +59,8 @@ export const navigationGroups: NavigationGroup[] = [
   {
     label: "Admin controls",
     items: [
+      // Staff may look; the editor is read-only for them.
+      { label: "Sales", href: "/sales", icon: BadgePercent, roles: operations },
       { label: "Labels", href: "/labels", icon: BadgeCheck, roles: adminOnly },
       { label: "Account Upgrades", href: "/account-upgrades", icon: UserPlus, roles: adminOnly },
       {
