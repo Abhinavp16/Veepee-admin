@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { toast } from "sonner"
@@ -8,9 +8,9 @@ import { VeepeeBrand } from "@/components/veepee-brand"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { apiFetch } from "@/lib/api"
+import { apiFetch, saveSession, takeSessionEndedMessage } from "@/lib/api"
 
-// Staff sign in here. A staff session lasts 6 hours from sign-in and cannot be
+// Staff sign in here. A staff session lasts 5 hours from sign-in and cannot be
 // extended, so the working day starts with a fresh sign-in.
 export default function MemberLoginPage() {
   const router = useRouter()
@@ -19,6 +19,13 @@ export default function MemberLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
+  // Why the last session ended (shown once).
+  const [endedNote, setEndedNote] = useState<string | null>(null)
+  useEffect(() => {
+    const message = takeSessionEndedMessage()
+    if (message) setEndedNote(message)
+  }, [])
+
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault()
     setIsLoading(true)
@@ -26,11 +33,8 @@ export default function MemberLoginPage() {
       const response = await apiFetch("/auth/staff-login", { method: "POST", skipAuth: true, body: JSON.stringify({ email, password }) })
       const payload = await response.json()
       if (!response.ok) throw new Error(payload.message || "Sign in failed")
-      const { accessToken, refreshToken, user, sessionExpiresAt } = payload.data
-      localStorage.setItem("accessToken", accessToken)
-      localStorage.setItem("refreshToken", refreshToken)
-      localStorage.setItem("user", JSON.stringify(user))
-      if (sessionExpiresAt) localStorage.setItem("sessionExpiresAt", sessionExpiresAt)
+      const { user } = payload.data
+      saveSession(payload.data)
       router.push(user.mustChangePassword ? "/member/change-password" : "/")
     } catch (error: any) {
       toast.error(error.message || "Invalid credentials")
@@ -43,9 +47,10 @@ export default function MemberLoginPage() {
         <CardHeader className="space-y-2">
           <div className="flex justify-center pb-2"><VeepeeBrand /></div>
           <CardTitle className="text-center text-2xl font-bold text-white">Staff sign in</CardTitle>
-          <CardDescription className="text-center text-gray-400">Your session lasts 6 hours from sign-in</CardDescription>
+          <CardDescription className="text-center text-gray-400">Your session lasts 5 hours from sign-in</CardDescription>
         </CardHeader>
         <CardContent>
+          {endedNote && <p role="status" className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">{endedNote}</p>}
           <form onSubmit={onSubmit} className="space-y-4">
             <Input required type="email" placeholder="Work email" value={email} onChange={(e) => setEmail(e.target.value)} className="border-[#333] bg-[#0D0D0D] text-white" />
             <div className="relative">

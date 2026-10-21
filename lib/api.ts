@@ -24,21 +24,83 @@ function clearSession() {
   localStorage.removeItem("sessionExpiresAt")
 }
 
+// Shown once on the login page after a session ends by itself.
+const SESSION_ENDED_KEY = "sessionEndedMessage"
+
+/** Signs out on this device and opens the right login page with a note. */
+export function endSession(message = "Your session has ended. Please sign in again.") {
+  const next = loginPath()
+  clearSession()
+  sessionStorage.setItem(SESSION_ENDED_KEY, message)
+  window.location.href = next
+}
+
+/** The note left by endSession, read once. */
+export function takeSessionEndedMessage(): string | null {
+  const message = sessionStorage.getItem(SESSION_ENDED_KEY)
+  if (message) sessionStorage.removeItem(SESSION_ENDED_KEY)
+  return message
+}
+
+/** Saves a sign-in or refresh response (tokens and the session's end). */
+export function saveSession(data: { accessToken: string; refreshToken?: string; sessionExpiresAt?: string; user?: unknown }) {
+  localStorage.setItem("accessToken", data.accessToken)
+  if (data.refreshToken) localStorage.setItem("refreshToken", data.refreshToken)
+  if (data.user) localStorage.setItem("user", JSON.stringify(data.user))
+  if (data.sessionExpiresAt) localStorage.setItem("sessionExpiresAt", data.sessionExpiresAt)
+  else localStorage.removeItem("sessionExpiresAt")
+}
+
 function createApiErrorResponse(message: string, status = 503): Response {
   return new Response(JSON.stringify({ success: false, message }), { status, headers: { "Content-Type": "application/json" } })
 }
 
-async function refreshAccessToken(): Promise<string | null> {
+// The server accepts each refresh token once. So only one refresh runs at a
+// time: requests in this tab share it, and other tabs wait for it (a browser
+// lock) and then use the token it saved.
+let refreshInFlight: Promise<string | null> | null = null
+
+function refreshAccessToken(sentToken: string | null): Promise<string | null> {
+  if (!refreshInFlight) {
+    refreshInFlight = withRefreshLock(() => runRefresh(sentToken)).finally(() => { refreshInFlight = null })
+  }
+  return refreshInFlight
+}
+
+function withRefreshLock<T>(task: () => Promise<T>): Promise<T> {
+  if (typeof navigator !== "undefined" && navigator.locks?.request) {
+    return navigator.locks.request("veepee-admin-token-refresh", task) as Promise<T>
+  }
+  return task()
+}
+
+async function runRefresh(sentToken: string | null): Promise<string | null> {
+  // Already renewed (by another tab, or just before): use that token.
+  const current = localStorage.getItem("accessToken")
+  if (current && current !== sentToken) return current
+
   const refreshToken = localStorage.getItem("refreshToken")
-  if (!refreshToken) return null
+  if (!refreshToken) { endSession(); return null }
+
+  let response: Response
   try {
-    const response = await fetch(buildApiUrl("/auth/refresh-token"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refreshToken }) })
-    if (!response.ok) { const next = loginPath(); clearSession(); window.location.href = next; return null }
-    const payload = await response.json()
-    localStorage.setItem("accessToken", payload.data.accessToken)
-    if (payload.data.refreshToken) localStorage.setItem("refreshToken", payload.data.refreshToken)
-    return payload.data.accessToken
-  } catch { return null }
+    response = await fetch(buildApiUrl("/auth/refresh-token"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ refreshToken }) })
+  } catch {
+    return null // Offline or server unreachable: keep the session.
+  }
+  // Only a refused refresh ends the session; 429 and 5xx are temporary.
+  if (response.status === 401 || response.status === 403) {
+    const payload = await response.json().catch(() => null)
+    endSession(payload?.error?.code === "SESSION_EXPIRED"
+      ? "Your 5-hour session has ended. Please sign in again."
+      : "Your session has ended. Please sign in again.")
+    return null
+  }
+  if (!response.ok) return null
+  const payload = await response.json().catch(() => null)
+  if (!payload?.data?.accessToken) return null
+  saveSession(payload.data)
+  return payload.data.accessToken
 }
 
 export async function apiFetch(endpoint: string, options: FetchOptions = {}): Promise<Response> {
@@ -46,11 +108,12 @@ export async function apiFetch(endpoint: string, options: FetchOptions = {}): Pr
   const isFormDataBody = typeof FormData !== "undefined" && fetchOptions.body instanceof FormData
   const headers: HeadersInit = { ...fetchOptions.headers }
   if (!isFormDataBody && !(headers as Record<string, string>)["Content-Type"]) (headers as Record<string, string>)["Content-Type"] = "application/json"
-  if (!skipAuth) { const token = localStorage.getItem("accessToken"); if (token) (headers as Record<string, string>).Authorization = `Bearer ${token}` }
+  const sentToken = skipAuth ? null : localStorage.getItem("accessToken")
+  if (sentToken) (headers as Record<string, string>).Authorization = `Bearer ${sentToken}`
   let response: Response
   try { response = await fetch(buildApiUrl(endpoint), { ...fetchOptions, headers }) } catch (error) { if (error instanceof TypeError) return createApiErrorResponse(`Unable to reach API at ${API_BASE}. Check backend server and NEXT_PUBLIC_API_BASE_URL.`); throw error }
   if (response.status === 401 && !skipAuth) {
-    const token = await refreshAccessToken()
+    const token = await refreshAccessToken(sentToken)
     if (token) {
       (headers as Record<string, string>).Authorization = `Bearer ${token}`
       try { response = await fetch(buildApiUrl(endpoint), { ...fetchOptions, headers }) } catch (error) { if (error instanceof TypeError) return createApiErrorResponse(`Unable to reach API at ${API_BASE}. Check backend server and NEXT_PUBLIC_API_BASE_URL.`); throw error }

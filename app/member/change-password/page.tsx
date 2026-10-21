@@ -8,7 +8,7 @@ import { VeepeeBrand } from "@/components/veepee-brand"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { apiFetch } from "@/lib/api"
+import { apiFetch, saveSession } from "@/lib/api"
 
 // Shown after an administrator issued a temporary password.
 export default function MemberChangePasswordPage() {
@@ -31,10 +31,7 @@ export default function MemberChangePasswordPage() {
       const response = await apiFetch("/auth/change-password", { method: "POST", body: JSON.stringify({ currentPassword: current, newPassword: next }) })
       const payload = await response.json()
       if (!response.ok) throw new Error(payload.message || "Could not change the password")
-      localStorage.setItem("accessToken", payload.data.accessToken)
-      localStorage.setItem("refreshToken", payload.data.refreshToken)
-      localStorage.setItem("user", JSON.stringify(payload.data.user))
-      if (payload.data.sessionExpiresAt) localStorage.setItem("sessionExpiresAt", payload.data.sessionExpiresAt)
+      saveSession(payload.data)
       toast.success("Password changed")
       router.push("/")
     } catch (error: any) {

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
-import { apiFetch, buildApiUrl } from "@/lib/api"
+import { apiFetch } from "@/lib/api"
 import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -191,7 +191,6 @@ export default function ManageWebsitePage() {
     const [expandedCategoryIndex, setExpandedCategoryIndex] = useState<number | null>(null)
     const [expandedProductKey, setExpandedProductKey] = useState<string | null>(null)
 
-    const uploadUrl = useMemo(() => buildApiUrl("/upload/image?folder=website"), [])
     const websiteBaseUrl = useMemo(() => {
         const raw = process.env.NEXT_PUBLIC_WEBSITE_BASE_URL || "http://localhost:3000"
         return raw.replace(/\/+$/, "")
@@ -517,10 +516,10 @@ export default function ManageWebsitePage() {
     }
 
     async function uploadSingleImage(file: File) {
-        const token = localStorage.getItem("accessToken")
         const formData = new FormData()
         formData.append("image", file)
-        const res = await fetch(uploadUrl, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData })
+        // apiFetch renews an expired sign-in like every other request.
+        const res = await apiFetch("/upload/image?folder=website", { method: "POST", body: formData })
         const data = await res.json()
         if (!res.ok || !data?.data?.url) throw new Error("Upload failed")
         return String(data.data.url)
