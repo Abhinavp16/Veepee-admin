@@ -16,11 +16,10 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Loader2, Save, CreditCard, Building2, User, Upload, ImageIcon, Smartphone } from "lucide-react"
+import { Loader2, Save, Building2, User, Smartphone } from "lucide-react"
 import { toast } from "sonner"
-import { apiFetch, buildApiUrl, getUser } from "@/lib/api"
+import { apiFetch } from "@/lib/api"
 import { Switch } from "@/components/ui/switch"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const settingsSchema = z.object({
     businessName: z.string().optional(),
@@ -35,16 +34,12 @@ const settingsSchema = z.object({
     negotiationExpiryDays: z.coerce.number().optional(),
     lowStockThreshold: z.coerce.number().optional(),
     // [COMMENTED OUT RAZORPAY]
-    // razorpayKeyId: z.string().optional(),
-    // razorpayKeySecret: z.string().optional(),
-    // razorpayEnabled: z.boolean().optional(),
     // Bank Transfer
     bankName: z.string().optional(),
     bankAccountNumber: z.string().optional(),
     bankIfscCode: z.string().optional(),
     bankAccountHolderName: z.string().optional(),
     bankTransferEnabled: z.boolean().optional(),
-    avatar: z.string().optional(),
     features: z.record(z.any()).optional(),
     mobileApp: z.record(z.any()).optional()
 }).passthrough()
@@ -73,15 +68,11 @@ export default function SettingsPage() {
             negotiationExpiryDays: 7,
             lowStockThreshold: 10,
             // [COMMENTED OUT RAZORPAY]
-            // razorpayKeyId: "",
-            // razorpayKeySecret: "",
-            // razorpayEnabled: false,
             bankName: "",
             bankAccountNumber: "",
             bankIfscCode: "",
             bankAccountHolderName: "",
             bankTransferEnabled: true,
-            avatar: "",
             features: {}
         }
     })
@@ -109,7 +100,6 @@ export default function SettingsPage() {
     }
 
     async function onSubmit(values: z.infer<typeof settingsSchema>) {
-        console.log('Form submitted with values:', values)
         setIsSaving(true)
         try {
             const res = await apiFetch('/admin/settings', {
@@ -129,51 +119,6 @@ export default function SettingsPage() {
             toast.error("Error saving settings")
         } finally {
             setIsSaving(false)
-        }
-    }
-
-    const [isUploading, setIsUploading] = useState(false)
-    async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
-        const file = e.target.files?.[0]
-        if (!file) return
-
-        setIsUploading(true)
-        const formData = new FormData()
-        formData.append('image', file)
-
-        try {
-            const token = localStorage.getItem('accessToken')
-            const response = await fetch(buildApiUrl('/upload/image?folder=avatars'), {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                },
-                body: formData,
-            })
-
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.message || 'Upload failed')
-            }
-
-            const data = await response.json()
-            if (data.success && data.data) {
-                form.setValue('avatar', data.data.url)
-                toast.success('Profile image uploaded. Save settings to apply.')
-
-                // Also update local storage user object temporarily so header reflects change
-                const user = getUser()
-                if (user) {
-                    user.avatar = data.data.url
-                    localStorage.setItem('user', JSON.stringify(user))
-                    window.dispatchEvent(new Event('storage'))
-                }
-            }
-        } catch (error: any) {
-            toast.error(error.message || 'Failed to upload image')
-        } finally {
-            setIsUploading(false)
-            e.target.value = ''
         }
     }
 
@@ -202,55 +147,11 @@ export default function SettingsPage() {
                     <Card className="bg-[#161616] border-[#333]">
                         <CardHeader>
                             <CardTitle className="text-white flex items-center gap-2">
-                                <User className="h-5 w-5 text-[#86efac]" /> Profile Information
+                                <User className="h-5 w-5 text-[#86efac]" /> Business details
                             </CardTitle>
-                            <CardDescription>Personal information and profile appearance</CardDescription>
+                            <CardDescription>Shown on receipts and to customers</CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
-                            <div className="flex items-center gap-6 pb-4">
-                                <Avatar className="h-24 w-24 border-2 border-[#333]">
-                                    <AvatarImage src={form.watch('avatar')} />
-                                    <AvatarFallback className="bg-gradient-to-br from-[#86efac]/20 to-[#86efac]/5 text-[#86efac] text-2xl font-bold">
-                                        {getUser()?.name?.charAt(0).toUpperCase() || 'A'}
-                                    </AvatarFallback>
-                                </Avatar>
-                                <div className="space-y-2">
-                                    <p className="text-sm font-medium text-white">Profile Photo</p>
-                                    <div className="flex gap-2">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            className="bg-[#0D0D0D] border-[#333] text-white hover:bg-[#1A1A1A]"
-                                            disabled={isUploading}
-                                            onClick={() => document.getElementById('avatar-upload')?.click()}
-                                        >
-                                            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                                            Upload Image
-                                        </Button>
-                                        <input
-                                            id="avatar-upload"
-                                            type="file"
-                                            className="hidden"
-                                            accept="image/*"
-                                            onChange={handleAvatarUpload}
-                                        />
-                                        {form.watch('avatar') && (
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="sm"
-                                                className="text-red-400 hover:text-red-300 hover:bg-red-400/10"
-                                                onClick={() => form.setValue('avatar', '')}
-                                            >
-                                                Remove
-                                            </Button>
-                                        )}
-                                    </div>
-                                    <p className="text-xs text-[#919191]">Recommended: Square image, max 5MB</p>
-                                </div>
-                            </div>
-
                             <FormField
                                 control={form.control}
                                 name="businessName"
@@ -326,60 +227,6 @@ export default function SettingsPage() {
                             </div>
                         </CardContent>
                     </Card>
-
-                    {/* Razorpay Settings */}
-                        {/* <CardHeader>
-                            <CardTitle className="text-white flex items-center gap-2">
-                                <CreditCard className="h-5 w-5" /> Razorpay Payment Gateway
-                            </CardTitle>
-                            <CardDescription>Configure Razorpay for instant UPI/Card payments</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <FormField
-                                control={form.control}
-                                name="razorpayEnabled"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border border-[#333] p-4">
-                                        <div className="space-y-0.5">
-                                            <FormLabel className="text-base text-white">Enable Razorpay</FormLabel>
-                                            <FormDescription>Allow customers to pay via Razorpay</FormDescription>
-                                        </div>
-                                        <FormControl>
-                                            <Switch checked={!!field.value} onCheckedChange={field.onChange} />
-                                        </FormControl>
-                                    </FormItem>
-                                )}
-                            />
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField
-                                    control={form.control}
-                                    name="razorpayKeyId"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-white">Razorpay Key ID</FormLabel>
-                                            <FormControl>
-                                                <Input className="bg-[#0D0D0D] border-[#333] text-white" placeholder="rzp_live_xxxxxxxxx" {...field} value={field.value || ''} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="razorpayKeySecret"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="text-white">Razorpay Key Secret</FormLabel>
-                                            <FormControl>
-                                                <Input type="password" className="bg-[#0D0D0D] border-[#333] text-white" placeholder="••••••••••••" {...field} value={field.value || ''} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                        </CardContent>
-                    </Card> */}
 
                     {/* Bank Transfer Settings */}
                     <Card className="bg-[#161616] border-[#333]">
@@ -658,33 +505,6 @@ export default function SettingsPage() {
                             ))}
                         </CardContent>
                     </Card>
-
-                    {/* Feature Flags */}
-                    {/* <Card className="bg-[#161616] border-[#333]">
-                        <CardHeader>
-                            <CardTitle className="text-white">Features</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <FormField
-                                control={form.control}
-                                name="features.maintenanceMode"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border border-[#333] p-4">
-                                        <div className="space-y-0.5">
-                                            <FormLabel className="text-base text-white">Maintenance Mode</FormLabel>
-                                            <FormDescription>Disable the store for customers</FormDescription>
-                                        </div>
-                                        <FormControl>
-                                            <Switch
-                                                checked={field.value}
-                                                onCheckedChange={field.onChange}
-                                            />
-                                        </FormControl>
-                                    </FormItem>
-                                )}
-                            />
-                        </CardContent>
-                    </Card> */}
 
                     <Button type="submit" disabled={isSaving} className="w-full bg-green-500 hover:bg-green-600 text-white">
                         {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -32,6 +32,12 @@ interface SalesData {
         averageOrderValue: number
         retailOrders: number
         wholesaleOrders: number
+        // Change vs the previous period of the same length; null for "all time"
+        // or when there was no revenue before.
+        revenueChangePercent: number | null
+        // Paid orders per 100 product views; null without views.
+        conversionRate: number | null
+        productViews: number
     }
     timeline: { date: string; orders: number; revenue: number }[]
     byCategory: { category: string; orders: number; revenue: number }[]
@@ -73,6 +79,7 @@ export default function AnalyticsPage() {
     const [salesData, setSalesData] = useState<SalesData | null>(null)
     const [productData, setProductData] = useState<ProductAnalytics[]>([])
     const [demandData, setDemandData] = useState<DemandData | null>(null)
+    const [demandFailed, setDemandFailed] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
     const [isProductLoading, setIsProductLoading] = useState(true)
     const [period, setPeriod] = useState("30d")
@@ -82,7 +89,9 @@ export default function AnalyticsPage() {
     const fetchSalesAnalytics = useCallback(async () => {
         setIsLoading(true)
         try {
-            const res = await apiFetch(`/admin/analytics/sales?period=${period}`)
+            // Daily points for up to 3 months, monthly beyond that.
+            const groupBy = period === "1y" ? "month" : "day"
+            const res = await apiFetch(`/admin/analytics/sales?period=${period}&groupBy=${groupBy}`)
             const data = await res.json()
             if (res.ok) setSalesData(data.data)
             else toast.error("Failed to load sales analytics")
@@ -108,12 +117,14 @@ export default function AnalyticsPage() {
     }, [period, productSort])
 
     const fetchDemandInsights = useCallback(async () => {
+        setDemandFailed(false)
         try {
             const res = await apiFetch(`/admin/analytics/demand`)
-            const data = await res.json()
-            if (res.ok) setDemandData(data.data)
+            const data = await res.json().catch(() => null)
+            if (res.ok && data?.data) setDemandData(data.data)
+            else setDemandFailed(true)
         } catch {
-            console.error("Failed to load demand insights")
+            setDemandFailed(true)
         }
     }, [])
 
@@ -175,10 +186,14 @@ export default function AnalyticsPage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold text-white">₹{salesData?.summary.totalRevenue.toLocaleString()}</div>
-                                <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                                    <TrendingUp className="w-3 h-3 text-green-500" />
-                                    +20.1% from last period
-                                </p>
+                                {salesData?.summary.revenueChangePercent != null ? (
+                                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
+                                        <TrendingUp className={`w-3 h-3 ${salesData.summary.revenueChangePercent >= 0 ? "text-green-500" : "text-red-500 rotate-180"}`} />
+                                        {salesData.summary.revenueChangePercent >= 0 ? "+" : ""}{salesData.summary.revenueChangePercent}% vs the previous period
+                                    </p>
+                                ) : (
+                                    <p className="text-xs text-gray-500 mt-1">Paid orders only</p>
+                                )}
                             </CardContent>
                         </Card>
                         <Card className="bg-[#161616] border-[#333]">
@@ -202,7 +217,7 @@ export default function AnalyticsPage() {
                             </CardHeader>
                             <CardContent>
                                 <div className="text-2xl font-bold text-white">₹{salesData?.summary.averageOrderValue.toLocaleString()}</div>
-                                <p className="text-xs text-gray-500 mt-1">Average spend per customer</p>
+                                <p className="text-xs text-gray-500 mt-1">Average value per paid order</p>
                             </CardContent>
                         </Card>
                         <Card className="bg-[#161616] border-[#333]">
@@ -211,8 +226,8 @@ export default function AnalyticsPage() {
                                 <Users className="h-4 w-4 text-purple-500" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold text-white">3.2%</div>
-                                <p className="text-xs text-gray-500 mt-1">Visits to order conversion</p>
+                                <div className="text-2xl font-bold text-white">{salesData?.summary.conversionRate != null ? `${salesData.summary.conversionRate}%` : "—"}</div>
+                                <p className="text-xs text-gray-500 mt-1">Paid orders per 100 product views ({(salesData?.summary.productViews ?? 0).toLocaleString("en-IN")} views)</p>
                             </CardContent>
                         </Card>
                     </div>
@@ -222,7 +237,7 @@ export default function AnalyticsPage() {
                         <Card className="bg-[#161616] border-[#333] lg:col-span-4">
                             <CardHeader>
                                 <CardTitle className="text-white">Revenue Overview</CardTitle>
-                                <CardDescription>Daily revenue trends for the selected period</CardDescription>
+                                <CardDescription>{period === "1y" ? "Monthly" : "Daily"} revenue from paid orders</CardDescription>
                             </CardHeader>
                             <CardContent>
                                 <div className="h-[300px] w-full">
@@ -235,7 +250,7 @@ export default function AnalyticsPage() {
                                                 </linearGradient>
                                             </defs>
                                             <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.grid} vertical={false} />
-                                            <XAxis dataKey="date" stroke={chartTheme.axis} tickFormatter={(v) => new Date(v).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} tickLine={false} axisLine={false} />
+                                            <XAxis dataKey="date" stroke={chartTheme.axis} tickFormatter={(v) => new Date(v).toLocaleDateString("en-IN", period === "1y" ? { month: 'short', year: '2-digit' } : { month: 'short', day: 'numeric' })} tickLine={false} axisLine={false} />
                                             <YAxis stroke={chartTheme.axis} tickFormatter={(v) => `₹${v / 1000}k`} tickLine={false} axisLine={false} />
                                             <Tooltip contentStyle={{ backgroundColor: chartTheme.tooltipBg, border: `1px solid ${chartTheme.tooltipBorder}`, borderRadius: '8px', color: chartTheme.tooltipText }} labelStyle={{ color: chartTheme.axis }} />
                                             <Area type="monotone" dataKey="revenue" stroke="#22c55e" fillOpacity={1} fill="url(#colorRevenue)" />
@@ -253,7 +268,7 @@ export default function AnalyticsPage() {
                                 <div className="h-[300px] w-full">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <PieChart>
-                                            <Pie data={salesData?.byCategory} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="revenue">
+                                            <Pie data={salesData?.byCategory} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="revenue" nameKey="category">
                                                 {salesData?.byCategory.map((_, index) => (
                                                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                                 ))}
@@ -314,7 +329,7 @@ export default function AnalyticsPage() {
                                             ₹{productData.reduce((sum, p) => sum + p.revenue, 0).toLocaleString()}
                                         </div>
                                         <p className="text-xs text-gray-500 mt-1">
-                                            Top: {topRevenue[0]?.name || 'N/A'}
+                                            Item value before discounts and delivery · Top: {topRevenue[0]?.name || 'N/A'}
                                         </p>
                                     </CardContent>
                                 </Card>
@@ -345,7 +360,7 @@ export default function AnalyticsPage() {
                                                 <CartesianGrid strokeDasharray="3 3" stroke={chartTheme.gridMuted} horizontal={false} />
                                                 <XAxis type="number" stroke={chartTheme.axis} tickLine={false} axisLine={false}
                                                     tickFormatter={(v) => productSort === 'revenue' ? `₹${v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}` : v.toLocaleString()} />
-                                                <YAxis type="category" dataKey="name" stroke={chartTheme.axis} width={140} tick={{ fontSize: 12 }} tickLine={false} axisLine={false} />
+                                                <YAxis type="category" dataKey="name" stroke={chartTheme.axis} width={160} tick={{ fontSize: 12 }} tickFormatter={(name: string) => name.length > 22 ? `${name.slice(0, 21)}…` : name} tickLine={false} axisLine={false} />
                                                 <Tooltip
                                                     contentStyle={{ backgroundColor: chartTheme.tooltipBg, border: `1px solid ${chartTheme.tooltipBorder}`, borderRadius: '8px' }}
                                                     labelStyle={{ color: chartTheme.tooltipText, fontWeight: 600 }}
@@ -498,7 +513,12 @@ export default function AnalyticsPage() {
 
                 {/* ─── DEMAND INSIGHTS TAB ─── */}
                 <TabsContent value="demand" className="flex flex-col gap-6 mt-6">
-                    {!demandData ? (
+                    {!demandData && demandFailed ? (
+                        <div className="flex h-[30vh] flex-col items-center justify-center gap-3 text-center">
+                            <p className="text-gray-400">Couldn&apos;t load demand insights.</p>
+                            <button type="button" onClick={fetchDemandInsights} className="rounded-lg bg-[#86efac] px-4 py-2 text-sm font-semibold text-black hover:bg-[#86efac]/90">Retry</button>
+                        </div>
+                    ) : !demandData ? (
                         <div className="flex h-[30vh] items-center justify-center">
                             <Loader2 className="h-8 w-8 animate-spin text-green-500" />
                         </div>

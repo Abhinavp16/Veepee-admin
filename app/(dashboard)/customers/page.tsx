@@ -473,8 +473,8 @@ export default function CustomersPage() {
                                     <div className="flex items-center gap-2 text-gray-400 text-xs uppercase mb-1">
                                         <ShoppingBag className="w-3 h-3" /> Total Spend
                                     </div>
-                                    <div className="text-2xl font-bold">₹{selectedCustomer.stats?.orders.totalSpent.toLocaleString()}</div>
-                                    <div className="text-xs text-gray-500">{selectedCustomer.stats?.orders.totalOrders} total orders</div>
+                                    <div className="text-2xl font-bold">₹{(selectedCustomer.stats?.orders.totalSpent ?? 0).toLocaleString("en-IN")}</div>
+                                    <div className="text-xs text-gray-500">Paid orders only · {selectedCustomer.stats?.orders.totalOrders ?? 0} orders placed</div>
                                 </div>
                                 <div className="bg-[#0D0D0D] p-4 rounded-lg border border-[#333]">
                                     <div className="flex items-center gap-2 text-gray-400 text-xs uppercase mb-1">

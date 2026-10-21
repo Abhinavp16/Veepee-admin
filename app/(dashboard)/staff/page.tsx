@@ -56,6 +56,7 @@ export default function StaffPage() {
   }
 
   const updateStatus = async (member: StaffMember) => {
+    if (member.isActive && !window.confirm(`Deactivate ${member.name}? They will be signed out and can't sign in until you activate them again.`)) return
     try {
       const response = await apiFetch(`/admin/staff/${member._id}`, { method: "PATCH", body: JSON.stringify({ isActive: !member.isActive }) })
       const payload = await response.json()

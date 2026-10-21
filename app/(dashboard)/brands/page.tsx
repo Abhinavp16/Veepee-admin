@@ -25,7 +25,7 @@ import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
 import { DiscountFields } from "@/components/discount-fields"
 import { SortableProvider, SortableTableRow } from "@/components/sortable"
-import { fetchDiscounts, parsePercent, saveDiscount } from "@/lib/discounts"
+import { useDiscountEditor } from "@/lib/discounts"
 import { useViewMode } from "@/lib/use-view-mode"
 import { toast } from "sonner"
 import { useDashboardUser } from "@/components/dashboard-context"
@@ -63,8 +63,7 @@ export default function BrandsPage() {
     const [description, setDescription] = useState("")
     const [logoUrl, setLogoUrl] = useState("")
     const [logoPublicId, setLogoPublicId] = useState("")
-    const [customerPct, setCustomerPct] = useState("")
-    const [wholesalerPct, setWholesalerPct] = useState("")
+    const discounts = useDiscountEditor("company", isAdmin)
     const [logoUploadMode, setLogoUploadMode] = useState<'url' | 'file'>('url')
     const [isUploadingLogo, setIsUploadingLogo] = useState(false)
 
@@ -133,8 +132,7 @@ export default function BrandsPage() {
         setLogoUrl("")
         setLogoPublicId("")
         setLogoUploadMode('url')
-        setCustomerPct("")
-        setWholesalerPct("")
+        discounts.startNew()
         setIsDialogOpen(true)
     }
 
@@ -145,17 +143,8 @@ export default function BrandsPage() {
         setLogoUrl(company.logo?.url || "")
         setLogoPublicId(company.logo?.publicId || "")
         setLogoUploadMode('url')
-        setCustomerPct("")
-        setWholesalerPct("")
-        // Percentages are not part of the public brand data, so load them separately.
-        fetchDiscounts()
-            .then(({ companies }) => {
-                const row = companies.find((item) => item.id === company._id)
-                if (!row) return
-                setCustomerPct(row.customerDiscountPercent ? String(row.customerDiscountPercent) : "")
-                setWholesalerPct(row.wholesalerDiscountPercent ? String(row.wholesalerDiscountPercent) : "")
-            })
-            .catch(() => toast.error("Could not load this brand's discounts"))
+        // Percentages are not part of the public brand data (admins only).
+        discounts.loadFor(company._id)
         setIsDialogOpen(true)
     }
 
@@ -269,10 +258,9 @@ export default function BrandsPage() {
             return
         }
 
-        const customer = parsePercent(customerPct)
-        const wholesaler = parsePercent(wholesalerPct)
-        if (customer === null || wholesaler === null) {
-            toast.error("Discounts must be between 0 and 99")
+        const discountProblem = discounts.problem()
+        if (discountProblem) {
+            toast.error(discountProblem)
             return
         }
 
@@ -301,7 +289,13 @@ export default function BrandsPage() {
 
             const saved = await res.json()
             const companyId = editingCompany?._id || saved?.data?._id
-            if (companyId) await saveDiscount("company", companyId, customer, wholesaler)
+            if (companyId) {
+                try {
+                    await discounts.saveFor(companyId)
+                } catch (error: any) {
+                    toast.error(`Brand saved, but the discount wasn't: ${error.message}`)
+                }
+            }
 
             toast.success(editingCompany ? "Brand updated successfully" : "Brand created successfully")
             setIsDialogOpen(false)
@@ -645,13 +639,19 @@ export default function BrandsPage() {
                             <p className="text-xs text-gray-500 mt-1">Only visible in the admin panel. It is not shown to customers in the app.</p>
                         </div>
 
-                        <DiscountFields
-                            target="brand"
-                            customer={customerPct}
-                            wholesaler={wholesalerPct}
-                            onCustomerChange={setCustomerPct}
-                            onWholesalerChange={setWholesalerPct}
-                        />
+                        {discounts.enabled && (discounts.status === "loading" ? (
+                            <p className="text-sm text-gray-400">Loading discounts…</p>
+                        ) : discounts.status === "failed" ? (
+                            <p className="text-sm text-amber-300">Couldn&apos;t load this brand&apos;s discounts. Saving won&apos;t change them.</p>
+                        ) : (
+                            <DiscountFields
+                                target="brand"
+                                customer={discounts.customerPct}
+                                wholesaler={discounts.wholesalerPct}
+                                onCustomerChange={discounts.setCustomerPct}
+                                onWholesalerChange={discounts.setWholesalerPct}
+                            />
+                        ))}
                     </div>
                     
                     <DialogFooter>

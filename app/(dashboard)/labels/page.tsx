@@ -162,6 +162,8 @@ export default function LabelsPage() {
     }
 
     async function removeLabel(index: number) {
+        const title = labels[index]?.title?.trim()
+        if (!window.confirm(`Delete the label${title ? ` "${title}"` : ""}? It will be removed from every product that uses it.`)) return
         const nextLabels = labels.filter((_, itemIndex) => itemIndex !== index)
         const saved = await persistLabels(nextLabels)
         if (saved && editingIndex === index) {

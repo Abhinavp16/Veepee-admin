@@ -118,9 +118,6 @@ const productSchema = z.object({
     videoUrl: z.string().optional(),
     shippingTerms: z.string().optional(),
     labelIds: z.array(z.string()).default([]),
-    rating: z.string().refine((val) => !isNaN(Number(val)), "Must be a number").default("4.5"),
-    purchaseCountMin: z.string().refine((val) => !isNaN(Number(val)), "Must be a number").default("0"),
-    purchaseCountMax: z.string().refine((val) => !isNaN(Number(val)), "Must be a number").default("0"),
 }).superRefine((values, context) => {
     if (values.primaryCategoryId && !values.categoryIds.includes(values.primaryCategoryId)) {
         context.addIssue({
@@ -210,11 +207,8 @@ export default function AddProductPage() {
             isHot: false,
             company: "",
             videoUrl: "",
-            shippingTerms: "Free shipping on orders above ₹5,000. Standard delivery within 5-7 business days. Express delivery available at additional cost.\n\nReturn Policy: Products can be returned within 7 days of delivery if unused and in original packaging. Damaged or defective items will be replaced free of charge. Refunds are processed within 5-7 business days after the returned item is received and inspected.",
+            shippingTerms: "",
             labelIds: [],
-            rating: "4.5",
-            purchaseCountMin: "0",
-            purchaseCountMax: "0",
         },
     })
 
@@ -363,9 +357,6 @@ export default function AddProductPage() {
                 videoUrl: product.videoUrl || "",
                 shippingTerms: product.shippingTerms || "",
                 labelIds: Array.isArray(product.labelIds) ? product.labelIds.map((item: any) => String(item)).filter(Boolean) : [],
-                rating: String(product.rating ?? "4.5"),
-                purchaseCountMin: String(product.purchaseCountMin || "0"),
-                purchaseCountMax: String(product.purchaseCountMax || "0"),
             })
             originalStock.current = Number(product.stock) || 0
             originalPrices.current = {
@@ -749,9 +740,6 @@ export default function AddProductPage() {
                 })),
                 videoUrl: values.videoUrl?.trim() || null,
                 shippingTerms: values.shippingTerms?.trim() || null,
-                rating: Number(values.rating),
-                purchaseCountMin: Number(values.purchaseCountMin),
-                purchaseCountMax: Number(values.purchaseCountMax),
             }
 
             // In edit mode prices go through the audited price-change API, applied immediately.
@@ -1423,7 +1411,7 @@ export default function AddProductPage() {
                                                     <Textarea placeholder="Enter shipping and return policy..." {...field} className="bg-[#0D0D0D] border-[#333] text-white min-h-[120px]" />
                                                 </FormControl>
                                                 <FormDescription className="text-gray-500">
-                                                    Pre-filled with default terms. Edit to customize for this product. Displayed under &quot;Shipping &amp; Returns&quot; on the product page.
+                                                    Shown under &quot;Shipping &amp; Returns&quot; on the product page. Leave empty to show nothing.
                                                 </FormDescription>
                                                 <FormMessage />
                                             </FormItem>
@@ -1694,65 +1682,6 @@ export default function AddProductPage() {
                                         )}
                                     />
 
-                                    <FormField
-                                        control={form.control}
-                                        name="rating"
-                                        render={({ field }) => (
-                                            <FormItem className="mt-4">
-                                                <FormLabel className="text-white flex items-center gap-2">
-                                                    <Star className="h-4 w-4 text-yellow-500" />
-                                                    Admin Rating (0-5)
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        type="number"
-                                                        step="0.1"
-                                                        min="0"
-                                                        max="5"
-                                                        placeholder="4.5"
-                                                        {...field}
-                                                        className="bg-[#0D0D0D] border-[#333] text-white"
-                                                    />
-                                                </FormControl>
-                                                <FormDescription className="text-gray-500">
-                                                    Initial rating for the product visibility.
-                                                </FormDescription>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-
-                                    <div className="grid grid-cols-2 gap-4 mt-4">
-                                        <FormField
-                                            control={form.control}
-                                            name="purchaseCountMin"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel className="text-white">Min Purchase Count</FormLabel>
-                                                    <FormControl>
-                                                        <Input type="number" placeholder="0" {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        <FormField
-                                            control={form.control}
-                                            name="purchaseCountMax"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel className="text-white">Max Purchase Count</FormLabel>
-                                                    <FormControl>
-                                                        <Input type="number" placeholder="50" {...field} className="bg-[#0D0D0D] border-[#333] text-white" />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                    </div>
-                                    <FormDescription className="text-gray-500 mt-1">
-                                        A random number between these two values will be shown as live purchases, changing every 24 hours.
-                                    </FormDescription>
                                 </CardContent>
                             </Card>
 

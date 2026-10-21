@@ -6,16 +6,18 @@ import { toast } from 'sonner'
 import { apiFetch } from '@/lib/api'
 
 interface DashboardData {
+  // False for staff: the server leaves out money figures (null).
+  showRevenue: boolean
   overview: {
     totalOrders: number
     pendingPayments: number
-    totalRevenue: number
+    totalRevenue: number | null
     activeNegotiations: number
     totalProducts: number
     totalCustomers: number
   }
-  today: { orders: number; revenue: number }
-  thisMonth: { orders: number; revenue: number }
+  today: { orders: number; revenue: number | null }
+  thisMonth: { orders: number; revenue: number | null }
 }
 
 export function DashboardMetrics() {
@@ -65,20 +67,32 @@ export function DashboardMetrics() {
 
   const overview = data?.overview
   const today = data?.today
+  const showRevenue = data?.showRevenue !== false
 
   return (
     <section className="admin-card rounded-[1.4rem] border p-5 sm:p-6" aria-label="Dashboard overview">
       <div className="grid gap-5 lg:grid-cols-[minmax(240px,1fr)_minmax(0,2.25fr)] lg:gap-6">
         <div className="flex min-h-40 flex-col justify-between border-b border-[var(--admin-border)] pb-5 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-6">
-          <div className="flex items-center gap-3">
-            <span className="dashboard-icon dashboard-icon-primary"><Wallet className="h-[18px] w-[18px]" /></span>
-            <span className="admin-muted text-sm font-medium">Total revenue</span>
-          </div>
-          <div className="mt-8">
-            <div className="admin-heading text-4xl font-bold tracking-[-0.04em]">{formatCurrency(overview?.totalRevenue ?? 0)}</div>
-            <p className="admin-muted mt-2 text-sm">Verified paid order revenue</p>
-            {today && today.revenue > 0 && <span className="dashboard-positive mt-2 inline-block text-xs font-semibold">+{formatCurrency(today.revenue)} today</span>}
-          </div>
+          {showRevenue ? <>
+            <div className="flex items-center gap-3">
+              <span className="dashboard-icon dashboard-icon-primary"><Wallet className="h-[18px] w-[18px]" /></span>
+              <span className="admin-muted text-sm font-medium">Total revenue</span>
+            </div>
+            <div className="mt-8">
+              <div className="admin-heading text-4xl font-bold tracking-[-0.04em]">{formatCurrency(overview?.totalRevenue ?? 0)}</div>
+              <p className="admin-muted mt-2 text-sm">Verified paid order revenue</p>
+              {today && (today.revenue ?? 0) > 0 && <span className="dashboard-positive mt-2 inline-block text-xs font-semibold">+{formatCurrency(today.revenue ?? 0)} paid today</span>}
+            </div>
+          </> : <>
+            <div className="flex items-center gap-3">
+              <span className="dashboard-icon dashboard-icon-primary"><ShoppingCart className="h-[18px] w-[18px]" /></span>
+              <span className="admin-muted text-sm font-medium">Orders today</span>
+            </div>
+            <div className="mt-8">
+              <div className="admin-heading text-4xl font-bold tracking-[-0.04em]">{(today?.orders ?? 0).toLocaleString("en-IN")}</div>
+              <p className="admin-muted mt-2 text-sm">{(data?.thisMonth.orders ?? 0).toLocaleString("en-IN")} this month</p>
+            </div>
+          </>}
         </div>
 
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">

@@ -34,7 +34,7 @@ import {
 import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
 import { DiscountFields } from "@/components/discount-fields"
-import { fetchDiscounts, parsePercent, saveDiscount } from "@/lib/discounts"
+import { useDiscountEditor } from "@/lib/discounts"
 import { useViewMode } from "@/lib/use-view-mode"
 import { toast } from "sonner"
 import { useDashboardUser } from "@/components/dashboard-context"
@@ -95,8 +95,7 @@ export default function CategoriesPage() {
     const [parentId, setParentId] = useState<string>("none")
     const [order, setOrder] = useState("1")
     const [isActive, setIsActive] = useState(true)
-    const [customerPct, setCustomerPct] = useState("")
-    const [wholesalerPct, setWholesalerPct] = useState("")
+    const discounts = useDiscountEditor("category", isAdmin)
     const [imageUploadMode, setImageUploadMode] = useState<'url' | 'file'>('url')
     const [isUploadingImage, setIsUploadingImage] = useState(false)
     const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle')
@@ -161,8 +160,7 @@ export default function CategoriesPage() {
         setOrder(String(getAppendPosition("none")))
         setIsActive(true)
         setImageUploadMode('url')
-        setCustomerPct("")
-        setWholesalerPct("")
+        discounts.startNew()
         setIsDialogOpen(true)
     }
 
@@ -176,17 +174,8 @@ export default function CategoriesPage() {
         setOrder(String(Math.max(1, category.order || 1)))
         setIsActive(category.isActive)
         setImageUploadMode('url')
-        setCustomerPct("")
-        setWholesalerPct("")
-        // Percentages are not part of the public category data, so load them separately.
-        fetchDiscounts()
-            .then(({ categories: rows }) => {
-                const row = rows.find((item) => item.id === category._id)
-                if (!row) return
-                setCustomerPct(row.customerDiscountPercent ? String(row.customerDiscountPercent) : "")
-                setWholesalerPct(row.wholesalerDiscountPercent ? String(row.wholesalerDiscountPercent) : "")
-            })
-            .catch(() => toast.error("Could not load this category's discounts"))
+        // Percentages are not part of the public category data (admins only).
+        discounts.loadFor(category._id)
         setIsDialogOpen(true)
     }
 
@@ -258,10 +247,9 @@ export default function CategoriesPage() {
             return
         }
 
-        const customer = parsePercent(customerPct)
-        const wholesaler = parsePercent(wholesalerPct)
-        if (customer === null || wholesaler === null) {
-            toast.error("Discounts must be between 0 and 99")
+        const discountProblem = discounts.problem()
+        if (discountProblem) {
+            toast.error(discountProblem)
             return
         }
 
@@ -295,8 +283,12 @@ export default function CategoriesPage() {
 
             const saved = await res.json().catch(() => null)
             const categoryId = editingCategory?._id || saved?.data?._id || saved?.data?.category?._id
-            if (categoryId && (editingCategory || customer > 0 || wholesaler > 0)) {
-                await saveDiscount("category", categoryId, customer, wholesaler)
+            if (categoryId) {
+                try {
+                    await discounts.saveFor(categoryId)
+                } catch (error: any) {
+                    toast.error(`Category saved, but the discount wasn't: ${error.message}`)
+                }
             }
 
             toast.success(editingCategory ? "Category updated successfully" : "Category created successfully")
@@ -993,13 +985,19 @@ export default function CategoriesPage() {
                             />
                         </div>
 
-                        <DiscountFields
-                            target="category"
-                            customer={customerPct}
-                            wholesaler={wholesalerPct}
-                            onCustomerChange={setCustomerPct}
-                            onWholesalerChange={setWholesalerPct}
-                        />
+                        {discounts.enabled && (discounts.status === "loading" ? (
+                            <p className="text-sm text-gray-400">Loading discounts…</p>
+                        ) : discounts.status === "failed" ? (
+                            <p className="text-sm text-amber-300">Couldn&apos;t load this category&apos;s discounts. Saving won&apos;t change them.</p>
+                        ) : (
+                            <DiscountFields
+                                target="category"
+                                customer={discounts.customerPct}
+                                wholesaler={discounts.wholesalerPct}
+                                onCustomerChange={discounts.setCustomerPct}
+                                onWholesalerChange={discounts.setWholesalerPct}
+                            />
+                        ))}
 
                         {/* Order & Active */}
                         <div className="flex gap-4">

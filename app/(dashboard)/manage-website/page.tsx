@@ -1003,7 +1003,7 @@ export default function ManageWebsitePage() {
                                         </div>
                                     )
                                 })}
-                                {categories.length > 0 && <Button onClick={saveCategories} disabled={isSavingCategories} className="w-full">{isSavingCategories ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}Save Product Categories</Button>}
+                                {<Button onClick={saveCategories} disabled={isSavingCategories} className="w-full">{isSavingCategories ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}Save Product Categories</Button>}
                             </CardContent>
                         </Card>
                         <Card className="bg-[#161616] border-[#333] xl:col-span-4 xl:sticky xl:top-24">
@@ -1134,7 +1134,7 @@ export default function ManageWebsitePage() {
                                         <div className="flex justify-end"><div className="flex items-center gap-2"><input id={`featured-upload-${index}`} type="file" className="hidden" accept="image/*" onChange={(e) => uploadImage(e, "featured", index)} /><Button type="button" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => document.getElementById(`featured-upload-${index}`)?.click()} disabled={uploading === `featured-${index}`}>{uploading === `featured-${index}` ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Upload className="h-4 w-4 mr-2" />}Upload Image</Button></div></div>
                                     </div>
                                 ))}
-                                {featuredProducts.length > 0 && <Button onClick={saveProducts} disabled={isSavingProducts} className="w-full">{isSavingProducts ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}Save Popular Products</Button>}
+                                {<Button onClick={saveProducts} disabled={isSavingProducts} className="w-full">{isSavingProducts ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}Save Popular Products</Button>}
                             </CardContent>
                         </Card>
                         <Card className="bg-[#161616] border-[#333] xl:col-span-4 xl:sticky xl:top-24">

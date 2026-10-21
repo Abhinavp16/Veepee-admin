@@ -29,6 +29,7 @@ import {
 import Image from "next/image"
 import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
+import { useDashboardUser } from "@/components/dashboard-context"
 
 interface Order {
     _id: string
@@ -64,6 +65,8 @@ interface Order {
 }
 
 export default function OrdersPage() {
+    // Payments are verified by admins only (the server refuses staff).
+    const isAdmin = useDashboardUser()?.role === "admin"
     const [orders, setOrders] = useState<Order[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -218,6 +221,12 @@ export default function OrdersPage() {
         } finally {
             setIsRejecting(false)
         }
+    }
+
+    /** Cancelling can't be undone, so ask first. */
+    function cancelOrder(order: { _id: string; orderNumber?: string }) {
+        if (!confirm(`Cancel order ${order.orderNumber || ""}? This can't be undone and the customer will be told.`)) return
+        updateOrderStatus(order._id, 'cancelled', 'Cancelled by admin')
     }
 
     async function updateOrderStatus(orderId: string, status: string, note?: string) {
@@ -703,7 +712,11 @@ export default function OrdersPage() {
                                             </div>
                                         )}
 
-                                        {selectedOrder.status === 'payment_uploaded' && (
+                                        {selectedOrder.status === 'payment_uploaded' && !isAdmin && (
+                                            <p className="pt-2 text-sm text-gray-400">Waiting for an admin to verify this payment.</p>
+                                        )}
+
+                                        {selectedOrder.status === 'payment_uploaded' && isAdmin && (
                                             <div className="flex gap-3 pt-2">
                                                 <Button
                                                     className="flex-1 bg-green-500 hover:bg-green-600 text-white"
@@ -831,7 +844,7 @@ export default function OrdersPage() {
                                     <Button
                                         variant="destructive"
                                         className="w-full"
-                                        onClick={() => updateOrderStatus(selectedOrder._id, 'cancelled', 'Cancelled by admin')}
+                                        onClick={() => cancelOrder(selectedOrder)}
                                         disabled={isUpdatingStatus}
                                     >
                                         <XCircle className="w-4 h-4 mr-2" /> Cancel Order
@@ -855,7 +868,7 @@ export default function OrdersPage() {
                                     <Button
                                         variant="destructive"
                                         className="w-full"
-                                        onClick={() => updateOrderStatus(selectedOrder._id, 'cancelled', 'Cancelled by admin')}
+                                        onClick={() => cancelOrder(selectedOrder)}
                                         disabled={isUpdatingStatus}
                                     >
                                         <XCircle className="w-4 h-4 mr-2" /> Cancel Order

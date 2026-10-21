@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -248,6 +248,10 @@ export default function BannersPage() {
     const [isLoadingProductOptions, setIsLoadingProductOptions] = useState(false)
     const [isSavingHero, setIsSavingHero] = useState(false)
     const [isSavingPromo, setIsSavingPromo] = useState(false)
+    // What was last loaded or saved: edits only count once saved.
+    const savedHero = useRef("[]")
+    const savedPromo = useRef("[]")
+    const [, setSavedVersion] = useState(0)
     const [uploadingIndex, setUploadingIndex] = useState<{ type: 'hero' | 'promo', index: number } | null>(null)
 
     async function handleBannerUpload(e: React.ChangeEvent<HTMLInputElement>, type: 'hero' | 'promo', index: number) {
@@ -300,10 +304,14 @@ export default function BannersPage() {
             const data = await res.json()
             if (res.ok && data.data) {
                 if (data.data.heroBanners) {
-                    setHeroBanners(data.data.heroBanners.map((banner: any, index: number) => normalizeBanner(banner, index)))
+                    const loaded = data.data.heroBanners.map((banner: any, index: number) => normalizeBanner(banner, index))
+                    savedHero.current = JSON.stringify(toPayload(loaded))
+                    setHeroBanners(loaded)
                 }
                 if (data.data.promoBanners) {
-                    setPromoBanners(data.data.promoBanners.map((banner: any, index: number) => normalizeBanner(banner, index)))
+                    const loaded = data.data.promoBanners.map((banner: any, index: number) => normalizeBanner(banner, index))
+                    savedPromo.current = JSON.stringify(toPayload(loaded))
+                    setPromoBanners(loaded)
                 }
             }
         } catch (error) {
@@ -370,6 +378,8 @@ export default function BannersPage() {
                 body: JSON.stringify({ heroBanners: toPayload(heroBanners) })
             })
             if (res.ok) {
+                savedHero.current = JSON.stringify(toPayload(heroBanners))
+                setSavedVersion((v) => v + 1)
                 toast.success("Hero banners saved successfully")
             } else {
                 toast.error("Failed to save hero banners")
@@ -427,6 +437,8 @@ export default function BannersPage() {
                 body: JSON.stringify({ promoBanners: toPayload(promoBanners) })
             })
             if (res.ok) {
+                savedPromo.current = JSON.stringify(toPayload(promoBanners))
+                setSavedVersion((v) => v + 1)
                 toast.success("Promo banners saved successfully")
             } else {
                 toast.error("Failed to save promo banners")
@@ -437,6 +449,17 @@ export default function BannersPage() {
             setIsSavingPromo(false)
         }
     }
+
+    const heroUnsaved = !isLoading && JSON.stringify(toPayload(heroBanners)) !== savedHero.current
+    const promoUnsaved = !isLoading && JSON.stringify(toPayload(promoBanners)) !== savedPromo.current
+
+    // Leaving the page with unsaved banner changes asks first.
+    useEffect(() => {
+        if (!heroUnsaved && !promoUnsaved) return
+        const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = "" }
+        window.addEventListener("beforeunload", warn)
+        return () => window.removeEventListener("beforeunload", warn)
+    }, [heroUnsaved, promoUnsaved])
 
     function renderBannerCard(
         banner: Banner,
@@ -698,6 +721,16 @@ export default function BannersPage() {
                 <h1 className="text-3xl font-bold text-white">Banner Management</h1>
                 <p className="text-[#919191] mt-1">Manage promotional banners shown on the app home screen</p>
             </div>
+
+            {(heroUnsaved || promoUnsaved) && (
+                <div role="status" className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-300">
+                    <span>You have unsaved changes to the {heroUnsaved && promoUnsaved ? "top and bottom" : heroUnsaved ? "top (hero)" : "bottom (promo)"} banners. They aren&apos;t live until you save.</span>
+                    <div className="flex gap-2">
+                        {heroUnsaved && <Button size="sm" onClick={saveHeroBanners} disabled={isSavingHero} className="bg-[#86efac] text-black hover:bg-[#86efac]/90">{isSavingHero && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save top banners</Button>}
+                        {promoUnsaved && <Button size="sm" onClick={savePromoBanners} disabled={isSavingPromo} className="bg-[#86efac] text-black hover:bg-[#86efac]/90">{isSavingPromo && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Save bottom banners</Button>}
+                    </div>
+                </div>
+            )}
 
             <Tabs defaultValue="hero" className="w-full">
                 <TabsList className="bg-[#161616] border border-[#333]">

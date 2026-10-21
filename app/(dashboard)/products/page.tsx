@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Plus, Loader2, Pencil, Trash2, LayoutGrid, List, Package, Star, Languages, Search } from "lucide-react"
+import { Plus, Loader2, Pencil, Trash2, LayoutGrid, List, Package, Languages, Search } from "lucide-react"
 import { useEffect, useState, useCallback } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
@@ -35,7 +35,6 @@ interface Product {
     stock: number
     status: string
     sku: string
-    rating: number
 }
 
 function ProductCategories({ product, limit = 2 }: { product: Product; limit?: number }) {
@@ -65,23 +64,6 @@ function ProductCategories({ product, limit = 2 }: { product: Product; limit?: n
             {labels.length === 0 && <span className="text-xs text-gray-500">Uncategorized</span>}
         </div>
     )
-}
-
-function getProductRating(product: any): number | null {
-    const candidates = [
-        product?.rating,
-        product?.averageRating,
-        product?.ratings?.average,
-    ]
-
-    for (const candidate of candidates) {
-        const value = Number(candidate)
-        if (Number.isFinite(value)) {
-            return value
-        }
-    }
-
-    return null
 }
 
 export default function ProductsPage() {
@@ -167,81 +149,8 @@ export default function ProductsPage() {
                 const items = Array.isArray(data.data) ? data.data : []
                 const pagination = data.pagination || {}
 
-                // Only fetch ratings for first page or when resetting to avoid too many API calls
-                if (reset || pageNum === 1) {
-                    const missingRatingIds: string[] = items
-                        .filter((product: any) => getProductRating(product) === null)
-                        .map((product: any) => String(product?._id || ""))
-                        .filter(Boolean)
-
-                    let ratingsById: Record<string, number> = {}
-
-                    if (missingRatingIds.length > 0) {
-                        const detailResults = await Promise.all(
-                            missingRatingIds.map(async (productId) => {
-                                try {
-                                    const detailRes = await apiFetch(`/admin/products/${productId}`)
-                                    const detailData = await detailRes.json()
-                                    if (!detailRes.ok) return null
-                                    const detailedProduct = detailData?.data
-                                    const rating = getProductRating(detailedProduct)
-                                    return rating === null ? null : { productId, rating }
-                                } catch {
-                                    return null
-                                }
-                            })
-                        )
-
-                        ratingsById = detailResults.reduce((acc, item) => {
-                            if (item) acc[item.productId] = item.rating
-                            return acc
-                        }, {} as Record<string, number>)
-                    }
-
-                    const productsWithRatings = items.map((product: any) => ({
-                        ...product,
-                        rating: getProductRating(product) ?? ratingsById[String(product?._id || "")] ?? 0,
-                    }))
-
-                    setProducts(productsWithRatings)
-                } else {
-                    // Append new products for load more
-                    const missingRatingIds: string[] = items
-                        .filter((product: any) => getProductRating(product) === null)
-                        .map((product: any) => String(product?._id || ""))
-                        .filter(Boolean)
-
-                    let ratingsById: Record<string, number> = {}
-
-                    if (missingRatingIds.length > 0) {
-                        const detailResults = await Promise.all(
-                            missingRatingIds.map(async (productId) => {
-                                try {
-                                    const detailRes = await apiFetch(`/admin/products/${productId}`)
-                                    const detailData = await detailRes.json()
-                                    if (!detailRes.ok) return null
-                                    const detailedProduct = detailData?.data
-                                    const rating = getProductRating(detailedProduct)
-                                    return rating === null ? null : { productId, rating }
-                                } catch {
-                                    return null
-                                }
-                            })
-                        )
-
-                        ratingsById = detailResults.reduce((acc, item) => {
-                            if (item) acc[item.productId] = item.rating
-                            return acc
-                        }, {} as Record<string, number>)
-                    }
-
-                    const newProducts = items.map((product: any) => ({
-                        ...product,
-                        rating: getProductRating(product) ?? ratingsById[String(product?._id || "")] ?? 0,
-                    }))
-
-                    setProducts(prev => [...prev, ...newProducts])
-                }
+                if (reset || pageNum === 1) setProducts(items)
+                else setProducts(prev => [...prev, ...items])
 
                 setTotalPages(pagination.totalPages || 1)
                 setTotalProducts(pagination.total || items.length)
@@ -450,9 +359,8 @@ export default function ProductsPage() {
                                 <TableHead className="text-gray-400">Category</TableHead>
                                 <TableHead className="text-gray-400 text-right">Price</TableHead>
                                 <TableHead className="text-gray-400 text-right">Stock</TableHead>
-                                <TableHead className="text-gray-400 text-center">Rating</TableHead>
                                 <TableHead className="text-gray-400 text-center">Status</TableHead>
-                                <TableHead className="text-gray-400 text-right">Actions</TableHead>
+                                {isAdmin && <TableHead className="text-gray-400 text-right">Actions</TableHead>}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -468,30 +376,24 @@ export default function ProductsPage() {
                                     <TableCell className="text-white text-right">₹{product.retailPrice.toLocaleString()}</TableCell>
                                     <TableCell className="text-white text-right">{product.stock}</TableCell>
                                     <TableCell className="text-center">
-                                        <div className="flex items-center justify-center gap-1 text-yellow-500">
-                                            <Star className="h-3 w-3 fill-current" />
-                                            <span className="text-xs">{product.rating > 0 ? product.rating : "-"}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-center">
                                         <Badge className={`${product.status === 'active' ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20' :
                                             'bg-gray-500/10 text-gray-500 hover:bg-gray-500/20'
                                             }`}>
                                             {product.status}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className="text-right">
+                                    {isAdmin && <TableCell className="text-right">
                                         <div className="flex justify-end gap-2">
-                                            {isAdmin && <><Link href={editProductHref(product._id)} aria-label={`Edit ${product.name}`}>
+                                            <Link href={editProductHref(product._id)} aria-label={`Edit ${product.name}`}>
                                                 <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10">
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
                                             </Link>
-                                            <Button size="icon" variant="ghost" className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10" onClick={() => deleteProduct(product._id)}>
+                                            {product.status !== 'archived' && <Button size="icon" variant="ghost" aria-label={`Archive ${product.name}`} title="Archive" className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10" onClick={() => deleteProduct(product._id)}>
                                                 <Trash2 className="h-4 w-4" />
-                                            </Button></>}
+                                            </Button>}
                                         </div>
-                                    </TableCell>
+                                    </TableCell>}
                                 </TableRow>
                             ))}
                         </TableBody>
@@ -516,9 +418,9 @@ export default function ProductsPage() {
                                             <Pencil className="h-3.5 w-3.5" />
                                         </Button>
                                     </Link>
-                                    <Button size="icon" variant="ghost" className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-400/10" onClick={() => deleteProduct(product._id)}>
+                                    {product.status !== 'archived' && <Button size="icon" variant="ghost" aria-label={`Archive ${product.name}`} title="Archive" className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-400/10" onClick={() => deleteProduct(product._id)}>
                                         <Trash2 className="h-3.5 w-3.5" />
-                                    </Button></>}
+                                    </Button>}</>}
                                 </div>
                             </div>
                             <h3 className={`font-semibold text-white text-base mb-1 line-clamp-1 ${isAdmin ? "group-hover:text-[#86efac]" : ""}`}>{product.name}</h3>
@@ -530,10 +432,6 @@ export default function ProductsPage() {
                                     }`}>
                                     {product.status}
                                 </Badge>
-                                <div className="flex items-center gap-1 text-yellow-500">
-                                    <Star className="h-3 w-3 fill-current" />
-                                    <span className="text-xs font-medium">{product.rating > 0 ? product.rating : "-"}</span>
-                                </div>
                             </div>
                             <div className="flex items-center justify-between pt-3 border-t border-[#333]">
                                 <div>
