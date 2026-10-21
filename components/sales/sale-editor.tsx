@@ -728,10 +728,11 @@ export function SaleEditor({ saleId }: { saleId?: string }) {
         return all.length ? Math.max(...all) : null
     }, [rows, customerPercent, wholesalerPercent, forCustomers])
 
+    // The preview's countdown: what it runs to, and its label.
     const countdown = useMemo(() => {
-        if (isEnded) return "Sale ended"
-        if (startsAt && new Date(startsAt).getTime() > now) return `Starts in ${timeUntil(new Date(startsAt), now)}`
-        return endsAt ? `Ends in ${timeUntil(new Date(endsAt), now)}` : ""
+        if (isEnded) return { label: "Sale ended", target: null }
+        if (startsAt && new Date(startsAt).getTime() > now) return { label: "Starts in", target: startsAt }
+        return endsAt ? { label: "Ends in", target: endsAt } : { label: "", target: null }
     }, [startsAt, endsAt, isEnded, now])
 
     if (isLoading) {
@@ -857,7 +858,9 @@ export function SaleEditor({ saleId }: { saleId?: string }) {
                             name={name}
                             subtitle={subtitle}
                             upToPercent={previewPercent}
-                            countdown={countdown}
+                            countdownLabel={countdown.label}
+                            countdownTarget={countdown.target}
+                            now={now}
                             heroImage={heroImageUrl ? (heroImageUrl.startsWith("/") ? buildApiUrl(heroImageUrl).replace("/api/v1", "") : heroImageUrl) : undefined}
                         />
                     </div>

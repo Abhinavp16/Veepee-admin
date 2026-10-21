@@ -44,12 +44,12 @@ export const SALE_THEMES: SaleTheme[] = [
         glow: "#FFE9A8",
     },
     {
-        // OXON's brown-black and amber.
+        // OXON Black: the splash screen's black and amber.
         key: "flash",
         label: "Flash Sale",
         forWhat: "One-day or few-hour deals",
         tagline: "Today only",
-        gradient: ["#1C1917", "#44300F"],
+        gradient: ["#0C0A09", "#1C1917"],
         accent: "#F59E0B",
         onAccent: "#1C1917",
         eyebrow: "#FBBF24",
