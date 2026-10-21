@@ -3,9 +3,9 @@ import { test, expect } from '@playwright/test';
 const BASE_URL = 'http://localhost:3000';
 const API_URL = 'http://localhost:5000';
 
-// Test credentials
-const ADMIN_EMAIL = 'admin@oxon.com';
-const ADMIN_PASSWORD = 'Admin@123';
+// Set ADMIN_TEST_EMAIL and ADMIN_TEST_PASSWORD to a dev admin account before running.
+const ADMIN_EMAIL = process.env.ADMIN_TEST_EMAIL ?? '';
+const ADMIN_PASSWORD = process.env.ADMIN_TEST_PASSWORD ?? '';
 
 test.describe('Admin Panel E2E Tests', () => {
   

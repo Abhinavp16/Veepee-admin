@@ -22,6 +22,7 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog"
 import { apiFetch } from "@/lib/api"
+import { formatDate, labelFor } from "@/lib/format"
 
 interface Customer {
     _id: string
@@ -168,7 +169,7 @@ export default function AccountUpgradesPage() {
                                             <div className="text-sm text-gray-200">{cust.businessInfo?.businessName}</div>
                                         </TableCell>
                                         <TableCell className="text-gray-500 text-xs">
-                                            {new Date(cust.createdAt).toLocaleDateString()}
+                                            {formatDate(cust.createdAt)}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <Button
@@ -232,11 +233,11 @@ export default function AccountUpgradesPage() {
                                                             : "text-red-400 border-red-500/20 bg-red-500/5"
                                                         }`}
                                                 >
-                                                    {cust.businessInfo?.status}
+                                                    {labelFor(cust.businessInfo?.status)}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="py-3 text-xs text-gray-500">
-                                                {new Date(cust.updatedAt).toLocaleDateString()}
+                                                {formatDate(cust.updatedAt)}
                                             </TableCell>
                                             <TableCell className="text-right py-3">
                                                 <Button
@@ -247,7 +248,7 @@ export default function AccountUpgradesPage() {
                                                         setSelectedCustomer(cust)
                                                         setIsDetailsOpen(true)
                                                     }}
-                                                >
+                                                 aria-label="View details" title="View details">
                                                     <Eye className="h-3.5 w-3.5" />
                                                 </Button>
                                             </TableCell>
@@ -307,7 +308,7 @@ export default function AccountUpgradesPage() {
                                         <div>
                                             <span className="text-gray-500 block text-xs mb-1">Current Role</span>
                                             <Badge variant="outline" className="text-blue-400 border-blue-400 capitalize">
-                                                {selectedCustomer.role}
+                                                {labelFor(selectedCustomer.role)}
                                             </Badge>
                                         </div>
                                     </div>

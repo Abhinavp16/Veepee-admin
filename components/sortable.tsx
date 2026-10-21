@@ -25,6 +25,8 @@ import { TableRow } from "@/components/ui/table"
 /**
  * Drag-and-drop ordering that works with mouse, touch and keyboard.
  * `onReorder` receives the ids in their new order.
+ * For tables, wrap the whole <Table>: dnd-kit adds hidden <div>s, which
+ * aren't allowed inside <tbody>.
  */
 export function SortableProvider({
     ids,

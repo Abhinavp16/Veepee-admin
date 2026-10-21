@@ -8,6 +8,7 @@ import { toast } from "sonner"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { apiFetch } from "@/lib/api"
 import { enableWebPush, isWebPushConfigured, listenForForegroundPush, webPushPermission } from "@/lib/web-push"
+import { formatDate } from "@/lib/format"
 
 export interface TeamNotification {
     _id: string
@@ -15,8 +16,16 @@ export interface TeamNotification {
     title: string
     body: string
     link: string
+    data?: { orderId?: string; orderNumber?: string }
     isRead: boolean
     createdAt: string
+}
+
+/** Where a notification leads: the order itself when it is about one. */
+export function notificationTarget(item: TeamNotification): string {
+    const orderId = item.data?.orderId
+    if (orderId && (item.link || "").startsWith("/orders")) return `/orders?order=${encodeURIComponent(orderId)}`
+    return item.link || "/"
 }
 
 export function timeAgo(iso: string): string {
@@ -25,7 +34,7 @@ export function timeAgo(iso: string): string {
     if (minutes < 60) return `${minutes} min ago`
     const hours = Math.floor(minutes / 60)
     if (hours < 24) return `${hours} h ago`
-    return new Date(iso).toLocaleDateString()
+    return formatDate(iso)
 }
 
 export function NotificationBell() {
@@ -68,7 +77,7 @@ export function NotificationBell() {
     async function openItem(item: TeamNotification) {
         if (!item.isRead) await markRead([item._id])
         setOpen(false)
-        router.push(item.link || "/")
+        router.push(notificationTarget(item))
     }
 
     async function turnOnBrowserNotifications() {

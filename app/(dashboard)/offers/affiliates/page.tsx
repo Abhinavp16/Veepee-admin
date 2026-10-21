@@ -24,6 +24,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { formatDate, labelFor } from "@/lib/format"
 
 interface AffiliateCode {
   _id: string
@@ -198,7 +199,7 @@ export default function AffiliateCodesPage() {
         </Card>
         <Card className="bg-[#161616] border-[#333]">
           <CardHeader>
-            <CardTitle className="text-sm text-gray-400">Total Commission (30%)</CardTitle>
+            <CardTitle className="text-sm text-gray-400">Total Commission <span className="font-normal">(30% of the discount given)</span></CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-[#86efac]">{formatInr(totals.commission)}</div>
@@ -208,7 +209,7 @@ export default function AffiliateCodesPage() {
 
       <Card className="bg-[#161616] border-[#333]">
         <CardHeader>
-          <CardTitle className="text-white text-lg">Personal Affiliate Recommendations</CardTitle>
+          <CardTitle className="text-white text-lg">Affiliate codes</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -292,7 +293,7 @@ export default function AffiliateCodesPage() {
                             setEditingCode(code)
                             setIsModalOpen(true)
                           }}
-                        >
+                         aria-label="Edit" title="Edit">
                           <Edit2 className="h-4 w-4" />
                         </Button>
                         <Button
@@ -300,7 +301,7 @@ export default function AffiliateCodesPage() {
                           size="sm"
                           className="h-8 w-8 p-0 text-red-400 hover:bg-red-400/10 hover:text-red-400"
                           onClick={() => deleteCode(code._id)}
-                        >
+                         aria-label="Delete" title="Delete">
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -349,12 +350,12 @@ export default function AffiliateCodesPage() {
                     <TableCell className="text-[#86efac]">{formatInr(row.commissionAmount)}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="text-yellow-300 border-yellow-300">
-                        {row.status.toUpperCase()}
+                        {labelFor(row.status)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-gray-300">{row.triggerEvent}</TableCell>
                     <TableCell className="text-gray-400 text-sm">
-                      {new Date(row.createdAt).toLocaleDateString(undefined, { dateStyle: "medium" })}
+                      {formatDate(row.createdAt)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -411,7 +412,7 @@ export default function AffiliateCodesPage() {
                             Discount: {formatInr(usage.discount || 0)} | Commission: {formatInr(usage.commissionAmount || 0)}
                           </p>
                           <p className="text-[11px] text-gray-600 mt-1">
-                            {new Date(usage.createdAt).toLocaleDateString(undefined, { dateStyle: "medium" })}
+                            {formatDate(usage.createdAt)}
                           </p>
                         </div>
                       </div>
@@ -426,7 +427,7 @@ export default function AffiliateCodesPage() {
                               : "bg-blue-500/5 text-blue-500 border-blue-500/20"
                           }`}
                         >
-                          {usage.status.toUpperCase()}
+                          {labelFor(usage.status)}
                         </span>
                       </div>
                     </div>

@@ -8,6 +8,7 @@ import { apiFetch, endSession, logout } from "@/lib/api"
 import { canAccessPath, type DashboardRole } from "@/lib/navigation"
 import { Loader2, ShieldAlert, WifiOff } from "lucide-react"
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 
 function isDashboardRole(role: unknown): role is DashboardRole {
@@ -81,7 +82,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <Sidebar user={user} mobileOpen={mobileOpen} onMobileOpenChange={setMobileOpen} />
         <main className="relative min-w-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8 xl:p-9">
           <SessionBanner />
-          {routeAllowed ? children : <div className="mx-auto flex min-h-[60vh] max-w-lg flex-col items-center justify-center text-center"><div className="mb-5 rounded-full bg-red-500/10 p-4 text-red-400"><ShieldAlert className="h-8 w-8" /></div><h1 className="text-2xl font-bold">This area is restricted</h1><p className="mt-2 text-sm text-[#919191]">Your Staff account does not have access to this administrative control.</p></div>}
+          {routeAllowed ? children : <div className="mx-auto flex min-h-[60vh] max-w-lg flex-col items-center justify-center text-center"><div className="mb-5 rounded-full bg-red-500/10 p-4 text-red-400"><ShieldAlert className="h-8 w-8" /></div><h1 className="text-2xl font-bold">This area is restricted</h1><p className="mt-2 text-sm text-[#919191]">Your staff account can&apos;t open this page.</p><Link href="/" className="mt-5 rounded-lg bg-[#86efac] px-4 py-2 text-sm font-semibold text-black hover:bg-[#86efac]/90">Back to dashboard</Link></div>}
         </main>
       </div>
     </div>

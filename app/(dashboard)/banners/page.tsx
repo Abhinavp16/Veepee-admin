@@ -12,6 +12,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import * as HugeIconsFree from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { apiFetch, buildApiUrl } from "@/lib/api"
+import { placeholderImage } from "@/lib/placeholder-image"
 import { SortableItem, SortableProvider } from "@/components/sortable"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -517,7 +518,7 @@ export default function BannersPage() {
                             variant="ghost" size="icon"
                             className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-900/20"
                             onClick={() => removeFn(index)}
-                        >
+                         aria-label="Delete" title="Delete">
                             <Trash2 className="h-4 w-4" />
                         </Button>
                     </div>
@@ -532,7 +533,7 @@ export default function BannersPage() {
                                 alt="Preview"
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
-                                    (e.target as HTMLImageElement).src = 'https://placehold.co/600x400/161616/white?text=Invalid+Image';
+                                    (e.target as HTMLImageElement).src = placeholderImage("Image not found", 600, 400);
                                 }}
                             />
                         ) : (
@@ -601,9 +602,6 @@ export default function BannersPage() {
                                         {banner.imageUrl ? "Change Image" : "Upload Image"}
                                     </span>
                                 </Button>
-                                {banner.imageUrl && (
-                                    <p className="text-[11px] text-[#555] mt-1 truncate max-w-xs">{banner.imageUrl}</p>
-                                )}
                             </div>
                             <div>
                                 <label className="text-xs text-[#919191] mb-1 block">Link Type</label>
@@ -644,19 +642,19 @@ export default function BannersPage() {
                                             </select>
                                             <p className="text-[11px] text-gray-400">
                                                 {selectedProduct
-                                                    ? `Product link: ${buildProductLink(selectedProduct._id)}`
-                                                    : "The banner will automatically use the selected product link."}
+                                                    ? `Tapping the banner opens ${selectedProduct.name}.`
+                                                    : "Choose the product this banner opens."}
                                             </p>
                                         </div>
                                     ) : (
                                         <div className="space-y-2">
                                             <Input
                                                 className="bg-[#161616] border-[#333] text-white text-sm"
-                                                placeholder="e.g. /product/abc123"
+                                                placeholder="e.g. https://www.veepeeimpex.com/products/…"
                                                 value={banner.linkUrl}
                                                 onChange={(e) => updateFn(index, 'linkUrl', e.target.value)}
                                             />
-                                            <p className="text-[11px] text-gray-400">Use this if you want to enter a custom destination manually.</p>
+                                            <p className="text-[11px] text-gray-400">For a link that isn&apos;t a single product.</p>
                                         </div>
                                     )}
                                 </div>
@@ -716,7 +714,7 @@ export default function BannersPage() {
     }
 
     return (
-        <div className="flex flex-col gap-6 max-w-4xl">
+        <div className="flex flex-col gap-6 max-w-6xl">
             <div>
                 <h1 className="text-3xl font-bold text-white">Banner Management</h1>
                 <p className="text-[#919191] mt-1">Manage promotional banners shown on the app home screen</p>

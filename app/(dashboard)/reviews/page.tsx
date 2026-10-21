@@ -89,7 +89,7 @@ export default function ReviewsPage() {
             <div className="flex justify-between items-center">
                 <div className="flex items-center gap-3">
                     <Star className="h-8 w-8 text-[#86efac]" />
-                    <h1 className="text-3xl font-bold text-white">Customer Reviews</h1>
+                    <h1 className="text-3xl font-bold text-white">Testimonials</h1>
                 </div>
                 <Button
                     onClick={() => {
@@ -164,7 +164,7 @@ export default function ReviewsPage() {
                                                         setEditingReview(review)
                                                         setIsModalOpen(true)
                                                     }}
-                                                >
+                                                 aria-label="Edit" title="Edit">
                                                     <Edit2 className="h-4 w-4" />
                                                 </Button>
                                                 <Button
@@ -172,7 +172,7 @@ export default function ReviewsPage() {
                                                     size="sm"
                                                     className="h-8 w-8 p-0 text-red-400 hover:bg-red-400/10 hover:text-red-400"
                                                     onClick={() => deleteReview(review._id)}
-                                                >
+                                                 aria-label="Delete" title="Delete">
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             </div>

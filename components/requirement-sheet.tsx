@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { apiFetch } from "@/lib/api"
+import { labelFor } from "@/lib/format"
 
 interface RequirementLine {
     id: string
@@ -106,7 +107,7 @@ export function RequirementSheet({ groupId, onClose, onChanged }: { groupId: str
                 <SheetHeader>
                     <SheetTitle className="text-white">{requirement ? `Requirement ${requirement.requestGroup.number}` : "Requirement"}</SheetTitle>
                     <SheetDescription className="text-gray-400">
-                        {requirement ? `${requirement.productCount} products · total ${money(requirement.totalPrice)}${requirement.waitingOn ? ` · waiting on the ${requirement.waitingOn}` : ""}` : "Loading…"}
+                        {requirement ? `${requirement.productCount} products · total ${money(requirement.totalPrice)}${requirement.waitingOn === "dealer" ? " · waiting for your reply" : requirement.waitingOn === "wholesaler" ? " · waiting on the customer" : ""}` : "Loading…"}
                     </SheetDescription>
                 </SheetHeader>
                 {loading && !requirement && <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-[#86efac]" /></div>}
@@ -122,7 +123,7 @@ export function RequirementSheet({ groupId, onClose, onChanged }: { groupId: str
                                                 <p className="truncate font-medium">{item.product.name}</p>
                                                 <p className="text-xs text-gray-500">{item.quantity} units · asked {money(item.requestedPricePerUnit)} each</p>
                                             </div>
-                                            <Badge variant="outline" className={STATUS_STYLE[item.status] || "text-gray-500 border-gray-500"}>{item.status}</Badge>
+                                            <Badge variant="outline" className={STATUS_STYLE[item.status] || "text-gray-500 border-gray-500"}>{labelFor(item.status)}</Badge>
                                         </div>
                                         <div className="mt-3 flex items-center gap-3">
                                             {editable ? (

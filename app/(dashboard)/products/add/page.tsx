@@ -47,6 +47,8 @@ import { useRouter } from "next/navigation"
 import { apiFetch } from "@/lib/api"
 import { CategoryOption, fetchAllCategories } from "@/lib/categories"
 import { safeInternalReturnTo } from "@/lib/admin-context"
+import { formatDateTime } from "@/lib/format"
+import { placeholderImage } from "@/lib/placeholder-image"
 
 type Category = CategoryOption
 
@@ -370,7 +372,7 @@ export default function AddProductPage() {
                 product.pendingMrp != null ? `MRP ₹${product.pendingMrp}` : null,
             ].filter(Boolean)
             setPendingPriceNotice(pendingParts.length > 0
-                ? `A scheduled price change is pending (${pendingParts.join(", ")})${product.priceChangeEffectiveAt ? ` for ${new Date(product.priceChangeEffectiveAt).toLocaleString()}` : ""}. Saving a new price here replaces it.`
+                ? `A scheduled price change is pending (${pendingParts.join(", ")})${product.priceChangeEffectiveAt ? ` for ${formatDateTime(product.priceChangeEffectiveAt)}` : ""}. Saving a new price here replaces it.`
                 : null)
 
             // Set images
@@ -532,7 +534,7 @@ export default function AddProductPage() {
                 const totalConverted = data.data.reduce((sum: number, img: any) => sum + (img.convertedSize || 0), 0)
                 if (totalOriginal > 0) {
                     toast.success(
-                        `${newImages.length} image(s) converted to WebP & uploaded! Saved ${formatBytes(totalOriginal - totalConverted)} (${Math.round((1 - totalConverted / totalOriginal) * 100)}% smaller)`
+                        `${newImages.length} ${newImages.length === 1 ? 'image' : 'images'} uploaded (compressed ${Math.round((1 - totalConverted / totalOriginal) * 100)}%, saved ${formatBytes(totalOriginal - totalConverted)})`
                     )
                 } else {
                     toast.success(`${newImages.length} image(s) uploaded successfully`)
@@ -850,7 +852,7 @@ export default function AddProductPage() {
             )}
             <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center">
                 <NextLink href={returnTo}>
-                    <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white">
+                    <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white" aria-label="Back" title="Back">
                         <ArrowLeft className="h-5 w-5" />
                     </Button>
                 </NextLink>
@@ -858,24 +860,6 @@ export default function AddProductPage() {
                     <h1 className="text-3xl font-bold text-white">
                         {isEditMode ? "Edit Product" : "Add New Product"}
                     </h1>
-                </div>
-                <div className="flex items-center gap-3">
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        className="text-gray-400 hover:text-white"
-                        onClick={() => router.push(returnTo)}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={() => form.handleSubmit(onSubmit)()}
-                        disabled={isLoading || isLoadingCompanyCategories}
-                        className="px-8"
-                    >
-                        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {isEditMode ? "Update" : "Create"}
-                    </Button>
                 </div>
             </div>
 
@@ -986,7 +970,7 @@ export default function AddProductPage() {
                                                             </Popover>
                                                          <Dialog open={showNewCategoryDialog} onOpenChange={setShowNewCategoryDialog}>
                                                             <DialogTrigger asChild>
-                                                                <Button type="button" variant="outline" size="icon" className="border-[#333] bg-[#1A1A1A] text-white hover:bg-[#333]">
+                                                                <Button type="button" variant="outline" size="icon" className="border-[#333] bg-[#1A1A1A] text-white hover:bg-[#333]" aria-label="Add" title="Add">
                                                                     <Plus className="h-4 w-4" />
                                                                 </Button>
                                                             </DialogTrigger>
@@ -1081,7 +1065,7 @@ export default function AddProductPage() {
                                                                             </SelectContent>
                                                                         </Select>
                                                                         <FormDescription className="text-gray-500">
-                                                                            Used for the product&apos;s main grouping and legacy category slug.
+                                                                            The product&apos;s main category, used for grouping and its web address.
                                                                         </FormDescription>
                                                                         <FormMessage />
                                                                     </FormItem>
@@ -1158,7 +1142,7 @@ export default function AddProductPage() {
                                                 type="button"
                                                 onClick={addImage}
                                                 className="bg-[#86efac] text-black hover:bg-[#86efac]/90"
-                                            >
+                                             aria-label="Add" title="Add">
                                                 <Plus className="h-4 w-4" />
                                             </Button>
                                         </div>
@@ -1187,7 +1171,7 @@ export default function AddProductPage() {
                                                                     ) : (
                                                                         <span className="text-[11px]">✓</span>
                                                                     )}
-                                                                    Converting to WebP
+                                                                    Compressing
                                                                 </span>
                                                                 <span className="text-gray-600">→</span>
                                                                 <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${uploadStatus === 'uploading'
@@ -1228,7 +1212,7 @@ export default function AddProductPage() {
                                                                     }`} />
                                                             </div>
                                                             <p className="text-xs text-gray-500">
-                                                                {uploadStatus === 'converting' && 'Converting images to WebP for smaller file sizes...'}
+                                                                {uploadStatus === 'converting' && 'Compressing images…'}
                                                                 {uploadStatus === 'uploading' && 'Uploading optimized images to storage...'}
                                                                 {uploadStatus === 'done' && 'Upload complete!'}
                                                             </p>
@@ -1239,7 +1223,7 @@ export default function AddProductPage() {
                                                             <p className="text-sm text-gray-400">
                                                                 <span className="text-[#86efac]">Click to upload</span> or drag and drop
                                                             </p>
-                                                            <p className="text-xs text-gray-500">PNG, JPG, GIF, WebP (max 5MB) — auto-converted to WebP</p>
+                                                            <p className="text-xs text-gray-500">PNG, JPG, GIF or WebP, up to 5 MB. Images are compressed automatically.</p>
                                                         </>
                                                     )}
                                                 </div>
@@ -1269,7 +1253,7 @@ export default function AddProductPage() {
                                                         alt={`Product ${index + 1}`}
                                                         className="w-full aspect-square object-cover"
                                                         onError={(e) => {
-                                                            (e.target as HTMLImageElement).src = 'https://placehold.co/200x200/1a1a1a/666?text=Error'
+                                                            (e.target as HTMLImageElement).src = placeholderImage("No image", 200, 200)
                                                         }}
                                                     />
                                                     {/* Featured Badge */}
@@ -1282,7 +1266,7 @@ export default function AddProductPage() {
                                                     {/* WebP savings badge */}
                                                     {img.savings && (
                                                         <div className="absolute bottom-1 left-1 bg-blue-600/80 text-white text-[11px] px-1.5 py-0.5 rounded">
-                                                            WebP {img.savings} saved
+                                                            {img.savings} smaller
                                                         </div>
                                                     )}
                                                     {/* Actions Overlay */}
@@ -1758,7 +1742,7 @@ export default function AddProductPage() {
                                                     </Popover>
                                                     <Dialog open={showNewCompanyDialog} onOpenChange={setShowNewCompanyDialog}>
                                                         <DialogTrigger asChild>
-                                                            <Button type="button" variant="outline" size="icon" className="border-[#333] bg-[#1A1A1A] text-white hover:bg-[#333]">
+                                                            <Button type="button" variant="outline" size="icon" className="border-[#333] bg-[#1A1A1A] text-white hover:bg-[#333]" aria-label="Add" title="Add">
                                                                 <Plus className="h-4 w-4" />
                                                             </Button>
                                                         </DialogTrigger>
@@ -1987,7 +1971,8 @@ export default function AddProductPage() {
                                 </CardContent>
                             </Card>
 
-                            <div className="flex gap-4 pt-4">
+                            {/* One Save/Cancel pair, kept in view while scrolling the form. */}
+                            <div className="sticky bottom-0 z-10 -mx-1 flex gap-4 border-t border-[#333] bg-[#0D0D0D]/95 px-1 py-4 backdrop-blur">
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -1998,7 +1983,7 @@ export default function AddProductPage() {
                                 </Button>
                                 <Button type="submit" className="flex-1" disabled={isLoading || isLoadingCompanyCategories}>
                                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    {isEditMode ? "Update Product" : "Create Product"}
+                                    {isEditMode ? "Save changes" : "Create product"}
                                 </Button>
                             </div>
                         </div>

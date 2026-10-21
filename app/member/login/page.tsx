@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Eye, EyeOff, Loader2 } from "lucide-react"
 import { toast } from "sonner"
@@ -52,9 +53,11 @@ export default function MemberLoginPage() {
         <CardContent>
           {endedNote && <p role="status" className="mb-4 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-300">{endedNote}</p>}
           <form onSubmit={onSubmit} className="space-y-4">
-            <Input required type="email" placeholder="Work email" value={email} onChange={(e) => setEmail(e.target.value)} className="border-[#333] bg-[#0D0D0D] text-white" />
+            <label htmlFor="staff-email" className="block text-sm font-medium text-white">Work email</label>
+            <Input id="staff-email" required type="email" placeholder="name@veepee.com" value={email} onChange={(e) => setEmail(e.target.value)} className="border-[#333] bg-[#0D0D0D] text-white" />
+            <label htmlFor="staff-password" className="block text-sm font-medium text-white">Password</label>
             <div className="relative">
-              <Input required type={showPassword ? "text" : "password"} placeholder="Password" value={password} onChange={(e) => setPassword(e.target.value)} className="border-[#333] bg-[#0D0D0D] pr-10 text-white" />
+              <Input id="staff-password" required type={showPassword ? "text" : "password"} placeholder="Enter password" value={password} onChange={(e) => setPassword(e.target.value)} className="border-[#333] bg-[#0D0D0D] pr-10 text-white" />
               <button type="button" onClick={() => setShowPassword((v) => !v)} className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-white" aria-label={showPassword ? "Hide password" : "Show password"}>
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -64,6 +67,7 @@ export default function MemberLoginPage() {
             </Button>
             <p className="text-center text-xs text-gray-500">Forgot your password? Ask an administrator for a new temporary one.</p>
           </form>
+          <p className="mt-4 text-center text-sm text-gray-400">Administrator? <Link href="/login" className="text-[#86efac] hover:underline">Admin sign in</Link></p>
         </CardContent>
       </Card>
     </div>

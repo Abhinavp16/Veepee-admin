@@ -34,6 +34,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
 import { useDashboardUser } from "@/components/dashboard-context"
+import { formatDate, labelFor } from "@/lib/format"
 
 interface Customer {
     _id: string
@@ -305,12 +306,12 @@ export default function CustomersPage() {
 
                                 <div className="flex flex-col justify-between p-5 rounded-xl bg-[#0a0a0a] border border-[#333]/50">
                                     <div className="space-y-4">
-                                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Delivery Preview</h4>
-                                        <div className="space-y-3 opacity-60 pointer-events-none scale-95 origin-top">
-                                            <div className="bg-[#161616] p-3 rounded-lg border border-[#333]">
-                                                <div className="h-2 w-20 bg-[#333] rounded mb-2" />
-                                                <div className="h-3 w-32 bg-[#444] rounded" />
-                                            </div>
+                                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Preview</h4>
+                                        {/* How the notification will read on a phone. */}
+                                        <div className="bg-[#161616] p-3 rounded-lg border border-[#333]">
+                                            <p className="text-[11px] text-gray-500">OXON · now</p>
+                                            <p className="mt-1 text-sm font-semibold text-white break-words">{notificationData.title || "Title"}</p>
+                                            <p className="mt-0.5 text-sm text-gray-300 whitespace-pre-line break-words line-clamp-4">{notificationData.body || "Your message will appear here."}</p>
                                         </div>
                                         <p className="text-[11px] text-gray-500 leading-relaxed italic">
                                             Customers will receive this as a push notification on their registered devices.
@@ -324,7 +325,7 @@ export default function CustomersPage() {
                                             className="w-full bg-[#86efac] text-black hover:bg-[#a7f3d0] font-black h-14 gap-3 shadow-[0_0_20px_-5px_rgba(134,239,172,0.3)] transition-all active:scale-[0.98]"
                                         >
                                             {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                                            Disfuse Now
+                                            {selectedIds.length > 0 ? `Send to ${selectedIds.length} ${selectedIds.length === 1 ? "customer" : "customers"}` : "Send"}
                                         </Button>
                                     </div>
                                 </div>
@@ -415,14 +416,14 @@ export default function CustomersPage() {
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="outline" className={cust.role === 'wholesaler' ? "text-purple-400 border-purple-400" : "text-blue-400 border-blue-400"}>
-                                                {cust.role}
+                                                {labelFor(cust.role)}
                                             </Badge>
                                         </TableCell>
                                         <TableCell className="text-gray-400 text-sm">
                                             {cust.businessInfo?.businessName || '-'}
                                         </TableCell>
                                         <TableCell className="text-right text-gray-500 text-xs">
-                                            {new Date(cust.createdAt).toLocaleDateString()}
+                                            {formatDate(cust.createdAt)}
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <Button
@@ -430,7 +431,7 @@ export default function CustomersPage() {
                                                 size="sm"
                                                 className="h-8 w-8 p-0 text-white hover:bg-[#333]"
                                                 onClick={() => fetchCustomerDetails(cust._id)}
-                                            >
+                                             aria-label="View details" title="View details">
                                                 <Eye className="h-4 w-4" />
                                             </Button>
                                         </TableCell>
@@ -440,6 +441,9 @@ export default function CustomersPage() {
                                                 size="sm"
                                                 className="h-8 w-8 p-0 hover:bg-[#333]"
                                                 onClick={() => toggleSelect(cust._id)}
+                                                role="checkbox"
+                                                aria-checked={selectedIds.includes(cust._id)}
+                                                aria-label={`Select ${cust.name} for the notification`}
                                             >
                                                 {selectedIds.includes(cust._id) ? (
                                                     <CheckSquare className="h-4 w-4 text-[#86efac]" />
@@ -461,7 +465,7 @@ export default function CustomersPage() {
                     <DialogHeader>
                         <DialogTitle>Customer Profile</DialogTitle>
                         <DialogDescription>
-                            {selectedCustomer?.name} ({selectedCustomer?.role})
+                            {selectedCustomer?.name} ({labelFor(selectedCustomer?.role)})
                         </DialogDescription>
                     </DialogHeader>
 

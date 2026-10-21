@@ -16,6 +16,7 @@ import { Loader2, Plus, Edit2, Trash2, Power } from "lucide-react"
 import { toast } from "sonner"
 import { OfferModal } from "@/components/offers/offer-modal"
 import { apiFetch } from "@/lib/api"
+import { formatDate } from "@/lib/format"
 
 interface Offer {
     _id: string
@@ -140,8 +141,8 @@ export default function CustomerOffersPage() {
                                             {offer.discountType === 'percentage' ? `${offer.discountValue}%` : `₹${offer.discountValue}`}
                                         </TableCell>
                                         <TableCell className="text-gray-400 text-xs">
-                                            <div>From: {new Date(offer.startDate).toLocaleDateString()}</div>
-                                            {offer.endDate && <div>To: {new Date(offer.endDate).toLocaleDateString()}</div>}
+                                            <div>From: {formatDate(offer.startDate)}</div>
+                                            {offer.endDate && <div>To: {formatDate(offer.endDate)}</div>}
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="outline" className={offer.isActive ? "text-green-400 border-green-400" : "text-gray-500 border-gray-500"}>
@@ -167,7 +168,7 @@ export default function CustomerOffersPage() {
                                                         setEditingOffer(offer)
                                                         setIsModalOpen(true)
                                                     }}
-                                                >
+                                                 aria-label="Edit" title="Edit">
                                                     <Edit2 className="h-4 w-4" />
                                                 </Button>
                                                 <Button
@@ -175,7 +176,7 @@ export default function CustomerOffersPage() {
                                                     size="sm"
                                                     className="h-8 w-8 p-0 text-red-400 hover:bg-red-400/10 hover:text-red-400"
                                                     onClick={() => deleteOffer(offer._id)}
-                                                >
+                                                 aria-label="Delete" title="Delete">
                                                     <Trash2 className="h-4 w-4" />
                                                 </Button>
                                             </div>

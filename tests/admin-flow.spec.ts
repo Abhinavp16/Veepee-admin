@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test';
 
+// Set ADMIN_TEST_EMAIL and ADMIN_TEST_PASSWORD to a dev admin account before running.
+const ADMIN_EMAIL = process.env.ADMIN_TEST_EMAIL ?? '';
+const ADMIN_PASSWORD = process.env.ADMIN_TEST_PASSWORD ?? '';
+
 test.describe('Admin Panel Flow', () => {
     test.beforeEach(async ({ page }) => {
         // Go to login page
@@ -8,8 +12,8 @@ test.describe('Admin Panel Flow', () => {
 
     test('should login with admin credentials', async ({ page }) => {
         // Fill login form
-        await page.fill('input[name="email"]', 'admin@veepeeimpex.com');
-        await page.fill('input[name="password"]', 'admin123');
+        await page.fill('input[name="email"]', ADMIN_EMAIL);
+        await page.fill('input[name="password"]', ADMIN_PASSWORD);
         
         // Click sign in
         await page.click('button[type="submit"]');
@@ -23,8 +27,8 @@ test.describe('Admin Panel Flow', () => {
 
     test('should navigate to products page', async ({ page }) => {
         // Login first
-        await page.fill('input[name="email"]', 'admin@veepeeimpex.com');
-        await page.fill('input[name="password"]', 'admin123');
+        await page.fill('input[name="email"]', ADMIN_EMAIL);
+        await page.fill('input[name="password"]', ADMIN_PASSWORD);
         await page.click('button[type="submit"]');
         await page.waitForURL('http://localhost:3000/', { timeout: 10000 });
         
@@ -38,8 +42,8 @@ test.describe('Admin Panel Flow', () => {
 
     test('should open add product page', async ({ page }) => {
         // Login first
-        await page.fill('input[name="email"]', 'admin@veepeeimpex.com');
-        await page.fill('input[name="password"]', 'admin123');
+        await page.fill('input[name="email"]', ADMIN_EMAIL);
+        await page.fill('input[name="password"]', ADMIN_PASSWORD);
         await page.click('button[type="submit"]');
         await page.waitForURL('http://localhost:3000/', { timeout: 10000 });
         
@@ -57,8 +61,8 @@ test.describe('Admin Panel Flow', () => {
 
     test('should create a new product', async ({ page }) => {
         // Login first
-        await page.fill('input[name="email"]', 'admin@veepeeimpex.com');
-        await page.fill('input[name="password"]', 'admin123');
+        await page.fill('input[name="email"]', ADMIN_EMAIL);
+        await page.fill('input[name="password"]', ADMIN_PASSWORD);
         await page.click('button[type="submit"]');
         await page.waitForURL('http://localhost:3000/', { timeout: 10000 });
         
@@ -103,8 +107,8 @@ test.describe('Admin Panel Flow', () => {
 
     test('should logout when token expires', async ({ page }) => {
         // Login first
-        await page.fill('input[name="email"]', 'admin@veepeeimpex.com');
-        await page.fill('input[name="password"]', 'admin123');
+        await page.fill('input[name="email"]', ADMIN_EMAIL);
+        await page.fill('input[name="password"]', ADMIN_PASSWORD);
         await page.click('button[type="submit"]');
         await page.waitForURL('http://localhost:3000/', { timeout: 10000 });
         

@@ -36,7 +36,7 @@ export function Header({ user, onMenuClick }: HeaderProps) {
         {user.role === "admin" && <Link href="/settings"><DropdownMenuItem className="mt-2 cursor-pointer rounded-lg py-2 focus:bg-[#1A1A1A] focus:text-[#86efac]"><Settings2 className="mr-3 h-4 w-4" />Business settings</DropdownMenuItem></Link>}
         <Link href="/member/change-password"><DropdownMenuItem className="mt-1 cursor-pointer rounded-lg py-2 focus:bg-[#1A1A1A] focus:text-[#86efac]"><KeyRound className="mr-3 h-4 w-4" />Change password</DropdownMenuItem></Link>
         <DropdownMenuSeparator className="my-2 bg-[#1F1F1F]" />
-        <DropdownMenuItem onClick={async () => { await logout() }} className="cursor-pointer rounded-lg py-2 focus:bg-red-500/10 focus:text-red-400"><LogOut className="mr-3 h-4 w-4" />Logout session</DropdownMenuItem>
+        <DropdownMenuItem onClick={async () => { await logout() }} className="cursor-pointer rounded-lg py-2 focus:bg-red-500/10 focus:text-red-400"><LogOut className="mr-3 h-4 w-4" />Log out</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
     </div>

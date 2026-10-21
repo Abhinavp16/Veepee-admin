@@ -27,6 +27,7 @@ import { Separator } from "@/components/ui/separator"
 import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
 import { RequirementSheet } from "@/components/requirement-sheet"
+import { formatDateTime, labelFor } from "@/lib/format"
 
 interface NegotiationList {
     id: string
@@ -174,6 +175,10 @@ export default function NegotiationsPage() {
 
     async function handleAction(action: 'accept' | 'reject' | 'counter') {
         if (!selectedNegotiation) return
+        if (action === 'counter' && !(Number(counterPrice) > 0)) {
+            toast.error("Enter a counter price above ₹0")
+            return
+        }
         setIsSubmitting(true)
 
         let endpoint = `/admin/negotiations/${selectedNegotiation._id}/${action}`
@@ -223,7 +228,7 @@ export default function NegotiationsPage() {
             case 'accepted': return <Badge variant="outline" className="text-green-500 border-green-500">Accepted</Badge>
             case 'rejected': return <Badge variant="outline" className="text-red-500 border-red-500">Rejected</Badge>
             case 'countered': return <Badge variant="outline" className="text-blue-500 border-blue-500">Countered</Badge>
-            default: return <Badge variant="outline" className="text-gray-500 border-gray-500">{status}</Badge>
+            default: return <Badge variant="outline" className="text-gray-500 border-gray-500">{labelFor(status)}</Badge>
         }
     }
 
@@ -272,7 +277,7 @@ export default function NegotiationsPage() {
 
             <Card className="bg-[#161616] border-[#333]">
                 <CardHeader>
-                    <CardTitle className="text-white">Active Requests</CardTitle>
+                    <CardTitle className="text-white">Requests</CardTitle>
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
@@ -284,7 +289,7 @@ export default function NegotiationsPage() {
                             <TableHeader>
                                 <TableRow className="border-[#333] hover:bg-[#1A1A1A]">
                                     <TableHead className="text-gray-400">ID</TableHead>
-                                    <TableHead className="text-gray-400">Wholesaler</TableHead>
+                                    <TableHead className="text-gray-400">Customer</TableHead>
                                     <TableHead className="text-gray-400">Product</TableHead>
                                     <TableHead className="text-gray-400 text-right">Qty</TableHead>
                                     <TableHead className="text-gray-400 text-right">Req. Price</TableHead>
@@ -302,7 +307,7 @@ export default function NegotiationsPage() {
                                         <TableCell className="text-white whitespace-normal min-w-[110px]">{negotiation.wholesaler?.name || 'Unknown'}</TableCell>
                                         <TableCell className="text-gray-400 whitespace-normal min-w-[140px] max-w-[240px]">{negotiation.product?.name || 'Unknown'}</TableCell>
                                         <TableCell className="text-white text-right">{negotiation.requestedQuantity}</TableCell>
-                                        <TableCell className="text-white text-right">₹{negotiation.requestedPricePerUnit.toLocaleString()}</TableCell>
+                                        <TableCell className="text-white text-right">{negotiation.requestedPricePerUnit > 0 ? `₹${negotiation.requestedPricePerUnit.toLocaleString("en-IN")}` : "—"}</TableCell>
                                         <TableCell className="text-center">
                                             {getStatusBadge(negotiation.status)}
                                         </TableCell>
@@ -378,7 +383,7 @@ export default function NegotiationsPage() {
                                                     {entry.message && <p className="text-sm">{entry.message}</p>}
                                                 </div>
                                                 <span className="text-[11px] text-gray-500">
-                                                    {new Date(entry.timestamp).toLocaleString()}
+                                                    {formatDateTime(entry.timestamp)}
                                                 </span>
                                             </div>
                                         ))}
@@ -421,6 +426,8 @@ export default function NegotiationsPage() {
                                                     className="bg-blue-600 hover:bg-blue-700"
                                                     disabled={!counterPrice || isSubmitting}
                                                     onClick={() => handleAction('counter')}
+                                                    aria-label="Send counter-offer"
+                                                    title="Send counter-offer"
                                                 >
                                                     <Send className="w-4 h-4" />
                                                 </Button>

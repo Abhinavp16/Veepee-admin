@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import { apiFetch } from "@/lib/api"
+import { placeholderImage } from "@/lib/placeholder-image"
 import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -158,8 +159,8 @@ const hasDraftProductContent = (product?: WebsiteCategoryProduct | null): boolea
     if (!product) return false
     return Boolean(product.name?.trim() || product.shortDescription?.trim() || product.image?.trim() || product.sku?.trim())
 }
-const categoryPreviewFallback = "https://placehold.co/160x110/0f1115/8a93a3?text=Category"
-const productPreviewFallback = "https://placehold.co/120x120/0f1115/8a93a3?text=Product"
+const categoryPreviewFallback = placeholderImage("Category", 160, 110)
+const productPreviewFallback = placeholderImage("Product", 120, 120)
 const defaultCategoriesSection: SectionConfig = {
     eyebrow: "PRODUCT CATEGORIES",
     title: "The Heart of Modern Farming",
@@ -192,7 +193,8 @@ export default function ManageWebsitePage() {
     const [expandedProductKey, setExpandedProductKey] = useState<string | null>(null)
 
     const websiteBaseUrl = useMemo(() => {
-        const raw = process.env.NEXT_PUBLIC_WEBSITE_BASE_URL || "http://localhost:3000"
+        // Previews load images from the live website unless another one is set.
+        const raw = process.env.NEXT_PUBLIC_WEBSITE_BASE_URL || "https://www.veepeeimpex.com"
         return raw.replace(/\/+$/, "")
     }, [])
 
@@ -592,7 +594,7 @@ export default function ManageWebsitePage() {
         <div className="space-y-6">
             <div>
                 <h1 className="text-3xl font-bold text-white flex items-center gap-3"><Globe className="h-7 w-7 text-[#86efac]" />Manage Website</h1>
-                <p className="text-[#919191] mt-1">Hero has fixed 5 cards. Admin can only update image.</p>
+                <p className="text-[#919191] mt-1">Change what visitors see on the website home page.</p>
             </div>
 
             <Tabs defaultValue="hero" className="w-full">
@@ -610,7 +612,7 @@ export default function ManageWebsitePage() {
                                     <span className="inline-block w-2 h-2 rounded-full bg-[#86efac]" />
                                     Hero Cards
                                 </CardTitle>
-                                <CardDescription className="text-[#A5A9B5]">Exactly 5 cards. Only image is editable.</CardDescription>
+                                <CardDescription className="text-[#A5A9B5]">The hero always has 5 cards; you can change each card&apos;s image.</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 {heroCards.map((item, index) => (
@@ -628,7 +630,7 @@ export default function ManageWebsitePage() {
                                                         alt={`Hero preview ${index + 1}`}
                                                         className="w-full h-full object-cover"
                                                         onError={(e) => {
-                                                            (e.target as HTMLImageElement).src = `https://placehold.co/400x220/0b0f16/9ca3af?text=Hero+${index + 1}`;
+                                                            (e.target as HTMLImageElement).src = placeholderImage(`Hero ${index + 1}`, 400, 220);
                                                         }}
                                                     />
                                                 ) : (
@@ -663,7 +665,7 @@ export default function ManageWebsitePage() {
                                                         alt={`Card ${i + 1}`}
                                                         className="w-full h-full object-cover"
                                                         onError={(e) => {
-                                                            (e.target as HTMLImageElement).src = `https://placehold.co/600x260/0b0f16/9ca3af?text=Hero+${i + 1}`;
+                                                            (e.target as HTMLImageElement).src = placeholderImage(`Hero ${i + 1}`, 600, 260);
                                                         }}
                                                     />
                                                 ) : (
@@ -674,9 +676,6 @@ export default function ManageWebsitePage() {
                                             </div>
                                             <div className="p-2 flex items-center justify-between">
                                                 <p className="text-xs text-[#A5A9B5] truncate">Card {i + 1}</p>
-                                                <div className="w-14 h-1.5 rounded-full bg-[#202633] overflow-hidden">
-                                                    <div className="h-full bg-[#86efac]" style={{ width: `${((i + 1) / 5) * 100}%` }} />
-                                                </div>
                                             </div>
                                         </div>
                                     ))}
@@ -718,7 +717,7 @@ export default function ManageWebsitePage() {
                                 </div>
                                 {categories.length === 0 && (
                                     <div className="border border-dashed border-[#333] rounded-lg p-6 text-center text-sm text-[#919191]">
-                                        No category cards yet. Click `Add Category Card` to create one.
+                                        No category cards yet. Click &quot;Add Category Card&quot; to create one.
                                     </div>
                                 )}
                                 {categories.map((item, index) => {
@@ -766,7 +765,7 @@ export default function ManageWebsitePage() {
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-xs text-[#919191]">Active</span>
                                                             <Switch checked={item.isActive !== false} onCheckedChange={(v) => setCategories((prev) => prev.map((c, i) => i === index ? { ...c, isActive: v } : c))} />
-                                                            <Button type="button" variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8" onClick={() => removeCategoryCard(index)}><Trash2 className="h-4 w-4" /></Button>
+                                                            <Button type="button" variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8" onClick={() => removeCategoryCard(index)} aria-label="Delete" title="Delete"><Trash2 className="h-4 w-4" /></Button>
                                                         </div>
                                                     </div>
                                                     <div className="rounded-xl border border-[#2c2c2c] bg-[#101010] p-4 space-y-4">
@@ -936,7 +935,7 @@ export default function ManageWebsitePage() {
                                                                             <Button type="button" variant="outline" size="sm" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]" onClick={() => setExpandedProductKey((prev) => prev === productKey ? null : productKey)}>
                                                                                 {showProductDetails ? "Close" : (product.productId ? "Details" : "Edit")}
                                                                             </Button>
-                                                                            <Button type="button" variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8" onClick={() => removeCategoryProduct(index, productIndex)}>
+                                                                            <Button type="button" variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8" onClick={() => removeCategoryProduct(index, productIndex)} aria-label="Delete" title="Delete">
                                                                                 <Trash2 className="h-4 w-4" />
                                                                             </Button>
                                                                         </div>
@@ -1071,7 +1070,7 @@ export default function ManageWebsitePage() {
                                                             alt={item.name || "Category"}
                                                             className="w-full h-full object-cover"
                                                             onError={(e) => {
-                                                                (e.target as HTMLImageElement).src = `https://placehold.co/600x300/0b0f16/9ca3af?text=Category+${i + 1}`;
+                                                                (e.target as HTMLImageElement).src = placeholderImage(`Category ${i + 1}`, 600, 300);
                                                             }}
                                                         />
                                                     ) : (
@@ -1127,7 +1126,7 @@ export default function ManageWebsitePage() {
                                 </div>
                                 {featuredProducts.map((item, index) => (
                                     <div key={index} className="border border-[#333] rounded-lg p-4 space-y-3">
-                                        <div className="flex justify-between items-center"><p className="text-sm text-white font-medium">Card {index + 1}</p><div className="flex items-center gap-3"><span className="text-xs text-[#919191]">Active</span><Switch checked={item.isActive !== false} onCheckedChange={(v) => setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, isActive: v } : p))} /><Button type="button" variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8" onClick={() => setFeaturedProducts((prev) => prev.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button></div></div>
+                                        <div className="flex justify-between items-center"><p className="text-sm text-white font-medium">Card {index + 1}</p><div className="flex items-center gap-3"><span className="text-xs text-[#919191]">Active</span><Switch checked={item.isActive !== false} onCheckedChange={(v) => setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, isActive: v } : p))} /><Button type="button" variant="ghost" size="icon" className="text-red-400 hover:text-red-300 hover:bg-red-900/20 h-8 w-8" onClick={() => setFeaturedProducts((prev) => prev.filter((_, i) => i !== index))} aria-label="Delete" title="Delete"><Trash2 className="h-4 w-4" /></Button></div></div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3"><Input value={item.name} onChange={(e) => setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, name: e.target.value } : p))} placeholder="Product title" className="bg-[#0D0D0D] border-[#333] text-white" /><Input value={item.price} onChange={(e) => setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, price: e.target.value } : p))} placeholder="Price text" className="bg-[#0D0D0D] border-[#333] text-white" /><Input value={item.image} onChange={(e) => setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, image: e.target.value } : p))} placeholder="Image URL" className="bg-[#0D0D0D] border-[#333] text-white" /><Input value={item.badge} onChange={(e) => setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, badge: e.target.value } : p))} placeholder="Badge" className="bg-[#0D0D0D] border-[#333] text-white" /></div>
                                         <Textarea value={item.shortDescription || ""} onChange={(e) => setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, shortDescription: e.target.value } : p))} placeholder="Short description (shown instead of specs if provided)" className="bg-[#0D0D0D] border-[#333] text-white min-h-[60px]" />
                                         <Textarea value={(item.specs || []).join("\n")} onChange={(e) => setFeaturedProducts((prev) => prev.map((p, i) => i === index ? { ...p, specs: e.target.value.split("\n") } : p))} placeholder="Specs (one per line) - shown if no short description" className="bg-[#0D0D0D] border-[#333] text-white min-h-[90px]" />
@@ -1161,7 +1160,7 @@ export default function ManageWebsitePage() {
                                                             alt={item.name || "Product"}
                                                             className="w-full h-full object-cover"
                                                             onError={(e) => {
-                                                                (e.target as HTMLImageElement).src = `https://placehold.co/600x300/0b0f16/9ca3af?text=Product+${i + 1}`;
+                                                                (e.target as HTMLImageElement).src = placeholderImage(`Product ${i + 1}`, 600, 300);
                                                             }}
                                                         />
                                                     ) : (

@@ -30,6 +30,7 @@ import Image from "next/image"
 import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
 import { useDashboardUser } from "@/components/dashboard-context"
+import { formatDateTime } from "@/lib/format"
 
 interface Order {
     _id: string
@@ -79,7 +80,7 @@ const STATUS_FILTERS = [
 
 /** e.g. "21 Oct 2026, 1:51 pm" in India time. */
 function orderTime(value: string) {
-    return new Date(value).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
+    return formatDateTime(value)
 }
 
 export default function OrdersPage() {
@@ -181,6 +182,15 @@ export default function OrdersPage() {
             fetchOrders(nextPage, false)
         }
     }, [hasMore, isLoadingMore, page])
+
+    // Opened from a notification (/orders?order=<id>): show that order.
+    useEffect(() => {
+        const orderId = new URLSearchParams(window.location.search).get("order")
+        if (!orderId) return
+        void fetchOrderDetails(orderId)
+        window.history.replaceState(null, "", "/orders")
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
     async function fetchOrderDetails(id: string) {
         try {
@@ -510,7 +520,7 @@ export default function OrdersPage() {
                                                     setIsRejectingOrder(false)
                                                     fetchOrderDetails(order._id)
                                                 }}
-                                            >
+                                             aria-label="View details" title="View details">
                                                 <Eye className="h-4 w-4" />
                                             </Button>
                                             </div>
@@ -713,7 +723,7 @@ export default function OrdersPage() {
                                                             <div className="min-w-0">
                                                                 <p className="text-red-300">{attempt.rejectionReason || 'Rejected'}</p>
                                                                 {attempt.rejectedAt && (
-                                                                    <p className="text-gray-500">{new Date(attempt.rejectedAt).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}</p>
+                                                                    <p className="text-gray-500">{formatDateTime(attempt.rejectedAt)}</p>
                                                                 )}
                                                             </div>
                                                         </div>
@@ -832,7 +842,7 @@ export default function OrdersPage() {
                                                 <div>
                                                     <span className="text-white capitalize">{h.status.replace(/_/g, ' ')}</span>
                                                     {h.note && <span className="text-gray-500 ml-2">— {h.note}</span>}
-                                                    <p className="text-xs text-gray-600">{new Date(h.timestamp).toLocaleString('en-IN')}</p>
+                                                    <p className="text-xs text-gray-600">{formatDateTime(h.timestamp)}</p>
                                                 </div>
                                             </div>
                                         ))}

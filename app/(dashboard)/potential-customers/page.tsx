@@ -14,6 +14,7 @@ import { Loader2, UserSearch, Phone, Mail, Package, ChevronLeft, ChevronRight, C
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
 import { fetchAllCategories, type CategoryOption } from "@/lib/categories"
+import { formatDateTime } from "@/lib/format"
 
 type InterestLevel = "Hot" | "Warm" | "Browsing"
 
@@ -125,9 +126,6 @@ export default function PotentialCustomersPage() {
     const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 30, total: 0, pages: 0 })
     // Messaging everyone, one chat per click (browsers block many tabs at once).
     const [queue, setQueue] = useState<{ items: (LeadPerson | PotentialCustomer)[]; index: number; sent: number } | null>(null)
-    const [scheduleTime, setScheduleTime] = useState("")
-    const [scheduledAt, setScheduledAt] = useState<Date | null>(null)
-    const scheduleTimeoutRef = useRef<number | null>(null)
     // Only the latest request updates the list.
     const requestRef = useRef(0)
 
@@ -142,9 +140,6 @@ export default function PotentialCustomersPage() {
     useEffect(() => {
         fetchAllCategories().then(setCategories).catch(() => setCategories([]))
         loadBrands().then(setBrands).catch(() => setBrands([]))
-        return () => {
-            if (scheduleTimeoutRef.current) window.clearTimeout(scheduleTimeoutRef.current)
-        }
     }, [])
 
     useEffect(() => {
@@ -259,15 +254,7 @@ export default function PotentialCustomersPage() {
 
     /** e.g. "19 Oct 2026, 12:56 pm" in India time. */
     function exactTime(dateStr: string) {
-        return new Date(dateStr).toLocaleString("en-IN", {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-            timeZone: "Asia/Kolkata",
-        })
+        return formatDateTime(dateStr)
     }
 
     function formatPrice(price: number) {
@@ -423,42 +410,6 @@ export default function PotentialCustomersPage() {
         if (sent > 0) fetchLeads(1)
     }
 
-    // At the chosen time the step-by-step messaging starts (a browser only
-    // opens WhatsApp after a click).
-    function scheduleMessageToAll() {
-        if (!scheduleTime) {
-            toast.error("Please select date and time")
-            return
-        }
-        const targetTime = new Date(scheduleTime)
-        if (Number.isNaN(targetTime.getTime())) {
-            toast.error("Invalid date/time selected")
-            return
-        }
-        const delay = targetTime.getTime() - Date.now()
-        if (delay <= 0) {
-            toast.error("Please select a future time")
-            return
-        }
-        if (scheduleTimeoutRef.current) window.clearTimeout(scheduleTimeoutRef.current)
-        scheduleTimeoutRef.current = window.setTimeout(() => {
-            scheduleTimeoutRef.current = null
-            setScheduledAt(null)
-            startQueue()
-            toast.info("Time to message your leads: click Send for each one.", { duration: 10000 })
-        }, delay)
-        setScheduledAt(targetTime)
-        toast.success(`Reminder set for ${targetTime.toLocaleString()}. Keep this tab open.`)
-    }
-
-    function cancelScheduledMessage() {
-        if (!scheduleTimeoutRef.current) return
-        window.clearTimeout(scheduleTimeoutRef.current)
-        scheduleTimeoutRef.current = null
-        setScheduledAt(null)
-        toast.success("Scheduled messages cancelled")
-    }
-
     const lastViewedOptions = [
         { value: "today", label: "Last viewed: Today" },
         { value: "yesterday", label: "Last viewed: Yesterday" },
@@ -577,7 +528,7 @@ export default function PotentialCustomersPage() {
             {/* Header */}
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-bold text-white">Potential Customers</h1>
+                    <h1 className="text-3xl font-bold text-white">Leads</h1>
                     <p className="text-sm text-[#919191] mt-1">
                         Users who viewed products but didn&apos;t add to cart or purchase within 5 minutes
                     </p>
@@ -607,11 +558,11 @@ export default function PotentialCustomersPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2">
                     <div className="relative">
                         <Search className="h-4 w-4 text-[#666] absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input aria-label="Search people" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Search name, phone or business" className={inputClass} />
+                        <input aria-label="Search people" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} placeholder="Name, phone or business" className={inputClass} />
                     </div>
                     <div className="relative">
                         <Package className="h-4 w-4 text-[#666] absolute left-3 top-1/2 -translate-y-1/2" />
-                        <input aria-label="Product viewed" value={productInput} onChange={(e) => setProductInput(e.target.value)} placeholder="Viewed product: name or SKU" className={inputClass} />
+                        <input aria-label="Product viewed" value={productInput} onChange={(e) => setProductInput(e.target.value)} placeholder="Product name or SKU" className={inputClass} />
                     </div>
                     <select aria-label="Category" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={selectClass}>
                         <option value="">Category: All</option>
@@ -725,7 +676,7 @@ export default function PotentialCustomersPage() {
             <div className="bg-[#161616] border border-[#333] rounded-2xl">
                 <div className="px-6 py-4 border-b border-[#333] flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex items-center gap-3 flex-wrap">
-                        <h2 className="text-lg font-semibold text-white">{mode === "people" ? "People" : "Lead Details"}</h2>
+                        <h2 className="text-lg font-semibold text-white">{mode === "people" ? "People" : "Products viewed"}</h2>
                         <div className="flex rounded-lg border border-[#333] p-0.5" role="tablist" aria-label="Lead status">
                             {([
                                 { value: "todo", label: "To contact" },
@@ -746,27 +697,6 @@ export default function PotentialCustomersPage() {
                     </div>
                     {view === "todo" && (
                         <div className="flex items-center gap-2 flex-wrap justify-end">
-                            <input
-                                type="datetime-local"
-                                aria-label="Message time"
-                                value={scheduleTime}
-                                onChange={(e) => setScheduleTime(e.target.value)}
-                                className="bg-[#0D0D0D] border border-[#333] text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-[#86efac]"
-                            />
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="border-[#86efac] text-[#86efac] hover:bg-[#86efac]/10"
-                                onClick={scheduleMessageToAll}
-                                disabled={isLoading || rows.length === 0}
-                            >
-                                Schedule All
-                            </Button>
-                            {scheduledAt && (
-                                <Button size="sm" variant="ghost" className="text-white hover:bg-[#333]" onClick={cancelScheduledMessage}>
-                                    Cancel Schedule
-                                </Button>
-                            )}
                             <Button
                                 size="sm"
                                 className="bg-[#86efac] text-black hover:bg-[#86efac]/90"
@@ -779,11 +709,6 @@ export default function PotentialCustomersPage() {
                         </div>
                     )}
                 </div>
-                {scheduledAt && (
-                    <div className="px-6 py-2 border-b border-[#333] text-xs text-[#86efac]">
-                        Messages start at {scheduledAt.toLocaleString()}: keep this tab open, then click Send for each person.
-                    </div>
-                )}
                 {queue && queueItem && (
                     <div className="px-6 py-3 border-b border-[#333] bg-[#86efac]/5 flex items-center justify-between gap-3 flex-wrap">
                         <div className="text-sm text-white">
@@ -1019,7 +944,7 @@ export default function PotentialCustomersPage() {
                                             className="text-white hover:bg-[#333]"
                                             disabled={pagination.page <= 1}
                                             onClick={() => fetchLeads(pagination.page - 1)}
-                                        >
+                                         aria-label="Previous page" title="Previous page">
                                             <ChevronLeft className="h-4 w-4" />
                                         </Button>
                                         <Button
@@ -1028,7 +953,7 @@ export default function PotentialCustomersPage() {
                                             className="text-white hover:bg-[#333]"
                                             disabled={pagination.page >= pagination.pages}
                                             onClick={() => fetchLeads(pagination.page + 1)}
-                                        >
+                                         aria-label="Next page" title="Next page">
                                             <ChevronRight className="h-4 w-4" />
                                         </Button>
                                     </div>

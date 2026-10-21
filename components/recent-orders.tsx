@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { ArrowUpRight, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { apiFetch } from '@/lib/api'
+import { formatDate } from "@/lib/format"
 
 interface Order {
     _id: string
@@ -44,10 +45,6 @@ export function RecentOrders() {
         }
         fetchOrders()
     }, [])
-
-    function formatDate(dateStr: string) {
-        return new Date(dateStr).toLocaleDateString('en-IN', { month: 'short', day: 'numeric', year: 'numeric' })
-    }
 
     function getStatusStyle(status: string) {
         switch (status) {

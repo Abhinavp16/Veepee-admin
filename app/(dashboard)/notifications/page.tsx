@@ -6,7 +6,7 @@ import { Bell, CheckCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { TableSkeleton } from "@/components/table-skeleton"
-import { timeAgo, type TeamNotification } from "@/components/notification-bell"
+import { timeAgo, type TeamNotification, notificationTarget } from "@/components/notification-bell"
 import { apiFetch } from "@/lib/api"
 
 const PAGE_SIZE = 20
@@ -42,7 +42,7 @@ export default function NotificationsPage() {
 
     async function openItem(item: TeamNotification) {
         if (!item.isRead) await markRead([item._id])
-        router.push(item.link || "/")
+        router.push(notificationTarget(item))
     }
 
     return (

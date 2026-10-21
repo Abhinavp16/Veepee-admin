@@ -217,7 +217,7 @@ export default function BrandsPage() {
                                                 variant="ghost" 
                                                 className="h-8 w-8 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10"
                                                 onClick={() => openEditDialog(company)}
-                                            >
+                                             aria-label="Edit" title="Edit">
                                                 <Pencil className="h-4 w-4" />
                                             </Button>
                                             {isAdmin && <Button
@@ -225,7 +225,7 @@ export default function BrandsPage() {
                                                 variant="ghost" 
                                                 className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10"
                                                 onClick={() => setDeleteConfirmId(company._id)}
-                                            >
+                                             aria-label="Delete" title="Delete">
                                                 <Trash2 className="h-4 w-4" />
                                             </Button>}
                                         </div>
@@ -411,31 +411,30 @@ export default function BrandsPage() {
             ) : viewMode === 'list' ? (
                 /* List View */
                 <div className="bg-[#161616] rounded-xl border border-[#333] overflow-hidden">
+                    <SortableProvider ids={companies.map((company) => company._id)} onReorder={handleReorder}>
                     <Table>
                         <TableHeader>
                             <TableRow className="border-[#333] hover:bg-transparent">
                                 {canReorder && <TableHead className="w-8" />}
                                 <TableHead className="text-gray-400">Logo</TableHead>
                                 <TableHead className="text-gray-400">Name</TableHead>
-                                <TableHead className="text-gray-400">Slug</TableHead>
+                                <TableHead className="text-gray-400">Link</TableHead>
                                 <TableHead className="text-gray-400">Internal note</TableHead>
                                 <TableHead className="text-gray-400 text-right">Actions</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {canReorder ? (
-                                <SortableProvider ids={companies.map((company) => company._id)} onReorder={handleReorder}>
-                                    {companies.map((company) => (
-                                        <SortableTableRow key={company._id} id={company._id} className="border-[#333]">
-                                            {(handle) => (
-                                                <>
-                                                    <TableCell className="w-8 pr-0">{handle}</TableCell>
-                                                    {renderBrandCells(company)}
-                                                </>
-                                            )}
-                                        </SortableTableRow>
-                                    ))}
-                                </SortableProvider>
+                                companies.map((company) => (
+                                    <SortableTableRow key={company._id} id={company._id} className="border-[#333]">
+                                        {(handle) => (
+                                            <>
+                                                <TableCell className="w-8 pr-0">{handle}</TableCell>
+                                                {renderBrandCells(company)}
+                                            </>
+                                        )}
+                                    </SortableTableRow>
+                                ))
                             ) : (
                                 companies.map((company) => (
                                     <TableRow key={company._id} className="border-[#333]">
@@ -445,6 +444,7 @@ export default function BrandsPage() {
                             )}
                         </TableBody>
                     </Table>
+                    </SortableProvider>
                 </div>
             ) : (
                 /* Card View */
@@ -477,7 +477,7 @@ export default function BrandsPage() {
                                         variant="ghost" 
                                         className="h-8 w-8 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10"
                                         onClick={() => openEditDialog(company)}
-                                    >
+                                     aria-label="Edit" title="Edit">
                                         <Pencil className="h-4 w-4" />
                                     </Button>
                                     {isAdmin && <Button
@@ -485,7 +485,7 @@ export default function BrandsPage() {
                                         variant="ghost" 
                                         className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10"
                                         onClick={() => setDeleteConfirmId(company._id)}
-                                    >
+                                     aria-label="Delete" title="Delete">
                                         <Trash2 className="h-4 w-4" />
                                     </Button>}
                                 </div>

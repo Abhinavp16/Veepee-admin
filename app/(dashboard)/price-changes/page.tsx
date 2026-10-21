@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
+import { formatDate, formatDateTime } from "@/lib/format"
 
 interface PriceChange {
     _id: string
@@ -67,6 +68,7 @@ export default function PriceChangesPage() {
     const [query, setQuery] = useState("")
     const [page, setPage] = useState(1)
     const [hasNext, setHasNext] = useState(false)
+    const [totalPages, setTotalPages] = useState(1)
     const [scheduledCount, setScheduledCount] = useState(0)
     const [loading, setLoading] = useState(true)
     const [cancelling, setCancelling] = useState<string | null>(null)
@@ -82,6 +84,7 @@ export default function PriceChangesPage() {
             if (!response.ok) throw new Error(body.message || "Could not load price changes")
             setRows(body.data || [])
             setHasNext(Boolean(body.pagination?.hasNext))
+            setTotalPages(body.pagination?.totalPages || 1)
             setScheduledCount(body.scheduledCount || 0)
         } catch (error: any) {
             toast.error(error.message)
@@ -110,13 +113,16 @@ export default function PriceChangesPage() {
         } finally { setCancelling(null) }
     }
 
+    // Only scheduled changes can be cancelled.
+    const anyScheduled = rows.some((row) => row.status === "scheduled")
+
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-3">
                 <div className="rounded-xl bg-[#86efac]/10 p-3"><CalendarClock className="h-6 w-6 text-[#86efac]" /></div>
                 <div>
                     <h1 className="text-3xl font-bold">Price Changes</h1>
-                    <p className="text-sm text-[#919191]">{scheduledCount > 0 ? `${scheduledCount} scheduled to take effect` : "Nothing scheduled right now"}. Scheduled changes are applied by the daily job.</p>
+                    <p className="text-sm text-[#919191]">{scheduledCount > 0 ? `${scheduledCount} scheduled to take effect` : "Nothing scheduled right now"}. Scheduled changes go live at 8:00 am India time once they are due.</p>
                 </div>
             </div>
 
@@ -128,7 +134,7 @@ export default function PriceChangesPage() {
                 </div>
                 <form onSubmit={submitSearch} className="flex gap-2">
                     <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search product or SKU" className="w-full border-[#333] bg-[#0D0D0D] text-white md:w-64" />
-                    <Button type="submit" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white"><Search className="h-4 w-4" /></Button>
+                    <Button type="submit" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white" aria-label="Search" title="Search"><Search className="h-4 w-4" /></Button>
                 </form>
             </div>
 
@@ -144,7 +150,7 @@ export default function PriceChangesPage() {
                                         <TableHead>Takes effect</TableHead>
                                         <TableHead>Status</TableHead>
                                         <TableHead>By</TableHead>
-                                        <TableHead className="text-right">Action</TableHead>
+                                        {anyScheduled && <TableHead className="text-right">Action</TableHead>}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -152,14 +158,14 @@ export default function PriceChangesPage() {
                                         <TableRow key={row._id} className="border-[#333]">
                                             <TableCell><p className="font-medium text-white">{row.productName}</p><p className="text-xs text-[#919191]">{row.productSku}</p></TableCell>
                                             <TableCell className="text-sm text-[#bdbdbd]">{changeLines(row).map((line) => <p key={line}>{line}</p>)}</TableCell>
-                                            <TableCell className="text-sm text-[#bdbdbd]"><p>{new Date(row.effectiveAt).toLocaleString()}</p><p className="text-xs text-[#919191]">{MODE_LABEL[row.scheduleType]}</p></TableCell>
+                                            <TableCell className="text-sm text-[#bdbdbd]"><p>{formatDateTime(row.effectiveAt)}</p><p className="text-xs text-[#919191]">{row.status === "cancelled" || row.status === "superseded" ? "Did not apply" : MODE_LABEL[row.scheduleType]}</p></TableCell>
                                             <TableCell><Badge className={STATUS_STYLE[row.status]}>{STATUSES.find((s) => s.value === row.status)?.label ?? row.status}</Badge></TableCell>
-                                            <TableCell className="text-sm text-[#919191]"><p>{row.adminName}</p><p className="text-xs">{new Date(row.createdAt).toLocaleDateString()}</p></TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="text-sm text-[#919191]"><p>{row.adminName}</p><p className="text-xs">{formatDate(row.createdAt)}</p></TableCell>
+                                            {anyScheduled && <TableCell className="text-right">
                                                 {row.status === "scheduled" && (
                                                     <Button size="sm" variant="outline" disabled={cancelling === row._id} onClick={() => cancel(row)} className="border-red-500/40 bg-transparent text-red-300 hover:bg-red-500/10">{cancelling === row._id && <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />}Cancel</Button>
                                                 )}
-                                            </TableCell>
+                                            </TableCell>}
                                         </TableRow>
                                     ))}
                                     {rows.length === 0 && <TableRow><TableCell colSpan={6} className="py-12 text-center text-[#919191]">No price changes found.</TableCell></TableRow>}
@@ -172,6 +178,7 @@ export default function PriceChangesPage() {
 
             <div className="flex justify-between">
                 <Button variant="outline" disabled={page === 1 || loading} onClick={() => setPage(page - 1)} className="border-[#333] bg-[#0D0D0D] text-white">Previous</Button>
+                <span className="self-center text-sm text-[#919191]">Page {page} of {totalPages}</span>
                 <Button variant="outline" disabled={!hasNext || loading} onClick={() => setPage(page + 1)} className="border-[#333] bg-[#0D0D0D] text-white">Next</Button>
             </div>
         </div>

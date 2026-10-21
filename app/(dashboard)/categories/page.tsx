@@ -219,7 +219,7 @@ export default function CategoriesPage() {
                 const orig = data.data.originalSize || 0
                 const conv = data.data.convertedSize || 0
                 if (orig > 0 && conv > 0) {
-                    toast.success(`Image converted to WebP & uploaded! Saved ${formatBytes(orig - conv)} (${data.data.savings} smaller)`)
+                    toast.success(`Image uploaded and compressed (${data.data.savings} smaller)`)
                 } else {
                     toast.success('Image uploaded successfully')
                 }
@@ -375,7 +375,7 @@ export default function CategoriesPage() {
     const categoryGroups = [
         {
             parentId: null as string | null,
-            label: "Root categories",
+            label: "Top-level categories",
             items: visibleCategories.filter((category) => getCategoryParentId(category) === null).sort(compareCategories),
         },
         ...parentIds.map((groupParentId) => ({
@@ -434,7 +434,7 @@ export default function CategoriesPage() {
     function ReorderControls({ category, index, count }: { category: Category; index: number; count: number }) {
         const disabled = Boolean(companyId) || Boolean(normalizedSearch) || isReordering
         return (
-            <div className="flex items-center" title={companyId ? "Ordering is disabled in brand view because this is not a complete global sibling list" : normalizedSearch ? "Clear search to reorder complete sibling groups" : undefined}>
+            <div className="flex items-center" title={companyId ? "Reorder categories from the full category list, not inside a brand" : normalizedSearch ? "Clear search to reorder complete sibling groups" : undefined}>
                 <button
                     type="button"
                     tabIndex={disabled ? -1 : 0}
@@ -452,7 +452,7 @@ export default function CategoriesPage() {
                         }
                     }}
                     className={`rounded p-1 text-gray-500 ${disabled ? "cursor-not-allowed opacity-40" : "cursor-grab active:cursor-grabbing"}`}
-                    aria-label={`Drag ${category.name} within its sibling group`}
+                    aria-label={`Drag ${category.name} to change its order`}
                 >
                     <GripVertical className="h-4 w-4" />
                 </button>
@@ -555,7 +555,7 @@ export default function CategoriesPage() {
             <p className="text-xs text-gray-500">
                 {companyId
                     ? "Ordering is disabled in brand view because linked categories may not include every global sibling. Edit category details here changes the shared category everywhere."
-                    : "Drag categories or use the arrow buttons to reorder within each sibling group. Clear search to enable ordering."}
+                    : "Drag categories or use the arrows to change their order among categories at the same level. Clear the search to reorder."}
             </p>
 
             {/* Categories Content */}
@@ -577,7 +577,7 @@ export default function CategoriesPage() {
                             <TableRow className="border-[#333] hover:bg-transparent">
                                 <TableHead className="text-gray-400">Image</TableHead>
                                 <TableHead className="text-gray-400">Name</TableHead>
-                                <TableHead className="text-gray-400">Slug</TableHead>
+                                <TableHead className="text-gray-400">Link</TableHead>
                                 <TableHead className="text-gray-400">Parent</TableHead>
                                 <TableHead className="text-gray-400">Products</TableHead>
                                 <TableHead className="text-gray-400">Status</TableHead>
@@ -742,7 +742,7 @@ export default function CategoriesPage() {
                                         variant="ghost" 
                                         className="h-8 w-8 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10"
                                         onClick={() => openEditDialog(category)}
-                                    >
+                                     aria-label="Edit" title="Edit">
                                         <Pencil className="h-4 w-4" />
                                     </Button>
                                      {isAdmin && companyId && <Button
@@ -760,7 +760,7 @@ export default function CategoriesPage() {
                                         variant="ghost" 
                                         className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10"
                                         onClick={() => setDeleteConfirmId(category._id)}
-                                    >
+                                     aria-label="Delete" title="Delete">
                                         <Trash2 className="h-4 w-4" />
                                     </Button>}
                                 </div>
@@ -920,7 +920,7 @@ export default function CategoriesPage() {
                                                 <>
                                                     <Upload className="h-5 w-5 text-gray-400 mb-1" />
                                                     <p className="text-xs text-gray-400">
-                                                        <span className="text-[#86efac]">Click to upload</span> — auto WebP
+                                                        <span className="text-[#86efac]">Click to upload</span>
                                                     </p>
                                                 </>
                                             )}
@@ -945,7 +945,7 @@ export default function CategoriesPage() {
                                 </div>
                             )}
                             <p className="text-xs text-gray-500 mt-1">
-                                {imageUploadMode === 'url' ? 'Enter a direct link to the category image' : 'PNG, JPG, GIF, WebP (max 5MB) — auto-converted to WebP'}
+                                {imageUploadMode === 'url' ? 'Enter a direct link to the category image' : 'PNG, JPG, GIF or WebP, up to 5 MB. Images are compressed automatically.'}
                             </p>
                         </div>
 

@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Loader2, Save, Building2, User, Smartphone } from "lucide-react"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
+import { HindiNamesTool } from "@/components/hindi-names-tool"
 import { Switch } from "@/components/ui/switch"
 
 const settingsSchema = z.object({
@@ -505,6 +506,8 @@ export default function SettingsPage() {
                             ))}
                         </CardContent>
                     </Card>
+
+                    <HindiNamesTool />
 
                     <Button type="submit" disabled={isSaving} className="w-full bg-[#86efac] hover:bg-[#86efac]/90 text-black">
                         {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

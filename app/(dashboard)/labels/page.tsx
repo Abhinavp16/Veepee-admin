@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent, type ReactElement } from "react"
 import {
     BadgeCheck,
-    CircleDollarSign,
+    IndianRupee,
     Headphones,
     Loader2,
     Package,
@@ -39,7 +39,7 @@ const ICON_OPTIONS = [
     { value: "package", label: "Delivery", Icon: Package },
     { value: "support", label: "Support", Icon: Headphones },
     { value: "shield", label: "Protection", Icon: ShieldCheck },
-    { value: "value", label: "Value", Icon: CircleDollarSign },
+    { value: "value", label: "Value", Icon: IndianRupee },
     { value: "truck", label: "Shipping", Icon: Truck },
     { value: "service", label: "Service", Icon: Wrench },
 ] as const
@@ -427,6 +427,8 @@ export default function LabelsPage() {
                     </CardContent>
                 </Card>
             ) : (
+                <section aria-labelledby="saved-labels-heading" className="space-y-3">
+                <h2 id="saved-labels-heading" className="text-lg font-semibold text-white">Saved labels <span className="text-sm font-normal text-[#919191]">({savedLabels.length})</span></h2>
                 <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
                     {savedLabels.map((label, index) => (
                         <Card key={`${label.title}-${index}`} className="border-[#333] bg-[#161616]">
@@ -450,7 +452,7 @@ export default function LabelsPage() {
                                             size="icon"
                                             className="h-7 w-7 text-blue-400 hover:bg-blue-500/10 hover:text-blue-300"
                                             onClick={() => startEdit(index)}
-                                        >
+                                         aria-label="Edit" title="Edit">
                                             <Pencil className="h-3.5 w-3.5" />
                                         </Button>
                                         <Button
@@ -461,7 +463,7 @@ export default function LabelsPage() {
                                             onClick={() => {
                                                 void removeLabel(index)
                                             }}
-                                        >
+                                         aria-label="Delete" title="Delete">
                                             <Trash2 className="h-3.5 w-3.5" />
                                         </Button>
                                     </div>
@@ -470,6 +472,7 @@ export default function LabelsPage() {
                         </Card>
                     ))}
                 </div>
+                </section>
             )}
         </div>
     )

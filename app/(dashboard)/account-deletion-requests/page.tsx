@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { apiFetch } from "@/lib/api"
+import { formatDateTime } from "@/lib/format"
 
 type DeletionStatus = "pending" | "in_review" | "completed" | "rejected" | "cancelled"
 
@@ -44,11 +45,6 @@ const statusClass: Record<DeletionStatus, string> = {
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
-
-function formatDate(value?: string | null) {
-  if (!value) return "—"
-  return new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })
-}
 
 async function fetchDeletionRequests(statusFilter: "all" | DeletionStatus) {
   const params = new URLSearchParams({ limit: "50" })
@@ -174,13 +170,16 @@ export default function AccountDeletionRequestsPage() {
                       <p className="truncate font-semibold text-white">{request.userId?.name || "Account no longer available"}</p>
                       <p className="truncate text-sm text-gray-400">{request.userId?.phone || request.userId?.email || "—"}</p>
                       <p className="mt-1 text-xs text-gray-500">
-                        Requested {formatDate(request.requestedAt)} via {request.source}
+                        Requested {formatDateTime(request.requestedAt)} via {request.source}
                         {isOpen && (request.openOrderCount ?? 0) > 0 ? ` · ${request.openOrderCount} order${request.openOrderCount === 1 ? "" : "s"} in progress` : ""}
                       </p>
                     </div>
-                    <p className={`text-xs font-semibold md:text-right ${isOverdue ? "text-red-300" : isDueSoon ? "text-amber-300" : "text-gray-300"}`}>
-                      {isOverdue ? "Overdue" : isDueSoon ? "Due soon" : "Due"}: {formatDate(request.dueAt)}
-                    </p>
+                    {/* A due date only matters while the request is still open. */}
+                    {request.status === "pending" || request.status === "in_review" ? (
+                      <p className={`text-xs font-semibold md:text-right ${isOverdue ? "text-red-300" : isDueSoon ? "text-amber-300" : "text-gray-300"}`}>
+                        {isOverdue ? "Overdue" : isDueSoon ? "Due soon" : "Due"}: {formatDateTime(request.dueAt)}
+                      </p>
+                    ) : <span />}
                     <Badge variant="outline" className={statusClass[request.status]}>{statusLabel[request.status]}</Badge>
                   </button>
                 )
@@ -195,14 +194,14 @@ export default function AccountDeletionRequestsPage() {
           <DialogHeader>
             <DialogTitle>Process deletion request</DialogTitle>
             <DialogDescription className="text-gray-400">
-              {selectedRequest?.userId?.name || "Unknown account"} · requested {formatDate(selectedRequest?.requestedAt)}
+              {selectedRequest?.userId?.name || "Unknown account"} · requested {formatDateTime(selectedRequest?.requestedAt)}
             </DialogDescription>
           </DialogHeader>
           {selectedRequest ? (
             <div className="space-y-5">
               <div className="rounded-lg border border-[#333] bg-[#0D0D0D] p-4 text-sm text-gray-300">
                 <p><span className="text-gray-500">Source:</span> {selectedRequest.source}</p>
-                <p className="mt-2"><span className="text-gray-500">Due:</span> {formatDate(selectedRequest.dueAt)}</p>
+                {(selectedRequest.status === "pending" || selectedRequest.status === "in_review") && <p className="mt-2"><span className="text-gray-500">Due:</span> {formatDateTime(selectedRequest.dueAt)}</p>}
                 <p className="mt-2"><span className="text-gray-500">Status:</span> {statusLabel[selectedRequest.status]}</p>
                 <p className="mt-3 text-xs leading-relaxed text-gray-500">
                   Completing closes the account and signs the customer out everywhere. It deletes their cart, notifications, push tokens, open negotiations, avatar, business documents and payment screenshots, anonymizes their profile, and removes name, phone and street address from past orders. Order and payment amounts stay.

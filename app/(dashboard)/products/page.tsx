@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Plus, Loader2, Pencil, Trash2, LayoutGrid, List, Package, Languages, Search } from "lucide-react"
+import { Plus, Loader2, Pencil, Trash2, LayoutGrid, List, Package, Search } from "lucide-react"
 import { useEffect, useState, useCallback } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
@@ -22,6 +22,7 @@ import { useViewMode } from "@/lib/use-view-mode"
 import { useDashboardUser } from "@/components/dashboard-context"
 import { productFormHref } from "@/lib/admin-context"
 import { fetchAllCategories } from "@/lib/categories"
+import { labelFor } from "@/lib/format"
 
 interface Product {
     _id: string
@@ -78,7 +79,6 @@ export default function ProductsPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [isLoadingMore, setIsLoadingMore] = useState(false)
     const [viewMode, setViewMode] = useViewMode('products')
-    const [isConvertingHindi, setIsConvertingHindi] = useState(false)
 
     // Pagination & Search state
     const [searchQuery, setSearchQuery] = useState("")
@@ -217,37 +217,6 @@ export default function ProductsPage() {
         }
     }
 
-    async function convertMissingHindiNames() {
-        const confirmed = window.confirm(
-            "Convert missing Hindi names for all products that don't have Hindi text yet?"
-        )
-        if (!confirmed) return
-
-        setIsConvertingHindi(true)
-        try {
-            const res = await apiFetch('/admin/products/hindi-names/generate-missing', {
-                method: 'POST',
-                body: JSON.stringify({}),
-            })
-            const data = await res.json()
-
-            if (!res.ok || !data?.success) {
-                toast.error(data?.message || "Failed to convert Hindi names")
-                return
-            }
-
-            const stats = data.data || {}
-            toast.success(
-                `Hindi conversion done: ${stats.updated ?? 0} updated, ${stats.skipped ?? 0} skipped (processed ${stats.processed ?? 0}).`
-            )
-            fetchProducts(1, true)
-        } catch (error) {
-            console.error(error)
-            toast.error("Error converting Hindi names")
-        } finally {
-            setIsConvertingHindi(false)
-        }
-    }
 
     return (
         <div className="flex flex-col gap-6">
@@ -265,30 +234,22 @@ export default function ProductsPage() {
                     <p className="text-gray-400">{includeDescendants && categoryId ? "Including descendant categories. " : "Manage your product catalog. "}{totalProducts > 0 && `(${totalProducts} products)`}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
-                    {isAdmin && <Button
-                        type="button"
-                        onClick={convertMissingHindiNames}
-                        disabled={isConvertingHindi}
-                        variant="outline"
-                        className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
-                    >
-                        {isConvertingHindi ? (
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                            <Languages className="mr-2 h-4 w-4" />
-                        )}
-                        Convert Missing Hindi Names
-                    </Button>}
                     {/* View Toggle */}
                     <div className="flex items-center bg-[#161616] rounded-lg p-1 border border-[#333]">
                         <button
                             onClick={() => setViewMode('list')}
+                            aria-label="List view"
+                            title="List view"
+                            aria-pressed={viewMode === 'list'}
                             className={`p-2 rounded-md transition-colors ${viewMode === 'list' ? 'bg-[#86efac] text-black' : 'text-gray-400 hover:text-white'}`}
                         >
                             <List className="h-4 w-4" />
                         </button>
                         <button
                             onClick={() => setViewMode('card')}
+                            aria-label="Grid view"
+                            title="Grid view"
+                            aria-pressed={viewMode === 'card'}
                             className={`p-2 rounded-md transition-colors ${viewMode === 'card' ? 'bg-[#86efac] text-black' : 'text-gray-400 hover:text-white'}`}
                         >
                             <LayoutGrid className="h-4 w-4" />
@@ -379,13 +340,13 @@ export default function ProductsPage() {
                                         <Badge className={`${product.status === 'active' ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20' :
                                             'bg-gray-500/10 text-gray-500 hover:bg-gray-500/20'
                                             }`}>
-                                            {product.status}
+                                            {labelFor(product.status)}
                                         </Badge>
                                     </TableCell>
                                     {isAdmin && <TableCell className="text-right">
                                         <div className="flex justify-end gap-2">
                                             <Link href={editProductHref(product._id)} aria-label={`Edit ${product.name}`}>
-                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10">
+                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10" aria-label="Edit" title="Edit">
                                                     <Pencil className="h-4 w-4" />
                                                 </Button>
                                             </Link>
@@ -414,7 +375,7 @@ export default function ProductsPage() {
                                 </div>
                                 <div className="relative z-10 flex gap-1">
                                     {isAdmin && <><Link href={editProductHref(product._id)} aria-label={`Edit ${product.name}`}>
-                                        <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10">
+                                        <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10" aria-label="Edit" title="Edit">
                                             <Pencil className="h-3.5 w-3.5" />
                                         </Button>
                                     </Link>
@@ -430,7 +391,7 @@ export default function ProductsPage() {
                                 <Badge className={`text-xs ${product.status === 'active' ? 'bg-green-500/10 text-green-500' :
                                     'bg-gray-500/10 text-gray-500'
                                     }`}>
-                                    {product.status}
+                                    {labelFor(product.status)}
                                 </Badge>
                             </div>
                             <div className="flex items-center justify-between pt-3 border-t border-[#333]">
