@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Loader2, Save, Building2, User, Smartphone } from "lucide-react"
+import { Loader2, Save, Building2, User, Smartphone, Eye } from "lucide-react"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
 import { HindiNamesTool } from "@/components/hindi-names-tool"
@@ -226,6 +226,36 @@ export default function SettingsPage() {
                                     )}
                                 />
                             </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Prices for visitors who aren't signed in */}
+                    <Card className="bg-[#161616] border-[#333]">
+                        <CardHeader>
+                            <CardTitle className="text-white flex items-center gap-2">
+                                <Eye className="h-5 w-5 text-[#86efac]" /> Prices for visitors who aren't signed in
+                            </CardTitle>
+                            <CardDescription>The app and the website, for anyone not signed in</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <FormField
+                                control={form.control}
+                                name="features.showCustomerPriceToGuests"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between gap-4 rounded-lg border border-[#333] p-4">
+                                        <div className="space-y-0.5">
+                                            <FormLabel className="text-base text-white">Show customer prices to guests</FormLabel>
+                                            <FormDescription>
+                                                Off: guests see only the MRP, and sign in to see their price. On: guests see customer prices, discounts and sale prices.
+                                            </FormDescription>
+                                        </div>
+                                        <FormControl>
+                                            <Switch checked={field.value === true} onCheckedChange={field.onChange} />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                            <p className="text-xs text-gray-500">Signed-in customers and wholesalers always see their own prices. A change shows within a minute.</p>
                         </CardContent>
                     </Card>
 
