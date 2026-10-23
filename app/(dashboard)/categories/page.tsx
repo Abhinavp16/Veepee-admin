@@ -1,7 +1,7 @@
 "use client"
 
 import { Fragment, useState, useEffect } from "react"
-import { Plus, Pencil, Trash2, FolderTree, Loader2, LayoutGrid, List, Upload, Link, Package, Search, GripVertical, ArrowUp, ArrowDown, Unlink } from "lucide-react"
+import { Plus, Pencil, Trash2, FolderTree, Loader2, LayoutGrid, List, Upload, Link, Package, Search, GripVertical, ArrowUp, ArrowDown, Unlink, Layers } from "lucide-react"
 import NextLink from "next/link"
 import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
@@ -100,9 +100,29 @@ export default function CategoriesPage() {
     const [isUploadingImage, setIsUploadingImage] = useState(false)
     const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle')
 
+    // Each category's sub-categories (shown as chips).
+    const [subsByCategory, setSubsByCategory] = useState<Map<string, { _id: string; name: string; productCount: number }[]>>(new Map())
+
     useEffect(() => {
         fetchCategories()
     }, [companyId])
+
+    async function fetchSubCategories() {
+        try {
+            const response = await apiFetch("/sub-categories/admin")
+            if (!response.ok) return
+            const payload = await response.json()
+            const map = new Map<string, { _id: string; name: string; productCount: number }[]>()
+            for (const sub of Array.isArray(payload.data) ? payload.data : []) {
+                for (const link of sub.categories || []) {
+                    map.set(link.categoryId, [...(map.get(link.categoryId) || []), { _id: sub._id, name: sub.name, productCount: link.productCount }])
+                }
+            }
+            setSubsByCategory(map)
+        } catch {
+            // The categories still show; only the chips are missing.
+        }
+    }
 
     async function fetchCategories() {
         setIsLoading(true)
@@ -112,6 +132,7 @@ export default function CategoriesPage() {
                 companyId ? apiFetch(`/companies/${companyId}/categories`) : Promise.resolve(null),
             ])
             setCategories(items)
+            fetchSubCategories()
             if (scopedResponse) {
                 const payload = await scopedResponse.json().catch(() => null)
                 if (!scopedResponse.ok) throw new Error(payload?.message || "Failed to load brand categories")
@@ -260,7 +281,7 @@ export default function CategoriesPage() {
                 name: name.trim(),
                 description: description.trim() || undefined,
                 image: imageUrl.trim() ? { url: imageUrl.trim(), publicId: imagePublicId || undefined } : undefined,
-                parent: parentId !== "none" ? parentId : null,
+                parent: null,
                 order: displayPosition,
                 isActive,
             }
@@ -502,6 +523,9 @@ export default function CategoriesPage() {
                             <LayoutGrid className="h-4 w-4" />
                         </button>
                     </div>
+                    {!companyId && <Button asChild variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]">
+                        <NextLink href="/sub-categories"><Layers className="h-4 w-4 mr-2" />Sub-categories</NextLink>
+                    </Button>}
                     {companyId && <Button
                         onClick={() => setIsLinkDialogOpen(true)}
                         variant="outline"
@@ -578,7 +602,7 @@ export default function CategoriesPage() {
                                 <TableHead className="text-gray-400">Image</TableHead>
                                 <TableHead className="text-gray-400">Name</TableHead>
                                 <TableHead className="text-gray-400">Link</TableHead>
-                                <TableHead className="text-gray-400">Parent</TableHead>
+                                <TableHead className="text-gray-400">Sub-categories</TableHead>
                                 <TableHead className="text-gray-400">Products</TableHead>
                                 <TableHead className="text-gray-400">Status</TableHead>
                                 <TableHead className="text-gray-400 text-right">Actions</TableHead>
@@ -630,10 +654,17 @@ export default function CategoriesPage() {
                                     <TableCell className="text-gray-400">
                                         {category.slug}
                                     </TableCell>
-                                    <TableCell className="text-gray-400">
-                                        {(typeof category.parent === "object" && category.parent
-                                            ? category.parent.name
-                                            : parentById.get(category.parent || "")?.name) || "—"}
+                                    <TableCell>
+                                        <div className="flex max-w-xs flex-wrap gap-1">
+                                            {(subsByCategory.get(category._id) || []).map((sub) => (
+                                                <NextLink key={sub._id} href={`/sub-categories?categoryId=${encodeURIComponent(category._id)}`} className="rounded-full border border-[#333] bg-[#0D0D0D] px-2 py-0.5 text-xs text-gray-300 hover:border-[#86efac] hover:text-white">
+                                                    {sub.name} <span className="text-gray-500">{sub.productCount}</span>
+                                                </NextLink>
+                                            ))}
+                                            <NextLink href={`/sub-categories?categoryId=${encodeURIComponent(category._id)}`} className="rounded-full px-2 py-0.5 text-xs text-[#86efac] hover:underline" title={`Sub-categories of ${category.name}`}>
+                                                {(subsByCategory.get(category._id) || []).length > 0 ? "Manage" : "+ Add"}
+                                            </NextLink>
+                                        </div>
                                     </TableCell>
                                     <TableCell>
                                         <span className="flex items-center gap-1 text-gray-400">
@@ -949,28 +980,11 @@ export default function CategoriesPage() {
                             </p>
                         </div>
 
-                        {/* Parent Category */}
-                        <div>
-                            <label className="text-sm font-medium text-white mb-2 block">
-                                Parent Category
-                            </label>
-                            <Select value={parentId} onValueChange={handleParentChange}>
-                                <SelectTrigger className="bg-[#0D0D0D] border-[#333] text-white">
-                                    <SelectValue placeholder="Select parent category" />
-                                </SelectTrigger>
-                                <SelectContent className="bg-[#0D0D0D] border-[#333]">
-                                    <SelectItem value="none">None (Root Category)</SelectItem>
-                                    {parentOptions.map((cat) => (
-                                        <SelectItem key={cat._id} value={cat._id}>
-                                            {cat.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <p className="text-xs text-gray-500 mt-1">
-                                Leave as &quot;None&quot; for a top-level category
-                            </p>
-                        </div>
+                        {/* Sub-categories (Blades, Spare parts…) are managed on their own page. */}
+                        <p className="text-xs text-gray-500">
+                            Categories are top-level. To group products inside one, add{" "}
+                            <NextLink href="/sub-categories" className="text-[#86efac] hover:underline">sub-categories</NextLink>.
+                        </p>
 
                         {/* Description */}
                         <div>

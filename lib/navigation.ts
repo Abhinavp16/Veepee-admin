@@ -9,6 +9,7 @@ import {
   FolderTree,
   Globe,
   Image,
+  Layers,
   IndianRupee,
   LayoutDashboard,
   MessageSquareMore,
@@ -51,6 +52,7 @@ export const navigationGroups: NavigationGroup[] = [
       { label: "Price Changes", href: "/price-changes", icon: CalendarClock, roles: adminOnly },
       { label: "Brands", href: "/brands", icon: Building2, roles: operations },
       { label: "Categories", href: "/categories", icon: FolderTree, roles: operations },
+      { label: "Sub-categories", href: "/sub-categories", icon: Layers, roles: operations },
       { label: "Orders", href: "/orders", icon: ShoppingCart, roles: operations },
       { label: "Negotiations", href: "/negotiations", icon: MessageSquareMore, roles: operations },
       { label: "Customers", href: "/customers", icon: Users, roles: operations },
@@ -91,7 +93,7 @@ export const navigationGroups: NavigationGroup[] = [
 
 export function canAccessPath(role: DashboardRole, pathname: string) {
   if (role === "admin") return true
-  return ["/", "/notifications", "/products", "/brands", "/categories", "/orders", "/negotiations", "/customers"].includes(pathname)
+  return ["/", "/notifications", "/products", "/brands", "/categories", "/sub-categories", "/orders", "/negotiations", "/customers"].includes(pathname)
 }
 
 export function roleLabel(role: DashboardRole) {

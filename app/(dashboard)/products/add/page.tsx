@@ -168,6 +168,9 @@ export default function AddProductPage() {
     const [newCategoryName, setNewCategoryName] = useState("")
     const [isCreatingCompany, setIsCreatingCompany] = useState(false)
     const [isCreatingCategory, setIsCreatingCategory] = useState(false)
+    // "Where it's sold": the sub-categories chosen inside each category.
+    const [allSubCategories, setAllSubCategories] = useState<{ _id: string; name: string; categories: { categoryId: string }[] }[]>([])
+    const [subChoices, setSubChoices] = useState<Record<string, string[]>>({})
     const [images, setImages] = useState<ProductImage[]>([])
     const [newImageUrl, setNewImageUrl] = useState("")
     const [bulletPoints, setBulletPoints] = useState<string[]>([""])
@@ -225,6 +228,7 @@ export default function AddProductPage() {
             const [, loadedCategories] = await Promise.all([
                 fetchCompanies(),
                 fetchCategories(),
+                fetchSubCategories(),
             ])
 
             // Fetch product if in edit mode
@@ -299,6 +303,17 @@ export default function AddProductPage() {
         }
     }
 
+    async function fetchSubCategories() {
+        try {
+            const response = await apiFetch("/sub-categories/admin")
+            if (!response.ok) return
+            const payload = await response.json()
+            setAllSubCategories(Array.isArray(payload.data) ? payload.data : [])
+        } catch {
+            // Products can still be saved straight into categories.
+        }
+    }
+
     async function fetchProduct(id: string, loadedCategories: Category[]) {
         setIsLoadingProduct(true)
         try {
@@ -328,6 +343,14 @@ export default function AddProductPage() {
                 : legacyCategory && categoryIds.includes(legacyCategory._id)
                     ? legacyCategory._id
                     : categoryIds[0] || ""
+
+            const choices: Record<string, string[]> = {}
+            for (const placement of Array.isArray(product.placements) ? product.placements : []) {
+                const categoryId = String(placement?.category?._id || placement?.category || "")
+                const subId = placement?.subCategory ? String(placement.subCategory?._id || placement.subCategory) : ""
+                if (categoryId && subId) choices[categoryId] = [...(choices[categoryId] || []), subId]
+            }
+            setSubChoices(choices)
 
             // Set form values
             form.reset({
@@ -711,6 +734,17 @@ export default function AddProductPage() {
                 shortDescription: values.shortDescription || values.description.substring(0, 200),
                 categoryIds: values.categoryIds,
                 primaryCategoryId: values.primaryCategoryId,
+                // Main category first; each category straight, or once per
+                // sub-category chosen inside it.
+                placements: [values.primaryCategoryId, ...values.categoryIds.filter((id) => id !== values.primaryCategoryId)]
+                    .filter((id) => values.categoryIds.includes(id))
+                    .flatMap((categoryId): { category: string; subCategory: string | null }[] => {
+                        const subs = (subChoices[categoryId] || []).filter((subId) =>
+                            allSubCategories.some((sub) => sub._id === subId && sub.categories.some((link) => link.categoryId === categoryId)))
+                        return subs.length > 0
+                            ? subs.map((subCategory) => ({ category: categoryId, subCategory }))
+                            : [{ category: categoryId, subCategory: null }]
+                    }),
                 category: primaryCategory.slug,
                 sku: values.sku,
                 status: values.status,
@@ -1071,6 +1105,45 @@ export default function AddProductPage() {
                                                                     </FormItem>
                                                                 )}
                                                             />
+                                                        )}
+
+                                                        {/* Where it's sold: a sub-category inside each category (optional). */}
+                                                        {selectedCategories.some((category) => allSubCategories.some((sub) => sub.categories.some((link) => link.categoryId === category._id))) && (
+                                                            <div className="space-y-3 rounded-lg border border-[#333] bg-[#0D0D0D] p-3">
+                                                                <div>
+                                                                    <p className="text-sm font-medium text-white">Sub-category (optional)</p>
+                                                                    <p className="text-xs text-gray-500">e.g. Brush Cutter › Blades. Without one, it sits straight in the category.</p>
+                                                                </div>
+                                                                {selectedCategories.map((category) => {
+                                                                    const options = allSubCategories.filter((sub) => sub.categories.some((link) => link.categoryId === category._id))
+                                                                    if (options.length === 0) return null
+                                                                    const chosen = subChoices[category._id] || []
+                                                                    return (
+                                                                        <div key={category._id}>
+                                                                            <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">{category.name}</p>
+                                                                            <div className="flex flex-wrap gap-1.5">
+                                                                                {options.map((sub) => {
+                                                                                    const on = chosen.includes(sub._id)
+                                                                                    return (
+                                                                                        <button
+                                                                                            key={sub._id}
+                                                                                            type="button"
+                                                                                            aria-pressed={on}
+                                                                                            onClick={() => setSubChoices((all) => ({
+                                                                                                ...all,
+                                                                                                [category._id]: on ? chosen.filter((id) => id !== sub._id) : [...chosen, sub._id],
+                                                                                            }))}
+                                                                                            className={`rounded-full border px-3 py-1 text-xs transition-colors ${on ? "border-[#86efac] bg-[#86efac]/15 text-[#86efac]" : "border-[#333] text-gray-300 hover:border-[#555]"}`}
+                                                                                        >
+                                                                                            {on && <Check className="mr-1 inline h-3 w-3" />}{sub.name}
+                                                                                        </button>
+                                                                                    )
+                                                                                })}
+                                                                            </div>
+                                                                        </div>
+                                                                    )
+                                                                })}
+                                                            </div>
                                                         )}
                                                     </FormItem>
                                                 )
