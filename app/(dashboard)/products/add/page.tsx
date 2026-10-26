@@ -171,6 +171,9 @@ export default function AddProductPage() {
     // "Where it's sold": the sub-categories chosen inside each category.
     const [allSubCategories, setAllSubCategories] = useState<{ _id: string; name: string; categories: { categoryId: string }[] }[]>([])
     const [subChoices, setSubChoices] = useState<Record<string, string[]>>({})
+    // Categories where a product with a sub-category also shows in the
+    // category's own list (off: only under the sub-category).
+    const [alsoInCategory, setAlsoInCategory] = useState<Record<string, boolean>>({})
     const [images, setImages] = useState<ProductImage[]>([])
     const [newImageUrl, setNewImageUrl] = useState("")
     const [bulletPoints, setBulletPoints] = useState<string[]>([""])
@@ -345,12 +348,15 @@ export default function AddProductPage() {
                     : categoryIds[0] || ""
 
             const choices: Record<string, string[]> = {}
+            const direct: Record<string, boolean> = {}
             for (const placement of Array.isArray(product.placements) ? product.placements : []) {
                 const categoryId = String(placement?.category?._id || placement?.category || "")
                 const subId = placement?.subCategory ? String(placement.subCategory?._id || placement.subCategory) : ""
                 if (categoryId && subId) choices[categoryId] = [...(choices[categoryId] || []), subId]
+                if (categoryId && !subId) direct[categoryId] = true
             }
             setSubChoices(choices)
+            setAlsoInCategory(direct)
 
             // Set form values
             form.reset({
@@ -735,15 +741,18 @@ export default function AddProductPage() {
                 categoryIds: values.categoryIds,
                 primaryCategoryId: values.primaryCategoryId,
                 // Main category first; each category straight, or once per
-                // sub-category chosen inside it.
+                // sub-category chosen inside it (plus straight when it also
+                // shows in the category's own list).
                 placements: [values.primaryCategoryId, ...values.categoryIds.filter((id) => id !== values.primaryCategoryId)]
                     .filter((id) => values.categoryIds.includes(id))
                     .flatMap((categoryId): { category: string; subCategory: string | null }[] => {
                         const subs = (subChoices[categoryId] || []).filter((subId) =>
                             allSubCategories.some((sub) => sub._id === subId && sub.categories.some((link) => link.categoryId === categoryId)))
-                        return subs.length > 0
-                            ? subs.map((subCategory) => ({ category: categoryId, subCategory }))
-                            : [{ category: categoryId, subCategory: null }]
+                        if (subs.length === 0) return [{ category: categoryId, subCategory: null }]
+                        return [
+                            ...(alsoInCategory[categoryId] ? [{ category: categoryId, subCategory: null }] : []),
+                            ...subs.map((subCategory) => ({ category: categoryId, subCategory })),
+                        ]
                     }),
                 category: primaryCategory.slug,
                 sku: values.sku,
@@ -1140,6 +1149,16 @@ export default function AddProductPage() {
                                                                                     )
                                                                                 })}
                                                                             </div>
+                                                                            {chosen.length > 0 && (
+                                                                                <label className="mt-2 flex items-center gap-2 text-xs text-gray-400">
+                                                                                    <Switch
+                                                                                        checked={Boolean(alsoInCategory[category._id])}
+                                                                                        onCheckedChange={(value) => setAlsoInCategory((all) => ({ ...all, [category._id]: value }))}
+                                                                                    />
+                                                                                    Also show in the {category.name} list
+                                                                                    <span className="text-gray-600">{alsoInCategory[category._id] ? "(both)" : "(only under the sub-category)"}</span>
+                                                                                </label>
+                                                                            )}
                                                                         </div>
                                                                     )
                                                                 })}

@@ -36,6 +36,31 @@ interface Product {
     stock: number
     status: string
     sku: string
+    /** Where it shows: both lists, only the sub-category, or only the category. */
+    placementState?: "both" | "sub" | "category"
+    subPlacements?: Array<{ categoryName: string; subCategoryName: string; alsoInCategory: boolean }>
+}
+
+const placementLabels = {
+    both: { label: "Both", className: "bg-sky-500/15 text-sky-300", hint: "In the category list and the sub-category" },
+    sub: { label: "Sub only", className: "bg-amber-500/15 text-amber-300", hint: "Only under the sub-category" },
+    category: { label: "Category only", className: "bg-gray-500/15 text-gray-400", hint: "Only in the category list" },
+} as const
+
+/** Where a product shows: Both / Sub only / Category only, with its sub-category places. */
+function PlacementBadge({ product }: { product: Product }) {
+    const state = product.placementState || "category"
+    const look = placementLabels[state]
+    const places = (product.subPlacements || [])
+        .map((place) => `${place.categoryName} › ${place.subCategoryName}${place.alsoInCategory ? " (also in " + place.categoryName + ")" : ""}`)
+    return (
+        <span
+            title={places.length > 0 ? places.join("\n") : look.hint}
+            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${look.className}`}
+        >
+            {look.label}
+        </span>
+    )
 }
 
 function ProductCategories({ product, limit = 2 }: { product: Product; limit?: number }) {
@@ -82,6 +107,8 @@ export default function ProductsPage() {
 
     // Pagination & Search state
     const [searchQuery, setSearchQuery] = useState("")
+    // "both" | "sub" | "category": where products show (from the address bar).
+    const placementFilter = searchParams.get("placement") || ""
     const [page, setPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
     const [totalProducts, setTotalProducts] = useState(0)
@@ -139,6 +166,7 @@ export default function ProductsPage() {
             if (companyId) params.append('companyId', companyId)
             if (categoryId) params.append('categoryId', categoryId)
             if (includeDescendants) params.append('includeDescendants', 'true')
+            if (placementFilter) params.append('placement', placementFilter)
             if (query.trim()) {
                 params.append('search', query.trim())
             }
@@ -280,6 +308,23 @@ export default function ProductsPage() {
                 >
                     Search
                 </Button>
+                <select
+                    aria-label="Where products show"
+                    value={placementFilter}
+                    onChange={(event) => {
+                        const next = new URLSearchParams(searchParams.toString())
+                        if (event.target.value) next.set("placement", event.target.value)
+                        else next.delete("placement")
+                        next.set("page", "1")
+                        router.push(`${pathname}?${next.toString()}`)
+                    }}
+                    className="h-10 rounded-md border border-[#333] bg-[#161616] px-3 text-sm text-white"
+                >
+                    <option value="">Shown in: all</option>
+                    <option value="both">Both (category + sub-category)</option>
+                    <option value="sub">Sub-category only</option>
+                    <option value="category">Category only</option>
+                </select>
                 {searchQuery && (
                     <Button
                         type="button"
@@ -332,7 +377,10 @@ export default function ProductsPage() {
                                     </TableCell>
                                     <TableCell className="text-gray-400">{product.sku}</TableCell>
                                     <TableCell className="text-white">
-                                        <ProductCategories product={product} />
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            <ProductCategories product={product} />
+                                            <PlacementBadge product={product} />
+                                        </div>
                                     </TableCell>
                                     <TableCell className="text-white text-right">₹{product.retailPrice.toLocaleString()}</TableCell>
                                     <TableCell className="text-white text-right">{product.stock}</TableCell>
@@ -388,6 +436,7 @@ export default function ProductsPage() {
                             <p className="text-gray-500 text-xs mb-3">SKU: {product.sku}</p>
                             <div className="flex items-center justify-between mb-3">
                                 <ProductCategories product={product} limit={1} />
+                                <PlacementBadge product={product} />
                                 <Badge className={`text-xs ${product.status === 'active' ? 'bg-green-500/10 text-green-500' :
                                     'bg-gray-500/10 text-gray-500'
                                     }`}>

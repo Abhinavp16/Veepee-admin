@@ -45,6 +45,8 @@ interface PlacedProduct {
     status?: string
     brand?: string
     image?: string | null
+    /** Also shown in the category's own list, not only under this sub-category. */
+    alsoInCategory?: boolean
 }
 
 async function readError(response: Response, fallback: string) {
@@ -84,6 +86,8 @@ export default function SubCategoriesPage() {
     const [isLoadingPlaced, setIsLoadingPlaced] = useState(false)
     const [productSearch, setProductSearch] = useState("")
     const [searchResults, setSearchResults] = useState<PlacedProduct[]>([])
+    // New products: shown only under the sub-category unless this is on.
+    const [addAlsoInCategory, setAddAlsoInCategory] = useState(false)
     const [isSearching, setIsSearching] = useState(false)
 
     const topCategories = useMemo(
@@ -274,7 +278,7 @@ export default function SubCategoriesPage() {
         if (!productsFor) return
         const response = await apiFetch(`/sub-categories/${productsFor._id}/products`, {
             method: "POST",
-            body: JSON.stringify({ categoryId: productsCategory, productIds: [product._id] }),
+            body: JSON.stringify({ categoryId: productsCategory, productIds: [product._id], alsoInCategory: addAlsoInCategory }),
         })
         if (!response.ok) return toast.error(await readError(response, "Failed to add"))
         const payload = await response.json()
@@ -285,6 +289,20 @@ export default function SubCategoriesPage() {
         load()
     }
 
+    // Also show these in the category's own list, or only under the sub-category.
+    async function setAlsoInCategory(products: PlacedProduct[], alsoInCategory: boolean) {
+        if (!productsFor || products.length === 0) return
+        const response = await apiFetch(`/sub-categories/${productsFor._id}/products`, {
+            method: "PATCH",
+            body: JSON.stringify({ categoryId: productsCategory, productIds: products.map((product) => product._id), alsoInCategory }),
+        })
+        if (!response.ok) return toast.error(await readError(response, "Failed to update"))
+        setPlaced((rows) => rows.map((row) => products.some((product) => product._id === row._id) ? { ...row, alsoInCategory } : row))
+        toast.success(products.length === 1
+            ? `${products[0].name}: ${alsoInCategory ? "in both lists" : "only in this sub-category"}`
+            : `${products.length} products: ${alsoInCategory ? "in both lists" : "only in this sub-category"}`)
+    }
+
     async function removeProduct(product: PlacedProduct) {
         if (!productsFor) return
         const response = await apiFetch(
@@ -292,7 +310,7 @@ export default function SubCategoriesPage() {
             { method: "DELETE" },
         )
         if (!response.ok) return toast.error(await readError(response, "Failed to remove"))
-        toast.success(`${product.name} removed from this sub-category (it stays in the category)`)
+        toast.success(`${product.name} removed from this sub-category (it shows in the category list)`)
         loadPlaced(productsFor, productsCategory)
         load()
     }
@@ -533,7 +551,18 @@ export default function SubCategoriesPage() {
                         </Select>
                     )}
                     <div className="space-y-2">
-                        <p className="text-sm font-medium">Placed here ({placed.length})</p>
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-sm font-medium">Placed here ({placed.length})</p>
+                            {placed.length > 1 && (
+                                <div className="flex gap-1">
+                                    <Button size="sm" variant="ghost" className="h-7 text-xs text-gray-300 hover:bg-[#1A1A1A]" onClick={() => setAlsoInCategory(placed.filter((product) => !product.alsoInCategory), true)}>All in both</Button>
+                                    <Button size="sm" variant="ghost" className="h-7 text-xs text-gray-300 hover:bg-[#1A1A1A]" onClick={() => setAlsoInCategory(placed.filter((product) => product.alsoInCategory), false)}>All sub-category only</Button>
+                                </div>
+                            )}
+                        </div>
+                        <p className="text-xs text-gray-500">
+                            Switch on &quot;Also in {categoryName(productsCategory)}&quot; to show a product in the {categoryName(productsCategory)} list too; off, it shows only under {productsFor?.name}.
+                        </p>
                         {isLoadingPlaced ? (
                             <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-gray-400" /></div>
                         ) : placed.length === 0 ? (
@@ -547,12 +576,26 @@ export default function SubCategoriesPage() {
                                             <p className="truncate text-sm">{product.name}</p>
                                             <p className="truncate text-xs text-gray-500">{[product.brand, product.sku].filter(Boolean).join(" · ")}</p>
                                         </div>
+                                        <span className={`hidden rounded-full px-2 py-0.5 text-[11px] font-medium sm:inline ${product.alsoInCategory ? "bg-sky-500/15 text-sky-300" : "bg-amber-500/15 text-amber-300"}`}>
+                                            {product.alsoInCategory ? "Both" : "Sub only"}
+                                        </span>
+                                        <label className="flex items-center gap-1.5 text-xs text-gray-400" title={`Also show in the ${categoryName(productsCategory)} list`}>
+                                            <Switch checked={Boolean(product.alsoInCategory)} onCheckedChange={(value) => setAlsoInCategory([product], value)} />
+                                            Also in {categoryName(productsCategory)}
+                                        </label>
                                         <Button size="sm" variant="ghost" className="text-red-400 hover:bg-red-400/10" onClick={() => removeProduct(product)}>Remove</Button>
                                     </div>
                                 ))}
                             </div>
                         )}
                     </div>
+                    <label className="flex items-center justify-between gap-3 rounded-lg border border-[#333] bg-[#0D0D0D] px-3 py-2 text-sm">
+                        <span>
+                            Also keep new ones in the {categoryName(productsCategory)} list
+                            <span className="block text-xs text-gray-500">Off: they show only under {productsFor?.name}.</span>
+                        </span>
+                        <Switch checked={addAlsoInCategory} onCheckedChange={setAddAlsoInCategory} />
+                    </label>
                     <form onSubmit={searchProducts} className="flex gap-2">
                         <Input value={productSearch} onChange={(event) => setProductSearch(event.target.value)} placeholder="Find products by name or SKU to add..." className="border-[#333] bg-[#0D0D0D] text-white" />
                         <Button type="submit" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]">
