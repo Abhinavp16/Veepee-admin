@@ -16,11 +16,12 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Loader2, Save, Building2, User, Smartphone, Eye } from "lucide-react"
+import { Loader2, Save, Building2, User, Smartphone, Eye, Handshake } from "lucide-react"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
 import { HindiNamesTool } from "@/components/hindi-names-tool"
 import { Switch } from "@/components/ui/switch"
+import { NegotiationPicksInput } from "@/components/negotiation-picks-input"
 
 const settingsSchema = z.object({
     businessName: z.string().optional(),
@@ -33,6 +34,8 @@ const settingsSchema = z.object({
     minOrderAmount: z.coerce.number().optional(),
     defaultBulkMinQuantity: z.coerce.number().optional(),
     negotiationExpiryDays: z.coerce.number().optional(),
+    negotiationQuickPicks: z.array(z.coerce.number()).optional(),
+    negotiationMaxDiscountPercent: z.coerce.number().min(1, "At least 1%").max(90, "At most 90%").optional(),
     lowStockThreshold: z.coerce.number().optional(),
     // [COMMENTED OUT RAZORPAY]
     // Bank Transfer
@@ -67,6 +70,8 @@ export default function SettingsPage() {
             minOrderAmount: 0,
             defaultBulkMinQuantity: 10,
             negotiationExpiryDays: 7,
+            negotiationQuickPicks: [2, 1],
+            negotiationMaxDiscountPercent: 10,
             lowStockThreshold: 10,
             // [COMMENTED OUT RAZORPAY]
             bankName: "",
@@ -91,6 +96,8 @@ export default function SettingsPage() {
                     ...data.data,
                     businessAddress: data.data.businessAddress ?? "",
                     gstin: data.data.gstin ?? "",
+                    negotiationQuickPicks: data.data.negotiationQuickPicks ?? [2, 1],
+                    negotiationMaxDiscountPercent: data.data.negotiationMaxDiscountPercent ?? 10,
                 })
             }
         } catch (error) {
@@ -432,6 +439,54 @@ export default function SettingsPage() {
                                     )}
                                 />
                             </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Bulk negotiation */}
+                    <Card id="bulk-negotiation" className="bg-[#161616] border-[#333]">
+                        <CardHeader>
+                            <CardTitle className="text-white flex items-center gap-2">
+                                <Handshake className="h-5 w-5 text-[#fbbf24]" /> Bulk negotiation
+                            </CardTitle>
+                            <CardDescription>
+                                What wholesalers see when they ask for a bulk price. Changes apply at once, with no app update.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <FormField
+                                control={form.control}
+                                name="negotiationMaxDiscountPercent"
+                                render={({ field }) => (
+                                    <FormItem className="max-w-xs">
+                                        <FormLabel className="text-white">Lowest price a wholesaler can ask (% off)</FormLabel>
+                                        <FormControl>
+                                            <Input type="number" min={1} max={90} step="0.5" className="bg-[#0D0D0D] border-[#333] text-white" {...field} />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Requests further below their normal wholesale price are refused in the app. Your own counter-offers are not limited.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="negotiationQuickPicks"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-white">Quick price picks</FormLabel>
+                                        <FormDescription>
+                                            Buttons under the price box, up to four. Wholesalers can always type their own price.
+                                        </FormDescription>
+                                        <NegotiationPicksInput
+                                            value={field.value ?? []}
+                                            onChange={field.onChange}
+                                            maxDiscountPercent={Number(form.watch("negotiationMaxDiscountPercent")) || 10}
+                                        />
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                         </CardContent>
                     </Card>
 

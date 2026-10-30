@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
+import Link from "next/link"
 import { RequirementSheet } from "@/components/requirement-sheet"
 import { formatDateTime, labelFor } from "@/lib/format"
 
@@ -81,6 +82,22 @@ export default function NegotiationsPage() {
         if (el) el.scrollTo({ top: el.scrollHeight, behavior })
     }
     const historyLength = selectedNegotiation?.history.length ?? 0
+    // The bulk-negotiation rules wholesalers see (admins only; staff can't
+    // read settings, so the line just doesn't show for them).
+    const [negotiationRules, setNegotiationRules] = useState<{ quickPicks: number[]; maxDiscountPercent: number } | null>(null)
+    useEffect(() => {
+        apiFetch('/admin/settings')
+            .then((res) => (res.ok ? res.json() : null))
+            .then((data) => {
+                if (!data?.data) return
+                setNegotiationRules({
+                    quickPicks: data.data.negotiationQuickPicks ?? [2, 1],
+                    maxDiscountPercent: data.data.negotiationMaxDiscountPercent ?? 10,
+                })
+            })
+            .catch(() => {})
+    }, [])
+
     useEffect(() => {
         if (!isSheetOpen || historyLength === 0) return
         // After the sheet has laid out.
@@ -238,6 +255,16 @@ export default function NegotiationsPage() {
                 <div>
                     <h1 className="text-3xl font-bold text-white">Negotiations</h1>
                     <p className="text-gray-400 text-sm">{totalNegotiations > 0 && `(${totalNegotiations} negotiations)`}</p>
+                    {negotiationRules && (
+                        <p className="text-gray-400 text-sm mt-1">
+                            Wholesaler quick picks:{" "}
+                            {negotiationRules.quickPicks.length > 0
+                                ? negotiationRules.quickPicks.map((p) => `${p}%`).join(" · ")
+                                : "none"}
+                            {" · "}lowest ask {negotiationRules.maxDiscountPercent}% off{" · "}
+                            <Link href="/settings#bulk-negotiation" className="text-[#fbbf24] hover:underline">Edit</Link>
+                        </p>
+                    )}
                 </div>
             </div>
 
