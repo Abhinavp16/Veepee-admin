@@ -35,6 +35,7 @@ import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
 import { useDashboardUser } from "@/components/dashboard-context"
 import { formatDate, labelFor } from "@/lib/format"
+import { CustomerAccountType, type AccountTypeBusinessInfo, type AccountTypeChange } from "@/components/customer-account-type"
 
 interface Customer {
     _id: string
@@ -42,14 +43,13 @@ interface Customer {
     email: string
     phone: string
     role: string
-    businessInfo?: {
-        businessName: string
-        gstIn: string
-    }
+    businessInfo?: AccountTypeBusinessInfo | null
     createdAt: string
 }
 
 interface CustomerDetails extends Customer {
+    accountTypeHistory?: AccountTypeChange[]
+    openNegotiations?: number
     stats: {
         orders: { totalOrders: number; totalSpent: number }
         negotiations: Record<string, number>
@@ -506,10 +506,27 @@ export default function CustomersPage() {
                                     <div className="col-span-2 pt-2 border-t border-[#333] mt-2">
                                         <span className="text-gray-500 block text-xs">Business</span>
                                         <span className="font-medium">{selectedCustomer.businessInfo.businessName}</span>
-                                        {selectedCustomer.businessInfo.gstIn && <span className="text-gray-400 text-xs ml-2">GST: {selectedCustomer.businessInfo.gstIn}</span>}
+                                        {(selectedCustomer.businessInfo.gstNumber || selectedCustomer.businessInfo.gstIn) && <span className="text-gray-400 text-xs ml-2">GST: {selectedCustomer.businessInfo.gstNumber || selectedCustomer.businessInfo.gstIn}</span>}
                                     </div>
                                 )}
                             </div>
+
+                            {/* Customer ↔ wholesaler (administrators) */}
+                            {isAdmin && (
+                                <CustomerAccountType
+                                    customer={selectedCustomer}
+                                    onChanged={(updated) => {
+                                        setSelectedCustomer((current) => current ? {
+                                            ...current,
+                                            role: updated.role,
+                                            businessInfo: updated.businessInfo,
+                                            accountTypeHistory: updated.accountTypeHistory,
+                                            openNegotiations: updated.openNegotiations,
+                                        } : current)
+                                        setCustomers((list) => list.map((c) => c._id === updated._id ? { ...c, role: updated.role, businessInfo: updated.businessInfo } : c))
+                                    }}
+                                />
+                            )}
 
                             {/* Recent Orders */}
                             <div>
