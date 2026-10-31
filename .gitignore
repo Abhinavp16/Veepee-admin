@@ -30,3 +30,6 @@ next-env.d.ts
 /test-results/
 /dev_log.txt
 /test_icons.js
+
+# ffmpeg engine, copied from node_modules (scripts/copy-ffmpeg-core.mjs)
+/public/ffmpeg/

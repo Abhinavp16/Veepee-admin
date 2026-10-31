@@ -40,6 +40,10 @@ interface Order {
     subtotal?: number
     deliveryFee?: number
     discount?: number
+    // The coupon used: an affiliate code or an offer code.
+    discountSource?: 'affiliate' | 'offer' | null
+    affiliateCode?: string | null
+    offerCode?: string | null
     // Given by the shop at confirmation, on top of any coupon.
     extraDiscount?: number
     extraDiscountPercent?: number | null
@@ -783,7 +787,17 @@ export default function OrdersPage() {
                                         <span>{selectedOrder.confirmationStatus === 'pending' ? 'Added on confirmation' : `₹${Number(selectedOrder.deliveryFee || 0).toLocaleString('en-IN')}`}</span>
                                     </div>
                                     {!!selectedOrder.discount && (
-                                        <div className="flex justify-between text-gray-400"><span>Discount</span><span>−₹{Number(selectedOrder.discount).toLocaleString('en-IN')}</span></div>
+                                        <div className="flex justify-between text-gray-400">
+                                            <span>
+                                                Discount
+                                                {selectedOrder.affiliateCode ? (
+                                                    <> · affiliate <code className="text-[#86efac]">{selectedOrder.affiliateCode}</code></>
+                                                ) : selectedOrder.offerCode ? (
+                                                    <> · offer <code className="text-gray-300">{selectedOrder.offerCode}</code></>
+                                                ) : null}
+                                            </span>
+                                            <span>−₹{Number(selectedOrder.discount).toLocaleString('en-IN')}</span>
+                                        </div>
                                     )}
                                     {!!selectedOrder.extraDiscount && (
                                         <div className="flex justify-between text-[#86efac]">

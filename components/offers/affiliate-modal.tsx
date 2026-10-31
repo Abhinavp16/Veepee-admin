@@ -37,6 +37,7 @@ export function AffiliateModal({ isOpen, onClose, onSuccess, code }: AffiliateMo
         code: "",
         personName: "",
         usageLimit: "0",
+        perCustomerLimit: "0",
         startDate: "",
         endDate: "",
         isActive: true,
@@ -58,6 +59,7 @@ export function AffiliateModal({ isOpen, onClose, onSuccess, code }: AffiliateMo
                 code: code.code || "",
                 personName: code.personName || "",
                 usageLimit: code.usageLimit?.toString() || "0",
+                perCustomerLimit: code.perCustomerLimit?.toString() || "0",
                 startDate: code.startDate ? new Date(code.startDate).toISOString().split("T")[0] : "",
                 endDate: code.endDate ? new Date(code.endDate).toISOString().split("T")[0] : "",
                 isActive: code.isActive !== false,
@@ -73,6 +75,7 @@ export function AffiliateModal({ isOpen, onClose, onSuccess, code }: AffiliateMo
                 code: "",
                 personName: "",
                 usageLimit: "0",
+                perCustomerLimit: "0",
                 startDate: new Date().toISOString().split("T")[0],
                 endDate: "",
                 isActive: true,
@@ -121,6 +124,7 @@ export function AffiliateModal({ isOpen, onClose, onSuccess, code }: AffiliateMo
                     discountValue: primary.discountValue,
                     discountRules: normalizedRules,
                     usageLimit: Number(formData.usageLimit),
+                    perCustomerLimit: Number(formData.perCustomerLimit || 0),
                     endDate: formData.endDate || undefined,
                 }),
             })
@@ -259,6 +263,19 @@ export function AffiliateModal({ isOpen, onClose, onSuccess, code }: AffiliateMo
                                 className="bg-[#0D0D0D] border-[#333] focus:border-[#86efac]"
                                 required
                             />
+                            <p className="text-[11px] text-gray-500">Total uses; 0 = no limit.</p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="perCustomerLimit">Uses per customer</Label>
+                            <Input
+                                id="perCustomerLimit"
+                                type="number"
+                                min={0}
+                                value={formData.perCustomerLimit}
+                                onChange={(e) => setFormData({ ...formData, perCustomerLimit: e.target.value })}
+                                className="bg-[#0D0D0D] border-[#333] focus:border-[#86efac]"
+                            />
+                            <p className="text-[11px] text-gray-500">0 = no limit. Cancelled orders don&apos;t count.</p>
                         </div>
                     </div>
 

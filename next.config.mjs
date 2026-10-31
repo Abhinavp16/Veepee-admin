@@ -12,12 +12,17 @@ const apiOrigin = (() => {
 const contentSecurityPolicy = [
   "default-src 'self'",
   // Next.js inlines its bootstrap scripts, so inline scripts stay allowed.
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
+  // wasm-unsafe-eval: the video compressor (ffmpeg.wasm) runs WebAssembly.
+  `script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'${isDev ? " 'unsafe-eval'" : ''}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
+  // Banner video previews come from Firebase Storage.
+  "media-src 'self' blob: https://storage.googleapis.com https://firebasestorage.googleapis.com",
+  "worker-src 'self' blob:",
   "font-src 'self' data:",
   // Firebase endpoints are needed for browser push notifications.
-  `connect-src 'self' ${apiOrigin} https://fcmregistrations.googleapis.com https://firebaseinstallations.googleapis.com https://fcm.googleapis.com${isDev ? ' ws: http://localhost:* http://127.0.0.1:*' : ''}`.trim(),
+  // storage.googleapis.com: banner videos upload straight to Firebase Storage.
+  `connect-src 'self' ${apiOrigin} https://storage.googleapis.com https://fcmregistrations.googleapis.com https://firebaseinstallations.googleapis.com https://fcm.googleapis.com${isDev ? ' ws: http://localhost:* http://127.0.0.1:*' : ''}`.trim(),
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
