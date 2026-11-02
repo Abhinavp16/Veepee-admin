@@ -36,6 +36,7 @@ import { apiFetch } from "@/lib/api"
 import { useDashboardUser } from "@/components/dashboard-context"
 import { formatDate, labelFor } from "@/lib/format"
 import { CustomerAccountType, type AccountTypeBusinessInfo, type AccountTypeChange } from "@/components/customer-account-type"
+import { CustomerPasswordReset, type ResetRequest } from "@/components/customer-password-reset"
 
 interface Customer {
     _id: string
@@ -50,6 +51,8 @@ interface Customer {
 interface CustomerDetails extends Customer {
     accountTypeHistory?: AccountTypeChange[]
     openNegotiations?: number
+    passwordResetRequestedAt?: string | null
+    passwordResetRequests?: ResetRequest[]
     stats: {
         orders: { totalOrders: number; totalSpent: number }
         negotiations: Record<string, number>
@@ -85,10 +88,13 @@ export default function CustomersPage() {
     const [hasMore, setHasMore] = useState(false)
 
     useEffect(() => {
-        fetchCustomers(1, true)
+        // A notification link (/customers?search=<phone>) opens filtered.
+        const search = new URLSearchParams(window.location.search).get("search")
+        if (search) setSearchQuery(search)
+        fetchCustomers(1, true, search || "")
     }, [])
 
-    async function fetchCustomers(pageNum: number = 1, reset: boolean = false) {
+    async function fetchCustomers(pageNum: number = 1, reset: boolean = false, search: string = searchQuery) {
         if (reset) {
             setIsLoading(true)
             setPage(1)
@@ -100,8 +106,8 @@ export default function CustomersPage() {
             const params = new URLSearchParams()
             params.append('page', pageNum.toString())
             params.append('limit', '20')
-            if (searchQuery.trim()) {
-                params.append('search', searchQuery.trim())
+            if (search.trim()) {
+                params.append('search', search.trim())
             }
 
             const res = await apiFetch(`/admin/customers?${params.toString()}`)
@@ -341,7 +347,7 @@ export default function CustomersPage() {
                     <Input type="text" placeholder="Search by name, email, phone..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10 bg-[#161616] border-[#333] text-white placeholder:text-gray-500 focus-visible:ring-[#86efac]" />
                 </div>
                 <Button type="submit" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]">Search</Button>
-                {searchQuery && <Button type="button" variant="ghost" onClick={() => { setSearchQuery(""); fetchCustomers(1, true); }} className="text-gray-400 hover:text-white">Clear</Button>}
+                {searchQuery && <Button type="button" variant="ghost" onClick={() => { setSearchQuery(""); fetchCustomers(1, true, ""); }} className="text-gray-400 hover:text-white">Clear</Button>}
             </form>
 
             <Card className="bg-[#161616] border-[#333]">
@@ -525,6 +531,16 @@ export default function CustomersPage() {
                                         } : current)
                                         setCustomers((list) => list.map((c) => c._id === updated._id ? { ...c, role: updated.role, businessInfo: updated.businessInfo } : c))
                                     }}
+                                />
+                            )}
+
+                            {/* Forgot password (administrators) */}
+                            {isAdmin && (
+                                <CustomerPasswordReset
+                                    key={selectedCustomer._id}
+                                    customer={selectedCustomer}
+                                    // Reload: the request now shows as reset.
+                                    onReset={() => void fetchCustomerDetails(selectedCustomer._id)}
                                 />
                             )}
 
