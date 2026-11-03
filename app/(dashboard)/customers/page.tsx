@@ -48,6 +48,11 @@ interface Customer {
     createdAt: string
 }
 
+// The list's type filter: everyone, retail customers (buyers) or wholesalers.
+type CustomerType = "all" | "buyer" | "wholesaler"
+const typeLabels: Record<CustomerType, string> = { all: "All types", buyer: "Customers", wholesaler: "Wholesalers" }
+const listTitles: Record<CustomerType, string> = { all: "All Customers", buyer: "Customers", wholesaler: "Wholesalers" }
+
 interface CustomerDetails extends Customer {
     accountTypeHistory?: AccountTypeChange[]
     openNegotiations?: number
@@ -82,6 +87,7 @@ export default function CustomersPage() {
 
     // Search & Pagination state
     const [searchQuery, setSearchQuery] = useState("")
+    const [typeFilter, setTypeFilter] = useState<CustomerType>("all")
     const [page, setPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
     const [totalCustomers, setTotalCustomers] = useState(0)
@@ -94,7 +100,7 @@ export default function CustomersPage() {
         fetchCustomers(1, true, search || "")
     }, [])
 
-    async function fetchCustomers(pageNum: number = 1, reset: boolean = false, search: string = searchQuery) {
+    async function fetchCustomers(pageNum: number = 1, reset: boolean = false, search: string = searchQuery, type: CustomerType = typeFilter) {
         if (reset) {
             setIsLoading(true)
             setPage(1)
@@ -108,6 +114,9 @@ export default function CustomersPage() {
             params.append('limit', '20')
             if (search.trim()) {
                 params.append('search', search.trim())
+            }
+            if (type !== "all") {
+                params.append('role', type)
             }
 
             const res = await apiFetch(`/admin/customers?${params.toString()}`)
@@ -237,7 +246,7 @@ export default function CustomersPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold text-white">Customers</h1>
-                    <p className="text-gray-400 text-sm">{totalCustomers > 0 && `(${totalCustomers} customers)`}</p>
+                    <p className="text-gray-400 text-sm">{totalCustomers > 0 && `(${totalCustomers} ${typeFilter === "wholesaler" ? "wholesalers" : "customers"})`}</p>
                 </div>
                 {isAdmin && <Button
                     onClick={toggleDraftingHeader}
@@ -348,11 +357,23 @@ export default function CustomersPage() {
                 </div>
                 <Button type="submit" variant="outline" className="border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]">Search</Button>
                 {searchQuery && <Button type="button" variant="ghost" onClick={() => { setSearchQuery(""); fetchCustomers(1, true, ""); }} className="text-gray-400 hover:text-white">Clear</Button>}
+                <select
+                    aria-label="Filter by type"
+                    value={typeFilter}
+                    onChange={(e) => {
+                        const type = e.target.value as CustomerType
+                        setTypeFilter(type)
+                        fetchCustomers(1, true, searchQuery, type)
+                    }}
+                    className="ml-auto h-10 rounded-md border border-[#333] bg-[#0D0D0D] px-3 text-sm text-white outline-none focus:border-[#86efac]"
+                >
+                    {Object.entries(typeLabels).map(([type, label]) => <option key={type} value={type}>{label}</option>)}
+                </select>
             </form>
 
             <Card className="bg-[#161616] border-[#333]">
                 <CardHeader>
-                    <CardTitle className="text-white">All Customers</CardTitle>
+                    <CardTitle className="text-white">{listTitles[typeFilter]}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     {isLoading ? (
