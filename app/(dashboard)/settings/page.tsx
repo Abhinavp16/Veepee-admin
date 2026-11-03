@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Loader2, Save, Building2, User, Smartphone, Eye, Handshake } from "lucide-react"
+import { Loader2, Save, Building2, User, Smartphone, Eye, Handshake, MessageCircle } from "lucide-react"
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
 import { HindiNamesTool } from "@/components/hindi-names-tool"
@@ -36,6 +36,12 @@ const settingsSchema = z.object({
     negotiationExpiryDays: z.coerce.number().optional(),
     negotiationQuickPicks: z.array(z.coerce.number()).optional(),
     negotiationMaxDiscountPercent: z.coerce.number().min(1, "At least 1%").max(90, "At most 90%").optional(),
+    whatsappAlerts: z.object({
+        enabled: z.boolean(),
+        number: z.string().refine((value) => /^\d{10,15}$/.test(value.replace(/\D/g, "").replace(/^0+/, "")), "Enter a WhatsApp number"),
+        negotiations: z.boolean(),
+        orders: z.boolean(),
+    }).optional(),
     lowStockThreshold: z.coerce.number().optional(),
     // [COMMENTED OUT RAZORPAY]
     // Bank Transfer
@@ -47,6 +53,8 @@ const settingsSchema = z.object({
     features: z.record(z.any()).optional(),
     mobileApp: z.record(z.any()).optional()
 }).passthrough()
+
+const WHATSAPP_ALERT_DEFAULTS = { enabled: true, number: "917828832346", negotiations: true, orders: true }
 
 const APP_PLATFORMS = [
     { key: "android", label: "Android (Google Play)", urlHint: "https://play.google.com/store/apps/details?id=com.veepeeimpex.oxon" },
@@ -72,6 +80,7 @@ export default function SettingsPage() {
             negotiationExpiryDays: 7,
             negotiationQuickPicks: [2, 1],
             negotiationMaxDiscountPercent: 10,
+            whatsappAlerts: WHATSAPP_ALERT_DEFAULTS,
             lowStockThreshold: 10,
             // [COMMENTED OUT RAZORPAY]
             bankName: "",
@@ -98,6 +107,7 @@ export default function SettingsPage() {
                     gstin: data.data.gstin ?? "",
                     negotiationQuickPicks: data.data.negotiationQuickPicks ?? [2, 1],
                     negotiationMaxDiscountPercent: data.data.negotiationMaxDiscountPercent ?? 10,
+                    whatsappAlerts: { ...WHATSAPP_ALERT_DEFAULTS, ...data.data.whatsappAlerts },
                 })
             }
         } catch (error) {
@@ -487,6 +497,72 @@ export default function SettingsPage() {
                                     </FormItem>
                                 )}
                             />
+                        </CardContent>
+                    </Card>
+
+                    {/* WhatsApp alerts to OXON */}
+                    <Card id="whatsapp-alerts" className="bg-[#161616] border-[#333]">
+                        <CardHeader>
+                            <CardTitle className="text-white flex items-center gap-2">
+                                <MessageCircle className="h-5 w-5 text-[#25D366]" /> WhatsApp alerts to OXON
+                            </CardTitle>
+                            <CardDescription>
+                                After a wholesaler sends a price request or places an order, the app opens WhatsApp on this number with the details and a PDF link typed in; they tap Send. Changes apply at once, with no app update.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <FormField
+                                control={form.control}
+                                name="whatsappAlerts.enabled"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border border-[#333] p-4">
+                                        <div className="space-y-0.5">
+                                            <FormLabel className="text-base text-white">Send to OXON on WhatsApp</FormLabel>
+                                            <FormDescription>Off: the app opens nothing; requests and orders still reach this panel.</FormDescription>
+                                        </div>
+                                        <FormControl>
+                                            <Switch checked={field.value !== false} onCheckedChange={field.onChange} />
+                                        </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="whatsappAlerts.number"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-white">OXON WhatsApp number</FormLabel>
+                                        <FormControl>
+                                            <Input className="bg-[#0D0D0D] border-[#333] text-white" placeholder="91 78288 32346" inputMode="tel" {...field} value={field.value || ''} />
+                                        </FormControl>
+                                        <FormDescription>With the country code. Spaces and a leading 0 are fine.</FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                {([
+                                    ["whatsappAlerts.negotiations", "Price requests", "One product, or a whole cart (REQ-)"],
+                                    ["whatsappAlerts.orders", "Orders", "After the payment screenshot is sent"],
+                                ] as const).map(([name, label, hint]) => (
+                                    <FormField
+                                        key={name}
+                                        control={form.control}
+                                        name={name}
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-row items-center justify-between rounded-lg border border-[#333] p-4">
+                                                <div className="space-y-0.5">
+                                                    <FormLabel className="text-white">{label}</FormLabel>
+                                                    <FormDescription>{hint}</FormDescription>
+                                                </div>
+                                                <FormControl>
+                                                    <Switch checked={field.value !== false} onCheckedChange={field.onChange} />
+                                                </FormControl>
+                                            </FormItem>
+                                        )}
+                                    />
+                                ))}
+                            </div>
                         </CardContent>
                     </Card>
 
