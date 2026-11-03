@@ -488,7 +488,7 @@ export default function CustomersPage() {
             </Card>
 
             <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-                <DialogContent className="bg-[#161616] border-[#333] text-white max-w-2xl">
+                <DialogContent className="bg-[#161616] border-[#333] text-white max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Customer Profile</DialogTitle>
                         <DialogDescription>
