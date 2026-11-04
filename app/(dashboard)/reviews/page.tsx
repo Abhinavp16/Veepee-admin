@@ -72,7 +72,7 @@ export default function ReviewsPage() {
     }
 
     async function deleteReview(id: string) {
-        if (!confirm("Are you sure you want to delete this review?")) return
+        if (!confirm("Delete this review permanently? This can't be undone.\n\nTo hide it for now, deactivate it instead.")) return
         try {
             const res = await apiFetch(`/admin/reviews/${id}`, { method: 'DELETE' })
             if (res.ok) {

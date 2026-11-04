@@ -1123,8 +1123,8 @@ export default function CategoriesPage() {
                     <DialogHeader>
                         <DialogTitle className="text-white">Delete Category</DialogTitle>
                         <DialogDescription className="text-gray-400">
-                            Are you sure you want to delete this category? This action cannot be undone.
-                            Categories with subcategories or products cannot be deleted.
+                            Delete this category permanently? This can&apos;t be undone.
+                            Categories with sub-categories or live products can&apos;t be deleted. Archived products in it are taken out of it (choose a new category before restoring them).
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>

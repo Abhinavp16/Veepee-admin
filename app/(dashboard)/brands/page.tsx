@@ -681,8 +681,8 @@ export default function BrandsPage() {
                     <DialogHeader>
                         <DialogTitle className="text-white">Delete Brand</DialogTitle>
                         <DialogDescription className="text-gray-400">
-                            Are you sure you want to delete this brand? This action cannot be undone.
-                            Products associated with this brand will no longer have a brand assigned.
+                            Delete this brand permanently? This can&apos;t be undone.
+                            Brands with live products can&apos;t be deleted. Archived products of this brand are left without a brand.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>

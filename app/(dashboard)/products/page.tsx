@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { Plus, Loader2, Pencil, Trash2, LayoutGrid, List, Package, Search } from "lucide-react"
+import { Plus, Loader2, Pencil, Trash2, LayoutGrid, List, Package, Search, Archive, RotateCcw } from "lucide-react"
 import { useEffect, useState, useCallback } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
@@ -109,6 +109,8 @@ export default function ProductsPage() {
     const [searchQuery, setSearchQuery] = useState("")
     // "both" | "sub" | "category": where products show (from the address bar).
     const placementFilter = searchParams.get("placement") || ""
+    // "" (active and draft), "active", "draft", "archived" or "all".
+    const statusFilter = searchParams.get("status") || ""
     const [page, setPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
     const [totalProducts, setTotalProducts] = useState(0)
@@ -167,6 +169,7 @@ export default function ProductsPage() {
             if (categoryId) params.append('categoryId', categoryId)
             if (includeDescendants) params.append('includeDescendants', 'true')
             if (placementFilter) params.append('placement', placementFilter)
+            if (statusFilter) params.append('status', statusFilter)
             if (query.trim()) {
                 params.append('search', query.trim())
             }
@@ -223,26 +226,66 @@ export default function ProductsPage() {
     const addProductHref = productFormHref(null, currentQuery)
     const editProductHref = (id: string) => productFormHref(id, currentQuery)
 
-    async function deleteProduct(productId: string) {
-        const confirmed = window.confirm("Are you sure you want to archive this product? It will no longer be visible in the app.")
+    async function archiveProduct(product: Product) {
+        const confirmed = window.confirm(`Archive "${product.name}"?\n\nIt will be hidden from the app and website. You can restore it later from Status: Archived.`)
         if (!confirmed) return
+        await productAction(`/admin/products/${product._id}`, 'DELETE', "Product archived. Find it under Status: Archived.")
+    }
 
+    async function deleteProductPermanently(product: Product) {
+        const confirmed = window.confirm(`Delete "${product.name}" permanently?\n\nThis can't be undone. It is removed from the app, website and customers' carts. Past orders keep their copy of it.`)
+        if (!confirmed) return
+        await productAction(`/admin/products/${product._id}/permanent`, 'DELETE', "Product deleted permanently")
+    }
+
+    async function restoreProduct(product: Product) {
+        const res = await productAction(`/admin/products/${product._id}/restore`, 'POST', "Product restored. It shows in the app again.")
+        // Its category was deleted: choose a new one on the edit page.
+        if (res?.code === 'PRODUCT_NEEDS_CATEGORY') router.push(editProductHref(product._id))
+    }
+
+    async function productAction(path: string, method: string, success: string) {
         try {
-            const res = await apiFetch(`/admin/products/${productId}`, {
-                method: 'DELETE',
-            })
-            const data = await res.json()
-
+            const res = await apiFetch(path, { method })
+            const data = await res.json().catch(() => ({}))
             if (res.ok) {
-                toast.success("Product archived successfully")
+                toast.success(success)
                 fetchProducts(1, true)
-            } else {
-                toast.error(data.message || "Failed to delete product")
+                return null
             }
+            toast.error(data.message || "Something went wrong")
+            return { code: data.error?.code || data.code }
         } catch (error) {
             console.error(error)
             toast.error("Error connecting to server")
+            return null
         }
+    }
+
+    function ProductActions({ product, small = false }: { product: Product; small?: boolean }) {
+        const size = small ? "h-7 w-7" : "h-8 w-8"
+        const icon = small ? "h-3.5 w-3.5" : "h-4 w-4"
+        return (
+            <>
+                <Link href={editProductHref(product._id)} aria-label={`Edit ${product.name}`}>
+                    <Button size="icon" variant="ghost" className={`${size} text-blue-400 hover:text-blue-300 hover:bg-blue-400/10`} aria-label="Edit" title="Edit">
+                        <Pencil className={icon} />
+                    </Button>
+                </Link>
+                {product.status === 'archived' ? (
+                    <Button size="icon" variant="ghost" aria-label={`Restore ${product.name}`} title="Restore" className={`${size} text-green-400 hover:text-green-300 hover:bg-green-400/10`} onClick={() => restoreProduct(product)}>
+                        <RotateCcw className={icon} />
+                    </Button>
+                ) : (
+                    <Button size="icon" variant="ghost" aria-label={`Archive ${product.name}`} title="Archive (hide, can restore)" className={`${size} text-amber-400 hover:text-amber-300 hover:bg-amber-400/10`} onClick={() => archiveProduct(product)}>
+                        <Archive className={icon} />
+                    </Button>
+                )}
+                <Button size="icon" variant="ghost" aria-label={`Delete ${product.name} permanently`} title="Delete permanently" className={`${size} text-red-400 hover:text-red-300 hover:bg-red-400/10`} onClick={() => deleteProductPermanently(product)}>
+                    <Trash2 className={icon} />
+                </Button>
+            </>
+        )
     }
 
 
@@ -325,6 +368,24 @@ export default function ProductsPage() {
                     <option value="sub">Sub-category only</option>
                     <option value="category">Category only</option>
                 </select>
+                <select
+                    aria-label="Status"
+                    value={statusFilter}
+                    onChange={(event) => {
+                        const next = new URLSearchParams(searchParams.toString())
+                        if (event.target.value) next.set("status", event.target.value)
+                        else next.delete("status")
+                        next.set("page", "1")
+                        router.push(`${pathname}?${next.toString()}`)
+                    }}
+                    className="h-10 rounded-md border border-[#333] bg-[#161616] px-3 text-sm text-white"
+                >
+                    <option value="">Status: active and draft</option>
+                    <option value="active">Active</option>
+                    <option value="draft">Draft</option>
+                    <option value="archived">Archived</option>
+                    <option value="all">All, with archived</option>
+                </select>
                 {searchQuery && (
                     <Button
                         type="button"
@@ -386,6 +447,7 @@ export default function ProductsPage() {
                                     <TableCell className="text-white text-right">{product.stock}</TableCell>
                                     <TableCell className="text-center">
                                         <Badge className={`${product.status === 'active' ? 'bg-green-500/10 text-green-500 hover:bg-green-500/20' :
+                                            product.status === 'archived' ? 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20' :
                                             'bg-gray-500/10 text-gray-500 hover:bg-gray-500/20'
                                             }`}>
                                             {labelFor(product.status)}
@@ -393,14 +455,7 @@ export default function ProductsPage() {
                                     </TableCell>
                                     {isAdmin && <TableCell className="text-right">
                                         <div className="flex justify-end gap-2">
-                                            <Link href={editProductHref(product._id)} aria-label={`Edit ${product.name}`}>
-                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10" aria-label="Edit" title="Edit">
-                                                    <Pencil className="h-4 w-4" />
-                                                </Button>
-                                            </Link>
-                                            {product.status !== 'archived' && <Button size="icon" variant="ghost" aria-label={`Archive ${product.name}`} title="Archive" className="h-8 w-8 text-red-400 hover:text-red-300 hover:bg-red-400/10" onClick={() => deleteProduct(product._id)}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>}
+                                            <ProductActions product={product} />
                                         </div>
                                     </TableCell>}
                                 </TableRow>
@@ -422,14 +477,7 @@ export default function ProductsPage() {
                                     <Package className="h-6 w-6 text-gray-500" />
                                 </div>
                                 <div className="relative z-10 flex gap-1">
-                                    {isAdmin && <><Link href={editProductHref(product._id)} aria-label={`Edit ${product.name}`}>
-                                        <Button size="icon" variant="ghost" className="h-7 w-7 text-blue-400 hover:text-blue-300 hover:bg-blue-400/10" aria-label="Edit" title="Edit">
-                                            <Pencil className="h-3.5 w-3.5" />
-                                        </Button>
-                                    </Link>
-                                    {product.status !== 'archived' && <Button size="icon" variant="ghost" aria-label={`Archive ${product.name}`} title="Archive" className="h-7 w-7 text-red-400 hover:text-red-300 hover:bg-red-400/10" onClick={() => deleteProduct(product._id)}>
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                    </Button>}</>}
+                                    {isAdmin && <ProductActions product={product} small />}
                                 </div>
                             </div>
                             <h3 className={`font-semibold text-white text-base mb-1 line-clamp-1 ${isAdmin ? "group-hover:text-[#86efac]" : ""}`}>{product.name}</h3>
@@ -438,6 +486,7 @@ export default function ProductsPage() {
                                 <ProductCategories product={product} limit={1} />
                                 <PlacementBadge product={product} />
                                 <Badge className={`text-xs ${product.status === 'active' ? 'bg-green-500/10 text-green-500' :
+                                    product.status === 'archived' ? 'bg-amber-500/10 text-amber-400' :
                                     'bg-gray-500/10 text-gray-500'
                                     }`}>
                                     {labelFor(product.status)}

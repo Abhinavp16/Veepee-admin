@@ -629,7 +629,7 @@ export default function SubCategoriesPage() {
                     <DialogHeader>
                         <DialogTitle>Delete {deleting?.name}?</DialogTitle>
                         <DialogDescription className="text-gray-400">
-                            It disappears from every category. Sub-categories that still have products can&apos;t be deleted.
+                            It disappears from every category, permanently: this can&apos;t be undone. Sub-categories that still have live products can&apos;t be deleted; archived ones stay in the category.
                         </DialogDescription>
                     </DialogHeader>
                     <DialogFooter>

@@ -283,7 +283,7 @@ export default function AffiliateCodesPage() {
   }
 
   async function deleteCode(id: string) {
-    if (!confirm("Are you sure you want to delete this affiliate code?")) return
+    if (!confirm("Delete this affiliate code permanently? This can't be undone.\n\nCodes already used in orders can't be deleted: turn them off instead.")) return
     try {
       const res = await apiFetch(`/admin/affiliate-codes/${id}`, { method: "DELETE" })
       if (res.ok) {

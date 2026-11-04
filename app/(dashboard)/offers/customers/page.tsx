@@ -75,7 +75,7 @@ export default function CustomerOffersPage() {
     }
 
     async function deleteOffer(id: string) {
-        if (!confirm("Are you sure you want to delete this offer?")) return
+        if (!confirm("Delete this offer permanently? This can't be undone.\n\nTo stop it for now, turn it off instead.")) return
         try {
             const res = await apiFetch(`/admin/offers/${id}`, { method: 'DELETE' })
             if (res.ok) {
