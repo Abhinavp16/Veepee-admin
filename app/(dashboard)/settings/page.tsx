@@ -571,11 +571,12 @@ export default function SettingsPage() {
                     <Card className="bg-[#161616] border-[#333]">
                         <CardHeader>
                             <CardTitle className="text-white flex items-center gap-2">
-                                <Smartphone className="h-5 w-5" /> App Update Requirement
+                                <Smartphone className="h-5 w-5" /> App Updates
                             </CardTitle>
                             <CardDescription>
-                                When enabled, app builds older than the build number below are blocked until the
-                                customer updates. Set the build number only after that build is live in the store.
+                                Required: app builds older than the minimum build are blocked until the customer
+                                updates. Suggested: older builds see an &quot;Update / Later&quot; popup. Set a build
+                                number only after that build is live in the store.
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-6">
@@ -663,6 +664,67 @@ export default function SettingsPage() {
                                             </FormItem>
                                         )}
                                     />
+                                    <div className="space-y-4 border-t border-[#333] pt-4">
+                                        <FormField
+                                            control={form.control}
+                                            name={`mobileApp.${platform.key}.suggestEnabled`}
+                                            render={({ field }) => (
+                                                <FormItem className="flex flex-row items-center justify-between">
+                                                    <div className="space-y-0.5">
+                                                        <FormLabel className="text-base text-white">Suggest an update</FormLabel>
+                                                        <FormDescription>
+                                                            Older builds see an &quot;Update / Later&quot; popup. Later hides it for 3 days; a newer suggested build shows it again at once.
+                                                        </FormDescription>
+                                                    </div>
+                                                    <FormControl>
+                                                        <Switch checked={!!field.value} onCheckedChange={field.onChange} />
+                                                    </FormControl>
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <FormField
+                                                control={form.control}
+                                                name={`mobileApp.${platform.key}.suggestVersion`}
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-white">New version (shown to users)</FormLabel>
+                                                        <FormControl>
+                                                            <Input placeholder="1.2.31" className="bg-[#0D0D0D] border-[#333] text-white" {...field} value={field.value ?? ""} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name={`mobileApp.${platform.key}.suggestBuildNumber`}
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-white">New build number</FormLabel>
+                                                        <FormControl>
+                                                            <Input type="number" min={0} className="bg-[#0D0D0D] border-[#333] text-white" {...field} value={field.value ?? 0} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                        <FormField
+                                            control={form.control}
+                                            name={`mobileApp.${platform.key}.suggestMessage`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-white">Popup message (optional)</FormLabel>
+                                                    <FormControl>
+                                                        <Input placeholder="A new version of OXON is available with improvements." className="bg-[#0D0D0D] border-[#333] text-white" {...field} value={field.value ?? ""} />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <p className="text-xs text-gray-500">Uses the store link above.</p>
+                                    </div>
                                 </div>
                             ))}
                         </CardContent>
