@@ -30,6 +30,8 @@ interface Offer {
     endDate?: string
     isActive: boolean
     usageCount: number
+    usageLimit?: number
+    perCustomerLimit?: number
 }
 
 export default function WholesalerOffersPage() {
@@ -119,6 +121,7 @@ export default function WholesalerOffersPage() {
                                     <TableHead className="text-gray-400">Offer Details</TableHead>
                                     <TableHead className="text-gray-400">Code</TableHead>
                                     <TableHead className="text-gray-400">Discount</TableHead>
+                                    <TableHead className="text-gray-400">Uses</TableHead>
                                     <TableHead className="text-gray-400">Validity</TableHead>
                                     <TableHead className="text-gray-400">Status</TableHead>
                                     <TableHead className="text-gray-400 text-right">Actions</TableHead>
@@ -138,6 +141,10 @@ export default function WholesalerOffersPage() {
                                         </TableCell>
                                         <TableCell className="text-white">
                                             {offer.discountType === 'percentage' ? `${offer.discountValue}%` : `₹${offer.discountValue}`}
+                                        </TableCell>
+                                        <TableCell className="text-gray-400 text-xs">
+                                            <div className="text-white">{offer.usageCount || 0}{offer.usageLimit ? ` / ${offer.usageLimit}` : ""} used</div>
+                                            <div>{offer.perCustomerLimit ? `${offer.perCustomerLimit} per customer` : "No per-customer limit"}</div>
                                         </TableCell>
                                         <TableCell className="text-gray-400 text-xs">
                                             <div>From: {formatDate(offer.startDate)}</div>

@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { Loader2, Plus, Trash2 } from "lucide-react"
 import { apiFetch } from "@/lib/api"
+import { toDateInput, fromDateInput } from "@/lib/format"
 
 interface OfferModalProps {
     isOpen: boolean
@@ -43,6 +44,9 @@ export function OfferModal({ isOpen, onClose, onSuccess, offer, targetGroup }: O
         startDate: "",
         endDate: "",
         isActive: true,
+        // 0 or empty: no limit.
+        usageLimit: "",
+        perCustomerLimit: "",
     })
     const [rules, setRules] = useState<DiscountRuleForm[]>([emptyRule()])
 
@@ -62,9 +66,11 @@ export function OfferModal({ isOpen, onClose, onSuccess, offer, targetGroup }: O
                 description: offer.description || "",
                 code: offer.code || "",
                 targetGroup: offer.targetGroup || targetGroup,
-                startDate: offer.startDate ? new Date(offer.startDate).toISOString().split("T")[0] : "",
-                endDate: offer.endDate ? new Date(offer.endDate).toISOString().split("T")[0] : "",
+                startDate: toDateInput(offer.startDate),
+                endDate: toDateInput(offer.endDate),
                 isActive: offer.isActive !== false,
+                usageLimit: offer.usageLimit ? String(offer.usageLimit) : "",
+                perCustomerLimit: offer.perCustomerLimit ? String(offer.perCustomerLimit) : "",
             })
             setRules(sourceRules.map((r: any) => ({
                 minPurchaseAmount: (r.minPurchaseAmount ?? 0).toString(),
@@ -78,9 +84,11 @@ export function OfferModal({ isOpen, onClose, onSuccess, offer, targetGroup }: O
                 description: "",
                 code: "",
                 targetGroup: targetGroup,
-                startDate: new Date().toISOString().split("T")[0],
+                startDate: toDateInput(new Date()),
                 endDate: "",
                 isActive: true,
+                usageLimit: "",
+                perCustomerLimit: "",
             })
             setRules([emptyRule()])
         }
@@ -128,7 +136,10 @@ export function OfferModal({ isOpen, onClose, onSuccess, offer, targetGroup }: O
                     maxDiscountAmount: primary.maxDiscountAmount,
                     discountRules: normalizedRules,
                     code: formData.code || undefined,
-                    endDate: formData.endDate || undefined,
+                    startDate: fromDateInput(formData.startDate),
+                    endDate: fromDateInput(formData.endDate, true),
+                    usageLimit: Math.max(0, Math.floor(Number(formData.usageLimit) || 0)),
+                    perCustomerLimit: Math.max(0, Math.floor(Number(formData.perCustomerLimit) || 0)),
                 }),
             })
 
@@ -288,6 +299,39 @@ export function OfferModal({ isOpen, onClose, onSuccess, offer, targetGroup }: O
                             />
                         </div>
                     </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="perCustomerLimit">Uses per customer</Label>
+                            <Input
+                                id="perCustomerLimit"
+                                type="number"
+                                min={0}
+                                value={formData.perCustomerLimit}
+                                onChange={(e) => setFormData({ ...formData, perCustomerLimit: e.target.value })}
+                                placeholder="No limit"
+                                className="bg-[#0D0D0D] border-[#333] focus:border-[#86efac]"
+                            />
+                            <p className="text-xs text-gray-500">1 = each customer can use it once (e.g. a welcome coupon). Empty = no limit.</p>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="usageLimit">Total uses</Label>
+                            <Input
+                                id="usageLimit"
+                                type="number"
+                                min={0}
+                                value={formData.usageLimit}
+                                onChange={(e) => setFormData({ ...formData, usageLimit: e.target.value })}
+                                placeholder="No limit"
+                                className="bg-[#0D0D0D] border-[#333] focus:border-[#86efac]"
+                            />
+                            <p className="text-xs text-gray-500">
+                                The coupon stops after this many orders in all. Empty = no limit.
+                                {offer ? ` Used so far: ${offer.usageCount || 0}.` : ""}
+                            </p>
+                        </div>
+                    </div>
+                    <p className="text-xs text-gray-500">Coupons don&apos;t apply to price-request orders or to sale prices. Cancelled orders give their use back.</p>
 
                     </div>
 

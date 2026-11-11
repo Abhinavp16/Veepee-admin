@@ -40,3 +40,24 @@ export function labelFor(value: string | null | undefined, empty = "—"): strin
     const words = key.replace(/_/g, " ")
     return words.charAt(0).toUpperCase() + words.slice(1)
 }
+
+// Coupon and code dates are whole days in the admin's own time zone (the
+// browser's), not UTC: the 12th starts at midnight on the 12th and an end
+// date lasts until the end of that day.
+
+/** A stored date as the YYYY-MM-DD a date field shows, in local time. */
+export function toDateInput(value: string | Date | null | undefined): string {
+    if (!value) return ""
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return ""
+    const pad = (n: number) => String(n).padStart(2, "0")
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+/** A date field's YYYY-MM-DD as the start (or end) of that local day. */
+export function fromDateInput(value: string, end = false): string | undefined {
+    if (!value) return undefined
+    const [y, m, d] = value.split("-").map(Number)
+    const date = end ? new Date(y, m - 1, d, 23, 59, 59, 999) : new Date(y, m - 1, d)
+    return Number.isNaN(date.getTime()) ? undefined : date.toISOString()
+}

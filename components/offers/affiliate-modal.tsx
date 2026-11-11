@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner"
 import { Loader2, Plus, Trash2 } from "lucide-react"
 import { apiFetch } from "@/lib/api"
+import { toDateInput, fromDateInput } from "@/lib/format"
 
 interface AffiliateModalProps {
     isOpen: boolean
@@ -60,8 +61,8 @@ export function AffiliateModal({ isOpen, onClose, onSuccess, code }: AffiliateMo
                 personName: code.personName || "",
                 usageLimit: code.usageLimit?.toString() || "0",
                 perCustomerLimit: code.perCustomerLimit?.toString() || "0",
-                startDate: code.startDate ? new Date(code.startDate).toISOString().split("T")[0] : "",
-                endDate: code.endDate ? new Date(code.endDate).toISOString().split("T")[0] : "",
+                startDate: toDateInput(code.startDate),
+                endDate: toDateInput(code.endDate),
                 isActive: code.isActive !== false,
             })
             setRules(sourceRules.map((r: any) => ({
@@ -76,7 +77,7 @@ export function AffiliateModal({ isOpen, onClose, onSuccess, code }: AffiliateMo
                 personName: "",
                 usageLimit: "0",
                 perCustomerLimit: "0",
-                startDate: new Date().toISOString().split("T")[0],
+                startDate: toDateInput(new Date()),
                 endDate: "",
                 isActive: true,
             })
@@ -125,7 +126,8 @@ export function AffiliateModal({ isOpen, onClose, onSuccess, code }: AffiliateMo
                     discountRules: normalizedRules,
                     usageLimit: Number(formData.usageLimit),
                     perCustomerLimit: Number(formData.perCustomerLimit || 0),
-                    endDate: formData.endDate || undefined,
+                    startDate: fromDateInput(formData.startDate),
+                    endDate: fromDateInput(formData.endDate, true),
                 }),
             })
 
