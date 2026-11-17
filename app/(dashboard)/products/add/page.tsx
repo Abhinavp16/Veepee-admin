@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { Loader2, Plus, Trash2, Building2, Flame, Star, ImagePlus, X, GripVertical, Crown, Upload, Link, ArrowLeft, FolderPlus, Youtube, Truck, ChevronDown, Tags, Check } from "lucide-react"
+import { Loader2, Plus, Trash2, Building2, Flame, Star, ImagePlus, X, GripVertical, Crown, Upload, Link, ArrowLeft, FolderPlus, Youtube, Truck, ChevronDown, Tags, Check, ShieldCheck } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 import NextLink from "next/link"
 
@@ -49,6 +49,8 @@ import { CategoryOption, fetchAllCategories } from "@/lib/categories"
 import { safeInternalReturnTo } from "@/lib/admin-context"
 import { formatDateTime } from "@/lib/format"
 import { placeholderImage } from "@/lib/placeholder-image"
+import { emptyTemplates, fetchProductTemplates, type ProductTemplates, type SpecSet, type TextBlock } from "@/lib/product-templates"
+import { TemplateMenu } from "@/components/template-menu"
 
 type Category = CategoryOption
 
@@ -119,6 +121,10 @@ const productSchema = z.object({
     company: z.string().optional(),
     videoUrl: z.string().optional(),
     shippingTerms: z.string().optional(),
+    // On: the shared text from Settings → Product templates.
+    useCommonShipping: z.boolean().default(true),
+    warranty: z.string().optional(),
+    useCommonWarranty: z.boolean().default(true),
     labelIds: z.array(z.string()).default([]),
 }).superRefine((values, context) => {
     if (values.primaryCategoryId && !values.categoryIds.includes(values.primaryCategoryId)) {
@@ -216,9 +222,36 @@ export default function AddProductPage() {
             company: "",
             videoUrl: "",
             shippingTerms: "",
+            useCommonShipping: true,
+            warranty: "",
+            useCommonWarranty: true,
             labelIds: [],
         },
     })
+    // Settings → Product templates: the shared texts, specification sets and
+    // text blocks this form can use.
+    const [templates, setTemplates] = useState<ProductTemplates>(emptyTemplates)
+    useEffect(() => {
+        // Not loaded: the menus are empty and the shared-text preview blank;
+        // nothing is saved from them.
+        fetchProductTemplates().then((saved) => setTemplates(saved ?? emptyTemplates))
+    }, [])
+
+    function addSpecSet(set: SpecSet) {
+        const lines = set.items.map((item) => `${item.key}: ${item.value}`)
+        setBulletPoints((points) => {
+            const kept = points.filter((point) => point.trim() !== "")
+            // A line already there is not added twice.
+            const added = lines.filter((line) => !kept.includes(line))
+            return kept.length + added.length > 0 ? [...kept, ...added] : [""]
+        })
+        toast.success(`Added "${set.name}"`)
+    }
+
+    function insertTextBlock(block: TextBlock) {
+        const current = (form.getValues("description") || "").trimEnd()
+        form.setValue("description", current ? `${current}\n\n${block.text}` : block.text, { shouldDirty: true })
+    }
 
     useEffect(() => {
         const initData = async () => {
@@ -387,6 +420,10 @@ export default function AddProductPage() {
                 company: product.company?._id || product.company || "none",
                 videoUrl: product.videoUrl || "",
                 shippingTerms: product.shippingTerms || "",
+                // The server works these out for older products too.
+                useCommonShipping: product.useCommonShipping !== false,
+                warranty: product.warranty || "",
+                useCommonWarranty: product.useCommonWarranty !== false,
                 labelIds: Array.isArray(product.labelIds) ? product.labelIds.map((item: any) => String(item)).filter(Boolean) : [],
             })
             originalStock.current = Number(product.stock) || 0
@@ -784,7 +821,12 @@ export default function AddProductPage() {
                     value: point
                 })),
                 videoUrl: values.videoUrl?.trim() || null,
+                // With the shared text on, the product keeps its own text
+                // (if any) for when it is turned off again.
+                useCommonShipping: values.useCommonShipping,
                 shippingTerms: values.shippingTerms?.trim() || null,
+                useCommonWarranty: values.useCommonWarranty,
+                warranty: values.warranty?.trim() || null,
             }
 
             // In edit mode prices go through the audited price-change API, applied immediately.
@@ -931,7 +973,16 @@ export default function AddProductPage() {
                                         name="description"
                                         render={({ field }) => (
                                             <FormItem className="mt-4">
-                                                <FormLabel className="text-white">Description</FormLabel>
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <FormLabel className="text-white">Description</FormLabel>
+                                                    <TemplateMenu
+                                                        label="Insert saved text"
+                                                        heading="Adds the text at the end of the description"
+                                                        items={templates.textBlocks}
+                                                        onPick={insertTextBlock}
+                                                        preview={(block) => block.text}
+                                                    />
+                                                </div>
                                                 <FormControl>
                                                     <Textarea placeholder="Product description" {...field} className="bg-[#0D0D0D] border-[#333] text-white min-h-[100px]" />
                                                 </FormControl>
@@ -1406,16 +1457,25 @@ export default function AddProductPage() {
                                 <CardContent className="pt-6">
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className="text-white font-medium">Key Features / Bullet Points</h3>
-                                        <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={addBulletPoint}
-                                            className="border-[#333]"
-                                        >
-                                            <Plus className="h-3 w-3 mr-1" />
-                                            Add Point
-                                        </Button>
+                                        <div className="flex items-center gap-2">
+                                            <TemplateMenu
+                                                label="Add saved set"
+                                                heading="Adds each row as a point, e.g. Warranty: 1 year"
+                                                items={templates.specSets}
+                                                onPick={addSpecSet}
+                                                preview={(set) => set.items.map((item) => `${item.key}: ${item.value}`).join(" · ")}
+                                            />
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={addBulletPoint}
+                                                className="border-[#333]"
+                                            >
+                                                <Plus className="h-3 w-3 mr-1" />
+                                                Add Point
+                                            </Button>
+                                        </div>
                                     </div>
                                     <div className="space-y-2">
                                         {bulletPoints.map((point, index) => (
@@ -1471,28 +1531,64 @@ export default function AddProductPage() {
                                 </CardContent>
                             </Card>
 
-                            {/* Shipping & Return Terms */}
+                            {/* Shipping & Returns and Warranty: the shared text, or this product's own */}
                             <Card className="bg-[#161616] border-[#333]">
-                                <CardContent className="pt-6">
-                                    <FormField
-                                        control={form.control}
-                                        name="shippingTerms"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-white flex items-center gap-2">
-                                                    <Truck className="h-4 w-4 text-blue-400" />
-                                                    Shipping & Return Terms
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Textarea placeholder="Enter shipping and return policy..." {...field} className="bg-[#0D0D0D] border-[#333] text-white min-h-[120px]" />
-                                                </FormControl>
-                                                <FormDescription className="text-gray-500">
-                                                    Shown under &quot;Shipping &amp; Returns&quot; on the product page. Leave empty to show nothing.
-                                                </FormDescription>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
+                                <CardContent className="pt-6 space-y-6">
+                                    {([
+                                        { title: "Shipping & Returns", icon: <Truck className="h-4 w-4 text-blue-400" />, useCommon: "useCommonShipping", own: "shippingTerms", shared: templates.shippingTerms, placeholder: "Shipping and return terms for this product only…" },
+                                        { title: "Warranty", icon: <ShieldCheck className="h-4 w-4 text-green-400" />, useCommon: "useCommonWarranty", own: "warranty", shared: templates.warranty, placeholder: "Warranty for this product only, e.g. 2 years on the motor…" },
+                                    ] as const).map((policy) => (
+                                        <div key={policy.own} className="space-y-3">
+                                            <FormField
+                                                control={form.control}
+                                                name={policy.useCommon}
+                                                render={({ field }) => (
+                                                    <FormItem className="flex flex-row items-center justify-between gap-4 space-y-0">
+                                                        <div className="space-y-0.5">
+                                                            <FormLabel className="text-white flex items-center gap-2">{policy.icon} {policy.title}</FormLabel>
+                                                            <FormDescription className="text-gray-500">
+                                                                Use the common text from Settings → Product templates
+                                                            </FormDescription>
+                                                        </div>
+                                                        <FormControl>
+                                                            <Switch checked={field.value} onCheckedChange={field.onChange} aria-label={`${policy.title}: use the common text`} />
+                                                        </FormControl>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            {form.watch(policy.useCommon) ? (
+                                                <div className="rounded-md border border-[#333] bg-[#0D0D0D] p-3">
+                                                    <p className="text-sm text-gray-300 whitespace-pre-line line-clamp-6">
+                                                        {policy.shared || <span className="italic text-gray-500">The common text is empty, so nothing is shown.</span>}
+                                                    </p>
+                                                    <NextLink href="/settings" className="mt-2 inline-block text-xs text-[#86efac] hover:underline">
+                                                        Edit the common text (changes every product using it)
+                                                    </NextLink>
+                                                </div>
+                                            ) : (
+                                                <FormField
+                                                    control={form.control}
+                                                    name={policy.own}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormControl>
+                                                                <Textarea placeholder={policy.placeholder} {...field} value={field.value ?? ""} className="bg-[#0D0D0D] border-[#333] text-white min-h-[120px]" />
+                                                            </FormControl>
+                                                            <FormDescription className="text-gray-500">
+                                                                Only for this product. Leave empty to show nothing.
+                                                                {policy.shared && (
+                                                                    <button type="button" className="ml-2 text-[#86efac] hover:underline" onClick={() => form.setValue(policy.own, policy.shared, { shouldDirty: true })}>
+                                                                        Start from the common text
+                                                                    </button>
+                                                                )}
+                                                            </FormDescription>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            )}
+                                        </div>
+                                    ))}
                                 </CardContent>
                             </Card>
                         </div>

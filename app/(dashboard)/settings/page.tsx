@@ -20,6 +20,7 @@ import { Loader2, Save, Building2, User, Smartphone, Eye, Handshake, MessageCirc
 import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
 import { HindiNamesTool } from "@/components/hindi-names-tool"
+import { ProductTemplatesCard } from "@/components/product-templates-card"
 import { Switch } from "@/components/ui/switch"
 import { NegotiationPicksInput } from "@/components/negotiation-picks-input"
 
@@ -120,9 +121,12 @@ export default function SettingsPage() {
     async function onSubmit(values: z.infer<typeof settingsSchema>) {
         setIsSaving(true)
         try {
+            // Product templates have their own card and Save button; this
+            // button never sends the copy loaded when the page opened.
+            const { productTemplates: _templates, ...settingsToSave } = values as typeof values & { productTemplates?: unknown }
             const res = await apiFetch('/admin/settings', {
                 method: 'PUT',
-                body: JSON.stringify(values)
+                body: JSON.stringify(settingsToSave)
             })
 
             if (res.ok) {
@@ -738,6 +742,9 @@ export default function SettingsPage() {
                     </Button>
                 </form>
             </Form>
+
+            {/* Saved on its own, with its own button. */}
+            <ProductTemplatesCard />
         </div>
     )
 }
