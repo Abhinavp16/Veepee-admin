@@ -619,3 +619,133 @@ html.light main table > tbody > tr > td:last-child:not([colspan]) {
   background-color: #ffffff;
   box-shadow: -8px 0 8px -8px rgba(15, 23, 42, 0.18);
 }
+
+/* "What's new" (components/whats-new.tsx): a shining NEW pill, a dot for the
+   icon-only sidebar, a pulsing outline on the new section and its hint row.
+   Green on both themes; darker shades in the light theme for contrast. */
+html {
+  --whats-new: #86efac;
+  --whats-new-strong: #4ade80;
+  --whats-new-ink: #052e16;
+  --whats-new-soft: rgba(134, 239, 172, 0.1);
+  --whats-new-line: rgba(134, 239, 172, 0.4);
+  --whats-new-text: #86efac;
+}
+
+html.light {
+  --whats-new: #16a34a;
+  --whats-new-strong: #15803d;
+  --whats-new-ink: #ffffff;
+  --whats-new-soft: rgba(22, 163, 74, 0.08);
+  --whats-new-line: rgba(22, 163, 74, 0.45);
+  --whats-new-text: #166534;
+}
+
+/* In the components layer, so Tailwind utilities on these elements (such as
+   lg:max-xl:hidden in the icon rail) still win. */
+@layer components {
+.whats-new-pill {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--whats-new);
+  padding: 0.0625rem 0.4rem;
+  color: var(--whats-new-ink);
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1rem;
+  text-transform: uppercase;
+}
+
+/* The shine: a light band sweeping across now and then. */
+.whats-new-pill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.75) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: whats-new-shine 3.2s ease-in-out infinite;
+}
+
+.whats-new-dot {
+  position: absolute;
+  top: 0.2rem;
+  right: 0.3rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--whats-new);
+  box-shadow: 0 0 0 2px var(--admin-sidebar), 0 0 8px var(--whats-new);
+  animation: whats-new-dot 2s ease-in-out infinite;
+}
+
+.whats-new-glow {
+  border-color: var(--whats-new-line) !important;
+  animation: whats-new-glow 2.4s ease-in-out infinite;
+}
+
+.whats-new-hint {
+  border: 1px solid var(--whats-new-line);
+  background: var(--whats-new-soft);
+  color: var(--whats-new-text);
+}
+
+.whats-new-hint-button {
+  background: var(--whats-new);
+  color: var(--whats-new-ink);
+}
+
+.whats-new-hint-button:hover {
+  background: var(--whats-new-strong);
+}
+
+.whats-new-button {
+  border-color: var(--whats-new-line);
+  background: var(--whats-new-soft);
+  color: var(--whats-new-text);
+}
+
+.whats-new-button:hover {
+  background: color-mix(in srgb, var(--whats-new) 18%, transparent);
+}
+
+.whats-new-count {
+  background: var(--whats-new);
+  color: var(--whats-new-ink);
+}
+}
+
+@keyframes whats-new-shine {
+  0%, 55% { transform: translateX(-120%); }
+  85%, 100% { transform: translateX(120%); }
+}
+
+@keyframes whats-new-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@keyframes whats-new-glow {
+  0%, 100% { box-shadow: 0 0 0 1px var(--whats-new-line), 0 0 0 0 transparent; }
+  50% { box-shadow: 0 0 0 1px var(--whats-new-line), 0 0 18px 2px var(--whats-new-soft), 0 0 0 4px var(--whats-new-soft); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .whats-new-pill::after,
+  .whats-new-dot,
+  .whats-new-glow {
+    animation: none;
+  }
+
+  .whats-new-pill::after {
+    display: none;
+  }
+
+  .whats-new-glow {
+    box-shadow: 0 0 0 1px var(--whats-new-line), 0 0 0 4px var(--whats-new-soft);
+  }
+}

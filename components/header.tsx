@@ -5,6 +5,7 @@ import Link from "next/link"
 import type { DashboardUser } from "@/components/dashboard-context"
 import { NotificationBell } from "@/components/notification-bell"
 import { VeepeeBrand } from "@/components/veepee-brand"
+import { WhatsNewButton } from "@/components/whats-new"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { logout } from "@/lib/api"
@@ -23,6 +24,7 @@ export function Header({ user, onMenuClick }: HeaderProps) {
       <span className="hidden border-l border-[#333] pl-3 text-sm text-[#919191] sm:inline">{roleLabel(user.role)}</span>
     </div>
     <div className="flex items-center gap-3">
+    <WhatsNewButton />
     <NotificationBell />
     <DropdownMenu>
       <DropdownMenuTrigger asChild>

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
+import { NewFeatureHint, NewPill, useNewOnPage } from "@/components/whats-new"
 import { apiFetch } from "@/lib/api"
 import { emptyTemplates, fetchProductTemplates, type ProductTemplates, type SpecSet, type TextBlock } from "@/lib/product-templates"
 
@@ -23,6 +24,7 @@ export function ProductTemplatesCard() {
     const [isLoading, setIsLoading] = useState(true)
     const [loadFailed, setLoadFailed] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
+    const feature = useNewOnPage("product-templates")
 
     // Not loaded: no editing and no Save, so empty boxes can never replace
     // the saved text.
@@ -85,16 +87,17 @@ export function ProductTemplatesCard() {
     }
 
     return (
-        <Card className="bg-[#161616] border-[#333]">
+        <Card className={`bg-[#161616] border-[#333] ${feature.isNew ? "whats-new-glow" : ""}`}>
             <CardHeader>
                 <CardTitle className="text-white flex items-center gap-2">
-                    <FileText className="h-5 w-5" /> Product templates
+                    <FileText className="h-5 w-5" /> Product templates {feature.isNew && <NewPill />}
                 </CardTitle>
                 <CardDescription>
                     Type common product text once. Shipping &amp; Returns and Warranty show on every product that uses
                     them, and changing them here changes them on all those products. Specification sets and text blocks
                     can be added to a product in one click from its form.
                 </CardDescription>
+                <NewFeatureHint feature={feature} className="mt-2" />
             </CardHeader>
             <CardContent className="space-y-8">
                 {isLoading ? (

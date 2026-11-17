@@ -4,6 +4,7 @@ import { Header } from "@/components/header"
 import { DashboardProvider, type DashboardUser } from "@/components/dashboard-context"
 import { Sidebar } from "@/components/sidebar"
 import { SessionBanner } from "@/components/session-banner"
+import { WhatsNewProvider } from "@/components/whats-new"
 import { apiFetch, endSession, logout } from "@/lib/api"
 import { canAccessPath, type DashboardRole } from "@/lib/navigation"
 import { Loader2, ShieldAlert, WifiOff } from "lucide-react"
@@ -73,6 +74,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const routeAllowed = canAccessPath(user.role, pathname)
   return <DashboardProvider value={user}>
+    <WhatsNewProvider>
     {/* `relative` on <main> keeps absolutely positioned helpers (such as the
         hidden checkbox inside each switch) in the scroll area, so the browser
         page itself never scrolls past the app. */}
@@ -86,5 +88,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </main>
       </div>
     </div>
+    </WhatsNewProvider>
   </DashboardProvider>
 }

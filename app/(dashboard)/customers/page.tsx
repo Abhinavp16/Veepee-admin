@@ -38,6 +38,7 @@ import { formatDate, labelFor } from "@/lib/format"
 import { CustomerAccountType, type AccountTypeBusinessInfo, type AccountTypeChange } from "@/components/customer-account-type"
 import { CustomerPasswordReset, type ResetRequest } from "@/components/customer-password-reset"
 import { NotificationLinkField, notificationImage, type ImageMode, type NotificationLinkTarget } from "@/components/notification-link"
+import { NewFeatureHint, NewPill, useNewOnPage } from "@/components/whats-new"
 
 type NotificationAudience = "selected" | "buyers" | "wholesalers"
 const audienceLabels: Record<NotificationAudience, string> = {
@@ -98,6 +99,8 @@ export default function CustomersPage() {
     const [imageMode, setImageMode] = useState<ImageMode>("none")
     const [customImage, setCustomImage] = useState("")
     const sendImage = notificationImage(notificationLink, imageMode, customImage)
+    // What's new: sending to a whole group, with a link and a picture.
+    const notifyFeature = useNewOnPage("notification-link-picture")
 
     // Search & Pagination state
     const [searchQuery, setSearchQuery] = useState("")
@@ -273,19 +276,21 @@ export default function CustomersPage() {
                 </div>
                 {isAdmin && <Button
                     onClick={toggleDraftingHeader}
-                    className={`${isNotifyModalOpen ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-[#86efac] text-black hover:bg-[#6ee7b7]"} font-bold gap-2`}
+                    className={`${isNotifyModalOpen ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-[#86efac] text-black hover:bg-[#6ee7b7]"} font-bold gap-2 ${notifyFeature.isNew && !isNotifyModalOpen ? "whats-new-glow" : ""}`}
                 >
                     {isNotifyModalOpen ? "Cancel Draft" : <><Bell className="w-4 h-4" /> Custom Notification</>}
                     {selectedIds.length > 0 && `(${selectedIds.length})`}
                 </Button>}
             </div>
 
+            {isAdmin && <NewFeatureHint feature={notifyFeature} className="-mt-3" />}
+
             {isAdmin && isNotifyModalOpen && (
                 <div className="relative animate-in fade-in slide-in-from-top-4 duration-500 ease-out mb-8">
                     {/* Glowing Top Border Accent */}
                     <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-[#86efac]/50 to-transparent" />
                     
-                    <Card className="bg-[#111111] border-[#333] shadow-2xl overflow-hidden">
+                    <Card className={`bg-[#111111] border-[#333] shadow-2xl overflow-hidden ${notifyFeature.isNew ? "whats-new-glow" : ""}`}>
                         <CardHeader className="pb-4 bg-gradient-to-b from-[#1a1a1a]/50 to-transparent border-b border-[#333]/50">
                             <div className="flex items-center justify-between">
                                 <CardTitle className="text-xl font-bold flex items-center gap-3 text-white">
@@ -293,6 +298,7 @@ export default function CustomersPage() {
                                         <Send className="w-5 h-5 text-[#86efac]" />
                                     </div>
                                     Draft Custom Notification
+                                    {notifyFeature.isNew && <NewPill />}
                                 </CardTitle>
                                 <div className="flex items-center gap-4">
                                     <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold
