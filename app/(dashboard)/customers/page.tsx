@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Eye, User, ShoppingBag, TrendingUp, Search, Bell, Send, CheckSquare, Square, MinusSquare, X, ChevronDown } from "lucide-react"
+import { Loader2, Eye, ShoppingBag, TrendingUp, Search, Bell, Send, CheckSquare, Square, MinusSquare, X, ChevronDown } from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -30,22 +30,14 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
 import { useDashboardUser } from "@/components/dashboard-context"
 import { formatDate, labelFor } from "@/lib/format"
 import { CustomerAccountType, type AccountTypeBusinessInfo, type AccountTypeChange } from "@/components/customer-account-type"
 import { CustomerPasswordReset, type ResetRequest } from "@/components/customer-password-reset"
-import { NotificationLinkField, notificationImage, type ImageMode, type NotificationLinkTarget } from "@/components/notification-link"
+import { CustomNotificationPanel } from "@/components/custom-notification/panel"
 import { NewFeatureHint, NewPill, useNewOnPage } from "@/components/whats-new"
-
-type NotificationAudience = "selected" | "buyers" | "wholesalers"
-const audienceLabels: Record<NotificationAudience, string> = {
-    selected: "Selected people",
-    buyers: "All customers",
-    wholesalers: "All wholesalers",
-}
 
 interface Customer {
     _id: string
@@ -91,16 +83,11 @@ export default function CustomersPage() {
     // Selection & Notification state
     const [selectedIds, setSelectedIds] = useState<string[]>([])
     const [isNotifyModalOpen, setIsNotifyModalOpen] = useState(false)
-    const [isSending, setIsSending] = useState(false)
-    const [notificationData, setNotificationData] = useState({ title: "", body: "" })
-    // Who gets it: the ticked people, or every customer or wholesaler.
-    const [audience, setAudience] = useState<NotificationAudience>("selected")
-    const [notificationLink, setNotificationLink] = useState<NotificationLinkTarget | null>(null)
-    const [imageMode, setImageMode] = useState<ImageMode>("none")
-    const [customImage, setCustomImage] = useState("")
-    const sendImage = notificationImage(notificationLink, imageMode, customImage)
-    // What's new: sending to a whole group, with a link and a picture.
+    // What's new: sending to a whole group, with a link and a picture; and
+    // cart / saved audiences, names, Hindi, coupons, saved messages, history.
     const notifyFeature = useNewOnPage("notification-link-picture")
+    const notifyV2Feature = useNewOnPage("custom-notifications-v2")
+    const notifyIsNew = notifyFeature.isNew || notifyV2Feature.isNew
 
     // Search & Pagination state
     const [searchQuery, setSearchQuery] = useState("")
@@ -225,197 +212,55 @@ export default function CustomersPage() {
         setIsNotifyModalOpen(prev => !prev)
     }
 
-    async function handleSendNotification() {
-        if (!notificationData.title || !notificationData.body) {
-            toast.error("Please fill in both title and message")
-            return
-        }
-        if (audience !== "selected" && !window.confirm(`Send this to ${audienceLabels[audience].toLowerCase()}? Everyone in the group gets it on their phone.`)) {
-            return
-        }
-
-        setIsSending(true)
-        try {
-            const res = await apiFetch("/admin/customers/notifications", {
-                method: "POST",
-                body: JSON.stringify({
-                    ...(audience === "selected" ? { userIds: selectedIds } : { audience }),
-                    title: notificationData.title,
-                    body: notificationData.body,
-                    link: notificationLink ? { type: notificationLink.type, id: notificationLink.id } : null,
-                    imageUrl: sendImage,
-                })
-            })
-
-            const data = await res.json()
-            if (res.ok) {
-                toast.success(data.message || "Notification sent successfully")
-                setIsNotifyModalOpen(false)
-                setNotificationData({ title: "", body: "" })
-                setNotificationLink(null)
-                setImageMode("none")
-                setCustomImage("")
-                setAudience("selected")
-                setSelectedIds([])
-            } else {
-                toast.error(data.message || "Failed to send notification")
-            }
-        } catch (error) {
-            toast.error("Error connecting to server")
-        } finally {
-            setIsSending(false)
-        }
-    }
-
     return (
         <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h1 className="text-3xl font-bold text-white">Customers</h1>
                     <p className="text-gray-400 text-sm">{totalCustomers > 0 && `(${totalCustomers} ${typeFilter === "wholesaler" ? "wholesalers" : "customers"})`}</p>
                 </div>
                 {isAdmin && <Button
                     onClick={toggleDraftingHeader}
-                    className={`${isNotifyModalOpen ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-[#86efac] text-black hover:bg-[#6ee7b7]"} font-bold gap-2 ${notifyFeature.isNew && !isNotifyModalOpen ? "whats-new-glow" : ""}`}
+                    aria-expanded={isNotifyModalOpen}
+                    className={`${isNotifyModalOpen ? "bg-red-500/10 text-red-500 hover:bg-red-500/20" : "bg-[#86efac] text-black hover:bg-[#6ee7b7]"} font-bold gap-2 ${notifyIsNew && !isNotifyModalOpen ? "whats-new-glow" : ""}`}
                 >
-                    {isNotifyModalOpen ? "Cancel Draft" : <><Bell className="w-4 h-4" /> Custom Notification</>}
+                    {isNotifyModalOpen ? "Close" : <><Bell className="w-4 h-4" /> Custom Notification</>}
                     {selectedIds.length > 0 && `(${selectedIds.length})`}
                 </Button>}
             </div>
 
             {isAdmin && <NewFeatureHint feature={notifyFeature} className="-mt-3" />}
+            {isAdmin && <NewFeatureHint feature={notifyV2Feature} className="-mt-3" />}
 
             {isAdmin && isNotifyModalOpen && (
-                <div className="relative animate-in fade-in slide-in-from-top-4 duration-500 ease-out mb-8">
-                    {/* Glowing Top Border Accent */}
-                    <div className="absolute inset-x-0 -top-px h-px bg-gradient-to-r from-transparent via-[#86efac]/50 to-transparent" />
-                    
-                    <Card className={`bg-[#111111] border-[#333] shadow-2xl overflow-hidden ${notifyFeature.isNew ? "whats-new-glow" : ""}`}>
-                        <CardHeader className="pb-4 bg-gradient-to-b from-[#1a1a1a]/50 to-transparent border-b border-[#333]/50">
-                            <div className="flex items-center justify-between">
+                <div className="relative animate-in fade-in slide-in-from-top-4 duration-500 ease-out mb-4">
+                    <Card className={`bg-[#161616] border-[#333] shadow-2xl overflow-hidden ${notifyIsNew ? "whats-new-glow" : ""}`}>
+                        <CardHeader className="pb-4 border-b border-[#333]">
+                            <div className="flex items-center justify-between gap-3">
                                 <CardTitle className="text-xl font-bold flex items-center gap-3 text-white">
-                                    <div className="p-2 rounded-lg bg-[#86efac]/10 border border-[#86efac]/20">
-                                        <Send className="w-5 h-5 text-[#86efac]" />
-                                    </div>
-                                    Draft Custom Notification
-                                    {notifyFeature.isNew && <NewPill />}
+                                    <span className="p-2 rounded-lg bg-[#86efac]/10 border border-[#86efac]/20">
+                                        <Send className="w-5 h-5 text-[#86efac]" aria-hidden="true" />
+                                    </span>
+                                    Custom Notification
+                                    {notifyIsNew && <NewPill />}
                                 </CardTitle>
-                                <div className="flex items-center gap-4">
-                                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold
-                                        ${audience !== "selected" || selectedIds.length > 0
-                                            ? "bg-[#86efac]/10 border-[#86efac]/30 text-[#86efac]"
-                                            : "bg-yellow-500/5 border-yellow-500/20 text-yellow-500/70 italic"
-                                        }`}>
-                                        <User className="w-3.5 h-3.5" />
-                                        {audience !== "selected"
-                                            ? audienceLabels[audience]
-                                            : <>{selectedIds.length} {selectedIds.length === 1 ? "Customer" : "Customers"} Targeted{selectedIds.length === 0 && " — Select from list"}</>}
-                                    </div>
-                                    <Button 
-                                        variant="ghost" 
-                                        size="sm" 
-                                        onClick={toggleDraftingHeader}
-                                        className="text-gray-500 hover:text-white hover:bg-white/5 h-8 w-8 p-0"
-                                    >
-                                        <X className="w-4 h-4" />
-                                    </Button>
-                                </div>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={toggleDraftingHeader}
+                                    aria-label="Close custom notification"
+                                    className="text-gray-500 hover:text-white hover:bg-white/5 h-8 w-8 p-0"
+                                >
+                                    <X className="w-4 h-4" />
+                                </Button>
                             </div>
                         </CardHeader>
-                        <CardContent className="p-6 space-y-6">
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                <div className="lg:col-span-2 space-y-5">
-                                    <div className="space-y-2">
-                                        <span className="text-[11px] uppercase text-gray-400 font-bold tracking-[0.1em] ml-1">Send to</span>
-                                        <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Send to">
-                                            {(Object.keys(audienceLabels) as NotificationAudience[]).map((key) => (
-                                                <button
-                                                    key={key}
-                                                    type="button"
-                                                    role="radio"
-                                                    aria-checked={audience === key}
-                                                    onClick={() => setAudience(key)}
-                                                    className={`h-9 px-4 rounded-full text-xs font-bold border transition-colors ${audience === key ? "bg-[#86efac] text-black border-[#86efac]" : "border-[#333] text-gray-300 hover:text-white hover:bg-white/5"}`}
-                                                >
-                                                    {key === "selected" ? `${audienceLabels[key]} (${selectedIds.length})` : audienceLabels[key]}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[11px] uppercase text-gray-400 font-bold tracking-[0.1em] ml-1">
-                                            Notification Title
-                                        </label>
-                                        <Input
-                                            placeholder="Write a clear, punchy title..."
-                                            value={notificationData.title}
-                                            onChange={(e) => setNotificationData(prev => ({ ...prev, title: e.target.value }))}
-                                            className="bg-[#0D0D0D] border-[#333] text-white focus-visible:ring-1 focus-visible:ring-[#86efac]/50 h-11 transition-all"
-                                        />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <label className="text-[11px] uppercase text-gray-400 font-bold tracking-[0.1em] ml-1">
-                                            Message Content
-                                        </label>
-                                        <Textarea
-                                            placeholder="What do you want to tell your customers?"
-                                            value={notificationData.body}
-                                            onChange={(e) => setNotificationData(prev => ({ ...prev, body: e.target.value }))}
-                                            className="bg-[#0D0D0D] border-[#333] text-white focus-visible:ring-1 focus-visible:ring-[#86efac]/50 min-h-[140px] transition-all resize-none"
-                                        />
-                                    </div>
-                                    <NotificationLinkField
-                                        link={notificationLink}
-                                        onLinkChange={setNotificationLink}
-                                        imageMode={imageMode}
-                                        onImageModeChange={setImageMode}
-                                        customImage={customImage}
-                                        onCustomImageChange={setCustomImage}
-                                    />
-                                </div>
-
-                                <div className="flex flex-col justify-between p-5 rounded-xl bg-[#0a0a0a] border border-[#333]/50">
-                                    <div className="space-y-4">
-                                        <h4 className="text-xs font-bold text-gray-500 uppercase tracking-widest">Preview</h4>
-                                        {/* How the notification will read on a phone. */}
-                                        <div className="bg-[#161616] p-3 rounded-lg border border-[#333]">
-                                            <div className="flex gap-3">
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-[11px] text-gray-500">OXON · now</p>
-                                                    <p className="mt-1 text-sm font-semibold text-white break-words">{notificationData.title || "Title"}</p>
-                                                    <p className="mt-0.5 text-sm text-gray-300 whitespace-pre-line break-words line-clamp-3">{notificationData.body || "Your message will appear here."}</p>
-                                                </div>
-                                                {sendImage && <img src={sendImage} alt="" className="w-11 h-11 rounded-md object-cover bg-white shrink-0" />}
-                                            </div>
-                                            {sendImage && (
-                                                <>
-                                                    <p className="mt-3 text-[10px] uppercase tracking-wider text-gray-600">Opened out (Android)</p>
-                                                    <img src={sendImage} alt="" className="mt-1 w-full aspect-[2/1] rounded-md object-cover bg-white" />
-                                                </>
-                                            )}
-                                        </div>
-                                        <p className="text-[11px] text-gray-500 leading-relaxed">
-                                            {notificationLink
-                                                ? <>Tapping it opens the {notificationLink.type} <span className="text-gray-300 font-semibold">{notificationLink.name}</span>.</>
-                                                : "Tapping it shows the full message in the app."}
-                                            {" "}Sent as a push to their phones and kept in the app&apos;s inbox. iPhones show the text only in the push.
-                                        </p>
-                                    </div>
-                                    
-                                    <div className="pt-6 border-t border-[#333]/50 mt-6">
-                                        <Button
-                                            onClick={handleSendNotification}
-                                            disabled={isSending || !notificationData.title || !notificationData.body || (audience === "selected" && selectedIds.length === 0)}
-                                            className="w-full bg-[#86efac] text-black hover:bg-[#a7f3d0] font-black h-14 gap-3 shadow-[0_0_20px_-5px_rgba(134,239,172,0.3)] transition-all active:scale-[0.98]"
-                                        >
-                                            {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                                            {audience !== "selected"
-                                                ? `Send to ${audienceLabels[audience].toLowerCase()}`
-                                                : selectedIds.length > 0 ? `Send to ${selectedIds.length} ${selectedIds.length === 1 ? "customer" : "customers"}` : "Send"}
-                                        </Button>
-                                    </div>
-                                </div>
-                            </div>
+                        <CardContent className="p-4 sm:p-6">
+                            <CustomNotificationPanel
+                                selectedIds={selectedIds}
+                                onClearSelection={() => setSelectedIds([])}
+                                onSent={() => setSelectedIds([])}
+                            />
                         </CardContent>
                     </Card>
                 </div>

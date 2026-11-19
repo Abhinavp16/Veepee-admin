@@ -39,6 +39,17 @@ export const WHATS_NEW_DAYS = 30
 
 export const whatsNew: WhatsNewEntry[] = [
   {
+    id: "custom-notifications-v2",
+    title: "Smarter notifications",
+    body: "Send to people with items in their cart or who saved a product, with their name, Hindi text, a coupon, saved messages and a History tab.",
+    hint: "Custom Notification can now reach carts and wishlists, add names, Hindi and coupons, and shows what was sent under History.",
+    href: "/customers",
+    linkLabel: "Open Customers",
+    navHref: "/customers",
+    roles: ["admin"],
+    addedOn: "2026-11-20",
+  },
+  {
     id: "product-templates",
     title: "Product templates",
     body: "Write Shipping & Returns and Warranty once in Settings and use them on every product.",

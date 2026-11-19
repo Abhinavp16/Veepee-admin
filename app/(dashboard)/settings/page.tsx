@@ -121,9 +121,10 @@ export default function SettingsPage() {
     async function onSubmit(values: z.infer<typeof settingsSchema>) {
         setIsSaving(true)
         try {
-            // Product templates have their own card and Save button; this
-            // button never sends the copy loaded when the page opened.
-            const { productTemplates: _templates, ...settingsToSave } = values as typeof values & { productTemplates?: unknown }
+            // Product templates have their own card and Save button, and saved
+            // notification messages are kept from Customers; this button never
+            // sends the copies loaded when the page opened.
+            const { productTemplates: _templates, notificationTemplates: _messages, ...settingsToSave } = values as typeof values & { productTemplates?: unknown; notificationTemplates?: unknown }
             const res = await apiFetch('/admin/settings', {
                 method: 'PUT',
                 body: JSON.stringify(settingsToSave)
