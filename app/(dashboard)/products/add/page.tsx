@@ -1412,30 +1412,29 @@ export default function AddProductPage() {
                                                             {img.savings} smaller
                                                         </div>
                                                     )}
-                                                    {/* Actions Overlay */}
-                                                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                                                        {!img.isPrimary && (
-                                                            <Button
-                                                                type="button"
-                                                                size="sm"
-                                                                variant="outline"
-                                                                onClick={() => setFeaturedImage(index)}
-                                                                className="h-7 text-xs border-[#86efac] text-[#86efac] hover:bg-[#86efac]/20"
-                                                            >
-                                                                <Crown className="h-3 w-3 mr-1" />
-                                                                Set Featured
-                                                            </Button>
-                                                        )}
-                                                        <Button
+                                                    {/* Remove: always in the corner, so it is never cut off
+                                                        on a narrow tile and works without hover (touch). */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => removeImage(index)}
+                                                        aria-label={`Remove image ${index + 1}`}
+                                                        title="Remove image"
+                                                        className="absolute top-1 right-1 z-10 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white ring-1 ring-white/20 transition-colors hover:bg-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                                                    >
+                                                        <X className="h-4 w-4" />
+                                                    </button>
+                                                    {/* Set Featured: a full-width bar along the bottom, shown on
+                                                        hover or keyboard focus, and always on touch screens. */}
+                                                    {!img.isPrimary && (
+                                                        <button
                                                             type="button"
-                                                            size="sm"
-                                                            variant="destructive"
-                                                            onClick={() => removeImage(index)}
-                                                            className="h-7 w-7 p-0"
+                                                            onClick={() => setFeaturedImage(index)}
+                                                            className="absolute inset-x-1 bottom-1 z-10 flex items-center justify-center gap-1 rounded-md bg-black/75 px-1 py-1 text-[11px] font-semibold text-[#86efac] opacity-0 ring-1 ring-[#86efac]/50 transition-opacity group-hover:opacity-100 focus:opacity-100 focus:outline-none focus-visible:ring-2 [@media(hover:none)]:opacity-100"
                                                         >
-                                                            <X className="h-3 w-3" />
-                                                        </Button>
-                                                    </div>
+                                                            <Crown className="h-3 w-3 shrink-0" />
+                                                            <span className="truncate">Set Featured</span>
+                                                        </button>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
