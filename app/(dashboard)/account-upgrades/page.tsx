@@ -1,411 +1,414 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
+import { CheckCircle2, Eye, Loader2, Search, X, XCircle } from "lucide-react"
+import { toast } from "sonner"
 import {
     Table,
     TableBody,
     TableCell,
     TableHead,
     TableHeader,
-    TableRow
+    TableRow,
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Eye, CheckCircle2, XCircle, History, ChevronDown, ChevronUp } from "lucide-react"
-import { toast } from "sonner"
+import { Card, CardContent } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogHeader,
     DialogTitle,
-    DialogDescription,
 } from "@/components/ui/dialog"
+import { BusinessDetails } from "@/components/business-details"
+import { TableSkeleton } from "@/components/table-skeleton"
+import { NewFeatureHint, NewPill, useNewOnPage } from "@/components/whats-new"
 import { apiFetch } from "@/lib/api"
 import { formatDate, labelFor } from "@/lib/format"
+import {
+    APPLICATION_STATUSES,
+    APPLICATION_STATUS_LABELS,
+    EMPTY_COUNTS,
+    announcePendingUpgradesChanged,
+    applicationDate,
+    applicationStatusOf,
+    isApplicationStatus,
+    type ApplicationCounts,
+    type ApplicationStatus,
+    type WholesalerApplication,
+} from "@/lib/wholesaler-applications"
 
-interface Customer {
-    _id: string
-    name: string
-    email: string
-    phone: string
-    role: string
-    businessInfo?: {
-        businessName: string
-        gstNumber?: string
-        businessAddress?: string
-        contactPerson?: string
-        verified: boolean
-        status?: 'pending' | 'accepted' | 'rejected' | 'none'
-        proofImages?: string[]
-    }
-    createdAt: string
-    updatedAt: string
+const PAGE_SIZE = 20
+
+const dateHeadings: Record<ApplicationStatus, string> = {
+    pending: "Applied",
+    accepted: "Accepted",
+    rejected: "Rejected",
+    removed: "Removed",
+}
+
+const emptyMessages: Record<ApplicationStatus, string> = {
+    pending: "No applications waiting.",
+    accepted: "No accepted applications yet.",
+    rejected: "No rejected applications.",
+    removed: "No wholesalers have been switched back to customers.",
+}
+
+const statusBadge: Record<ApplicationStatus, string> = {
+    pending: "text-amber-400 border-amber-500/30 bg-amber-500/5",
+    accepted: "text-green-400 border-green-500/30 bg-green-500/5",
+    rejected: "text-red-400 border-red-500/30 bg-red-500/5",
+    removed: "text-gray-400 border-[#333] bg-[#1A1A1A]",
 }
 
 export default function AccountUpgradesPage() {
-    const [pending, setPending] = useState<Customer[]>([])
-    const [history, setHistory] = useState<Customer[]>([])
+    // What's new: tabs, search, Load more, proof photos and who decided.
+    const feature = useNewOnPage("wholesaler-applications")
+    const [status, setStatus] = useState<ApplicationStatus>("pending")
+    const [searchInput, setSearchInput] = useState("")
+    const [search, setSearch] = useState("")
+    const [items, setItems] = useState<WholesalerApplication[]>([])
+    const [counts, setCounts] = useState<ApplicationCounts>(EMPTY_COUNTS)
+    const [total, setTotal] = useState(0)
+    const [page, setPage] = useState(1)
+    const [hasMore, setHasMore] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
-    const [isProcessing, setIsProcessing] = useState<string | null>(null)
-    const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
-    const [isDetailsOpen, setIsDetailsOpen] = useState(false)
-    const [showFullHistory, setShowFullHistory] = useState(false)
+    const [isLoadingMore, setIsLoadingMore] = useState(false)
+    const [loadFailed, setLoadFailed] = useState(false)
+    const [ready, setReady] = useState(false)
 
-    // Load applications - assuming an endpoint or passing a query param to getCustomers
-    // For now using /admin/customers as base, you may need to update this endpoint 
-    // to point to your specific upgrade requests route e.g., `/admin/customers/upgrades`
+    const [selected, setSelected] = useState<WholesalerApplication | null>(null)
+    const [isReloading, setIsReloading] = useState(false)
+    const [processing, setProcessing] = useState<"accept" | "reject" | null>(null)
+
+    // Only the latest request may fill the list (fast typing, tab switches).
+    const requestId = useRef(0)
+
+    // A link such as /account-upgrades?status=accepted&search=98… opens filtered.
     useEffect(() => {
-        fetchUpgradeRequests()
+        const params = new URLSearchParams(window.location.search)
+        const initialStatus = params.get("status")
+        const initialSearch = params.get("search") || ""
+        if (isApplicationStatus(initialStatus)) setStatus(initialStatus)
+        setSearchInput(initialSearch)
+        setSearch(initialSearch.trim())
+        setReady(true)
     }, [])
 
-    async function fetchUpgradeRequests() {
-        setIsLoading(true)
+    // Search as they type, once they pause.
+    useEffect(() => {
+        const timer = setTimeout(() => setSearch(searchInput.trim()), 350)
+        return () => clearTimeout(timer)
+    }, [searchInput])
+
+    const load = useCallback(async (pageNum: number, append: boolean) => {
+        const id = ++requestId.current
+        if (append) setIsLoadingMore(true)
+        else setIsLoading(true)
         try {
-            // Adjust this endpoint if you have a specific one for wholesaler applications
-            const res = await apiFetch(`/admin/customers?limit=100`)
-            const data = await res.json()
-            if (res.ok) {
-                // Filter customers who applied for wholesale (have business info but aren't wholesalers yet)
-                // or you can rely on a specific backend route that returns only these requests.
-                const items: Customer[] = data.data || []
-
-                // Applicants are those with status 'pending' or those who have businessName but no status yet (migration fallback)
-                const pendingRequests = items.filter((c: Customer) =>
-                    c.businessInfo?.status === 'pending' || (c.role !== 'wholesaler' && c.businessInfo?.businessName && !c.businessInfo?.status)
-                )
-
-                const historyRequests = items.filter((c: Customer) =>
-                    c.businessInfo?.status === 'accepted' || c.businessInfo?.status === 'rejected'
-                ).sort((a: Customer, b: Customer) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-
-                setPending(pendingRequests)
-                setHistory(historyRequests)
-            } else {
-                toast.error("Failed to fetch upgrade requests")
+            const params = new URLSearchParams({ status, page: String(pageNum), limit: String(PAGE_SIZE) })
+            if (search) params.set("search", search)
+            const res = await apiFetch(`/admin/wholesaler-applications?${params.toString()}`)
+            const body = await res.json().catch(() => null)
+            if (id !== requestId.current) return
+            if (!res.ok) {
+                setLoadFailed(true)
+                toast.error(body?.message || "Could not load applications")
+                return
             }
-        } catch (error) {
-            console.error(error)
-            toast.error("Error connecting to server")
-        } finally {
-            setIsLoading(false)
-        }
-    }
-
-    async function handleAction(id: string, action: 'accept' | 'reject') {
-        setIsProcessing(id)
-        try {
-            // Replace with your actual endpoint for handling applications
-            const res = await apiFetch(`/admin/customers/${id}/upgrade`, {
-                method: 'PUT',
-                body: JSON.stringify({ action })
+            const rows: WholesalerApplication[] = body?.data || []
+            // Appending: rows that moved up since the last page aren't shown twice.
+            setItems((current) => {
+                if (!append) return rows
+                const seen = new Set(current.map((row) => row._id))
+                return [...current, ...rows.filter((row) => !seen.has(row._id))]
             })
-
-            if (res.ok) {
-                toast.success(`Application ${action === 'accept' ? 'accepted' : 'rejected'} successfully`)
-                setIsDetailsOpen(false)
-                fetchUpgradeRequests() // Refresh list
-            } else {
-                const data = await res.json()
-                toast.error(data.message || `Failed to ${action} application`)
+            setCounts({ ...EMPTY_COUNTS, ...(body?.counts || {}) })
+            setTotal(body?.pagination?.total ?? rows.length)
+            setPage(pageNum)
+            setHasMore(Boolean(body?.pagination?.hasNext))
+            setLoadFailed(false)
+        } catch {
+            if (id === requestId.current) {
+                setLoadFailed(true)
+                toast.error("Error connecting to server")
             }
-        } catch (error) {
-            toast.error("Error connecting to server")
         } finally {
-            setIsProcessing(null)
+            if (id === requestId.current) {
+                setIsLoading(false)
+                setIsLoadingMore(false)
+            }
+        }
+    }, [status, search])
+
+    useEffect(() => {
+        if (ready) void load(1, false)
+    }, [ready, load])
+
+    // Fresh photo links (they work for 15 minutes) and the latest details,
+    // including the status (Accept/Reject go when someone else decided).
+    async function reloadSelected(id = selected?._id) {
+        if (!id) return
+        setIsReloading(true)
+        try {
+            const res = await apiFetch(`/admin/customers/${id}`)
+            const body = await res.json().catch(() => null)
+            if (!res.ok || !body?.data) throw new Error(body?.message || "Could not reload the photos")
+            setSelected((current) => current && current._id === id
+                ? {
+                    ...current,
+                    name: body.data.name,
+                    phone: body.data.phone,
+                    email: body.data.email,
+                    role: body.data.role,
+                    businessInfo: body.data.businessInfo,
+                    applicationStatus: applicationStatusOf(body.data.role, body.data.businessInfo) ?? current.applicationStatus,
+                }
+                : current)
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Could not reload the photos")
+        } finally {
+            setIsReloading(false)
         }
     }
+
+    async function decide(action: "accept" | "reject") {
+        if (!selected) return
+        setProcessing(action)
+        try {
+            const res = await apiFetch(`/admin/customers/${selected._id}/upgrade`, {
+                method: "PUT",
+                body: JSON.stringify({ action }),
+            })
+            const body = await res.json().catch(() => null)
+            if (res.status === 409 && body?.error?.code === "APPLICATION_NOT_PENDING") {
+                // Someone else decided first: show who, and the current state.
+                toast.error(body.message || "This application was already handled.")
+                announcePendingUpgradesChanged()
+                await Promise.all([reloadSelected(selected._id), load(1, false)])
+                return
+            }
+            if (!res.ok) throw new Error(body?.message || `Could not ${action} the application`)
+            toast.success(action === "accept" ? `${selected.name} is now a wholesaler` : "Application rejected")
+            setSelected(null)
+            announcePendingUpgradesChanged()
+            await load(1, false)
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : `Could not ${action} the application`)
+        } finally {
+            setProcessing(null)
+        }
+    }
+
+    const selectedStatus = selected?.applicationStatus
 
     return (
         <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold text-white">Account Upgrades</h1>
-                    <p className="text-gray-400 text-sm">Review applications for wholesaler accounts</p>
-                </div>
+            <div>
+                <h1 className="flex flex-wrap items-center gap-2 text-2xl font-bold text-white sm:text-3xl">Account Upgrades {feature.isNew && <NewPill />}</h1>
+                <p className="text-sm text-gray-400">Review applications for wholesaler accounts</p>
             </div>
 
-            <Card className="bg-[#161616] border-[#333]">
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-white">Pending Applications</CardTitle>
-                    <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20">
-                        {pending.length} New
-                    </Badge>
-                </CardHeader>
-                <CardContent>
-                    {isLoading ? (
-                        <div className="flex justify-center p-8">
-                            <Loader2 className="h-8 w-8 animate-spin text-[#86efac]" />
-                        </div>
-                    ) : pending.length === 0 ? (
-                        <div className="text-center text-gray-500 py-10 text-sm italic">No pending upgrade applications currently</div>
-                    ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="border-[#333] hover:bg-transparent">
-                                    <TableHead className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Applicant</TableHead>
-                                    <TableHead className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Contact</TableHead>
-                                    <TableHead className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Business Name</TableHead>
-                                    <TableHead className="text-gray-400 text-xs font-semibold uppercase tracking-wider">Applied On</TableHead>
-                                    <TableHead className="text-gray-400 text-right text-xs font-semibold uppercase tracking-wider">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {pending.map((cust) => (
-                                    <TableRow key={cust._id} className="border-[#333] hover:bg-[#1A1A1A]">
-                                        <TableCell className="text-white font-medium">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-lg bg-gray-800 flex items-center justify-center text-xs font-bold border border-[#333]">
-                                                    {cust.name.substring(0, 2).toUpperCase()}
-                                                </div>
-                                                <span className="text-sm">{cust.name}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-gray-400">
-                                            <div className="text-xs group-hover:text-white transition-colors">{cust.email}</div>
-                                            <div className="text-xs text-gray-500">{cust.phone}</div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="text-sm text-gray-200">{cust.businessInfo?.businessName}</div>
-                                        </TableCell>
-                                        <TableCell className="text-gray-500 text-xs">
-                                            {formatDate(cust.createdAt)}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="h-8 px-3 text-[#86efac] hover:text-white hover:bg-[#86efac]/10 border border-transparent hover:border-[#86efac]/20"
-                                                onClick={() => {
-                                                    setSelectedCustomer(cust)
-                                                    setIsDetailsOpen(true)
-                                                }}
-                                            >
-                                                <Eye className="h-4 w-4 mr-2" />
-                                                <span className="text-xs font-medium">Review</span>
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    )}
-                </CardContent>
-            </Card>
+            <NewFeatureHint feature={feature} className="-mt-3" />
 
-            {/* History Section */}
-            <Card className="bg-[#161616] border-[#333]">
-                <CardHeader className="flex flex-row items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <History className="w-5 h-5 text-gray-400" />
-                        <CardTitle className="text-white">Application History</CardTitle>
+            <Tabs value={status} onValueChange={(value) => { if (isApplicationStatus(value)) setStatus(value) }} className="gap-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                    <TabsList aria-label="Application status" className="h-auto w-full flex-wrap justify-start gap-1 border border-[#333] bg-[#161616] p-1 md:w-fit">
+                        {APPLICATION_STATUSES.map((key) => (
+                            <TabsTrigger
+                                key={key}
+                                value={key}
+                                className="h-8 flex-none px-3 text-gray-400 data-[state=active]:bg-[#86efac] data-[state=active]:text-black dark:data-[state=active]:bg-[#86efac] dark:data-[state=active]:text-black"
+                            >
+                                {APPLICATION_STATUS_LABELS[key]}
+                                <span className="tabular-nums opacity-80">({counts[key]})</span>
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+
+                    <div className="relative w-full md:max-w-sm">
+                        <label htmlFor="upgrade-search" className="sr-only">Search applications</label>
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+                        <Input
+                            id="upgrade-search"
+                            type="search"
+                            value={searchInput}
+                            onChange={(event) => setSearchInput(event.target.value)}
+                            placeholder="Name, phone, business or GST"
+                            className="border-[#333] bg-[#161616] pl-10 pr-9 text-white placeholder:text-gray-500 focus-visible:ring-[#86efac]"
+                        />
+                        {searchInput && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchInput("")}
+                                aria-label="Clear search"
+                                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-[#86efac]/50"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        )}
                     </div>
-                </CardHeader>
-                <CardContent>
-                    {history.length === 0 ? (
-                        <div className="text-center text-gray-500 py-6 text-sm">No history records yet</div>
-                    ) : (
-                        <div className="space-y-1">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="border-[#333] hover:bg-transparent">
-                                        <TableHead className="text-gray-400 text-xs uppercase">Business</TableHead>
-                                        <TableHead className="text-gray-400 text-xs uppercase">Applicant</TableHead>
-                                        <TableHead className="text-gray-400 text-xs uppercase">Status</TableHead>
-                                        <TableHead className="text-gray-400 text-xs uppercase">Updated On</TableHead>
-                                        <TableHead className="text-gray-400 text-right text-xs uppercase">Action</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {(showFullHistory ? history : history.slice(0, 5)).map((cust) => (
-                                        <TableRow key={cust._id} className="border-[#333] hover:bg-[#1A1A1A]/40 transition-colors">
-                                            <TableCell className="py-3">
-                                                <div className="text-sm text-white font-medium">{cust.businessInfo?.businessName}</div>
-                                            </TableCell>
-                                            <TableCell className="py-3">
-                                                <div className="text-xs text-gray-400">{cust.name}</div>
-                                            </TableCell>
-                                            <TableCell className="py-3">
-                                                <Badge
-                                                    variant="outline"
-                                                    className={`text-[11px] uppercase font-bold ${cust.businessInfo?.status === 'accepted'
-                                                            ? "text-green-400 border-green-500/20 bg-green-500/5"
-                                                            : "text-red-400 border-red-500/20 bg-red-500/5"
-                                                        }`}
-                                                >
-                                                    {labelFor(cust.businessInfo?.status)}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="py-3 text-xs text-gray-500">
-                                                {formatDate(cust.updatedAt)}
-                                            </TableCell>
-                                            <TableCell className="text-right py-3">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    className="h-7 px-2 text-gray-500 hover:text-white"
-                                                    onClick={() => {
-                                                        setSelectedCustomer(cust)
-                                                        setIsDetailsOpen(true)
-                                                    }}
-                                                 aria-label="View details" title="View details">
-                                                    <Eye className="h-3.5 w-3.5" />
-                                                </Button>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
+                </div>
 
-                            {history.length > 5 && (
-                                <div className="flex justify-center mt-4">
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setShowFullHistory(!showFullHistory)}
-                                        className="text-gray-400 hover:text-[#86efac] text-xs h-8"
-                                    >
-                                        {showFullHistory ? (
-                                            <>Show Less <ChevronUp className="w-3.5 h-3.5 ml-1" /></>
-                                        ) : (
-                                            <>View More ({history.length - 5} others) <ChevronDown className="w-3.5 h-3.5 ml-1" /></>
-                                        )}
-                                    </Button>
-                                </div>
-                            )}
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+                {APPLICATION_STATUSES.map((key) => (
+                    <TabsContent key={key} value={key}>
+                        <Card className={`border-[#333] bg-[#161616] ${feature.isNew ? "whats-new-glow" : ""}`}>
+                            <CardContent className="p-3 sm:p-6">
+                                <p className="sr-only" role="status">
+                                    {isLoading ? "Loading applications" : `${total} ${APPLICATION_STATUS_LABELS[key].toLowerCase()} ${total === 1 ? "application" : "applications"}${search ? ` matching ${search}` : ""}`}
+                                </p>
+                                {isLoading ? (
+                                    <TableSkeleton columns={4} />
+                                ) : items.length === 0 ? (
+                                    <div className="py-10 text-center text-sm text-gray-500">
+                                        {loadFailed ? (
+                                            <Button type="button" variant="outline" onClick={() => void load(1, false)} className="border-[#333] bg-transparent text-white hover:bg-[#1A1A1A]">Try again</Button>
+                                        ) : search ? `Nothing matches “${search}”.` : emptyMessages[key]}
+                                    </div>
+                                ) : (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="border-[#333] hover:bg-transparent">
+                                                <TableHead className="text-xs font-semibold uppercase tracking-wider text-gray-400">Applicant</TableHead>
+                                                <TableHead className="hidden text-xs font-semibold uppercase tracking-wider text-gray-400 sm:table-cell">Business</TableHead>
+                                                <TableHead className="hidden text-xs font-semibold uppercase tracking-wider text-gray-400 md:table-cell">{dateHeadings[key]}</TableHead>
+                                                <TableHead className="text-right text-xs font-semibold uppercase tracking-wider text-gray-400"><span className="sr-only">Actions</span></TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {items.map((application) => (
+                                                <TableRow key={application._id} className="border-[#333] hover:bg-[#1A1A1A]">
+                                                    <TableCell className="max-w-[12rem] whitespace-normal py-3">
+                                                        <div className="text-sm font-medium text-white">{application.name}</div>
+                                                        <div className="text-xs text-gray-500">{application.phone || application.email || "—"}</div>
+                                                        {/* On phones the business shows here. */}
+                                                        <div className="mt-0.5 text-xs text-gray-400 sm:hidden">{application.businessInfo?.businessName}</div>
+                                                    </TableCell>
+                                                    <TableCell className="hidden max-w-[16rem] whitespace-normal py-3 sm:table-cell">
+                                                        <div className="text-sm text-white">{application.businessInfo?.businessName || "—"}</div>
+                                                        {application.businessInfo?.gstNumber && <div className="font-mono text-xs text-gray-500">{application.businessInfo.gstNumber}</div>}
+                                                    </TableCell>
+                                                    <TableCell className="hidden py-3 text-xs text-gray-400 md:table-cell">
+                                                        {formatDate(applicationDate(application))}
+                                                        {(key === "accepted" || key === "rejected") && application.businessInfo?.reviewedBy?.name && (
+                                                            <div className="text-gray-500">by {application.businessInfo.reviewedBy.name}</div>
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell className="py-3 text-right">
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => setSelected(application)}
+                                                            aria-label={`${key === "pending" ? "Review" : "View"} ${application.name}'s application`}
+                                                            className="h-8 border border-transparent px-3 text-[#86efac] hover:border-[#86efac]/20 hover:bg-[#86efac]/10"
+                                                        >
+                                                            <Eye className="h-4 w-4 sm:mr-2" aria-hidden="true" />
+                                                            <span className="hidden text-xs font-medium sm:inline">{key === "pending" ? "Review" : "View"}</span>
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                )}
 
-            <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-                <DialogContent className="bg-[#161616] border-[#333] text-white max-w-lg">
+                                {!isLoading && hasMore && (
+                                    <div className="flex justify-center pt-4">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            onClick={() => void load(page + 1, true)}
+                                            disabled={isLoadingMore}
+                                            className="min-w-[12rem] border-[#333] bg-[#0D0D0D] text-white hover:bg-[#1A1A1A]"
+                                        >
+                                            {isLoadingMore ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />Loading…</> : `Load more (${items.length} of ${total})`}
+                                        </Button>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                ))}
+            </Tabs>
+
+            <Dialog open={selected !== null} onOpenChange={(open) => { if (!open && !processing) setSelected(null) }}>
+                <DialogContent className="max-h-[90vh] max-w-[calc(100%-2rem)] overflow-y-auto border-[#333] bg-[#161616] text-white sm:max-w-xl">
                     <DialogHeader>
-                        <DialogTitle>Application Details</DialogTitle>
+                        <DialogTitle>Application details</DialogTitle>
                         <DialogDescription>
-                            Review the details provided for this wholesaler account upgrade.
+                            {selected ? `${selected.name} · ${labelFor(selected.role)} account` : ""}
                         </DialogDescription>
                     </DialogHeader>
 
-                    {selectedCustomer && (
-                        <div className="space-y-6 mt-4">
-                            <div className="grid grid-cols-2 gap-4 text-sm bg-[#0D0D0D] p-5 rounded-lg border border-[#333]">
-                                <div className="col-span-2 pb-3 border-b border-[#333] mb-1">
-                                    <h3 className="font-semibold text-white mb-3">Personal Information</h3>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <span className="text-gray-500 block text-xs mb-1">Name</span>
-                                            {selectedCustomer.name}
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-500 block text-xs mb-1">Email</span>
-                                            {selectedCustomer.email}
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-500 block text-xs mb-1">Phone</span>
-                                            {selectedCustomer.phone}
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-500 block text-xs mb-1">Current Role</span>
-                                            <Badge variant="outline" className="text-blue-400 border-blue-400 capitalize">
-                                                {labelFor(selectedCustomer.role)}
-                                            </Badge>
-                                        </div>
+                    {selected && (
+                        <div className="space-y-5">
+                            <section aria-labelledby="applicant-heading" className="rounded-lg border border-[#333] bg-[#0D0D0D] p-4">
+                                <h3 id="applicant-heading" className="mb-3 text-sm font-semibold text-white">Account</h3>
+                                <dl className="grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
+                                    <div><dt className="mb-0.5 text-xs text-gray-500">Name</dt><dd className="break-words">{selected.name}</dd></div>
+                                    <div><dt className="mb-0.5 text-xs text-gray-500">Sign-in phone</dt><dd>{selected.phone || "—"}</dd></div>
+                                    {selected.email && <div className="sm:col-span-2"><dt className="mb-0.5 text-xs text-gray-500">Email</dt><dd className="break-words">{selected.email}</dd></div>}
+                                    <div>
+                                        <dt className="mb-0.5 text-xs text-gray-500">Account type</dt>
+                                        <dd>{labelFor(selected.role)}</dd>
                                     </div>
-                                </div>
-
-                                <div className="col-span-2 pt-1">
-                                    <h3 className="font-semibold text-white mb-3">Business Information</h3>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div className="col-span-2">
-                                            <span className="text-gray-500 block text-xs mb-1">Business Name</span>
-                                            <div className="font-medium text-lg">{selectedCustomer.businessInfo?.businessName || 'N/A'}</div>
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-500 block text-xs mb-1">Contact Person</span>
-                                            {selectedCustomer.businessInfo?.contactPerson || 'N/A'}
-                                        </div>
-                                        <div>
-                                            <span className="text-gray-500 block text-xs mb-1">GST Number</span>
-                                            {selectedCustomer.businessInfo?.gstNumber ? (
-                                                <span className="font-mono text-blue-300">{selectedCustomer.businessInfo.gstNumber}</span>
-                                            ) : (
-                                                'N/A'
+                                    <div>
+                                        <dt className="mb-0.5 text-xs text-gray-500">Application</dt>
+                                        <dd>
+                                            {selectedStatus && (
+                                                <Badge variant="outline" className={`text-[11px] font-bold uppercase ${statusBadge[selectedStatus]}`}>
+                                                    {APPLICATION_STATUS_LABELS[selectedStatus]}
+                                                </Badge>
                                             )}
-                                        </div>
-                                        <div className="col-span-2">
-                                            <span className="text-gray-500 block text-xs mb-1">Business Address</span>
-                                            <div className="text-gray-300 whitespace-pre-wrap">{selectedCustomer.businessInfo?.businessAddress || 'No address provided'}</div>
-                                        </div>
+                                        </dd>
                                     </div>
-                                </div>
+                                </dl>
+                            </section>
 
-                                {selectedCustomer.businessInfo?.proofImages && selectedCustomer.businessInfo.proofImages.length > 0 && (
-                                    <div className="col-span-2 pt-4 border-t border-[#333] mt-2">
-                                        <h3 className="font-semibold text-white mb-3 flex items-center gap-2">
-                                            Document Proofs
-                                            <Badge variant="outline" className="text-xs bg-[#1A1A1A] text-gray-400 border-[#333]">
-                                                {selectedCustomer.businessInfo.proofImages.length}
-                                            </Badge>
-                                        </h3>
-                                        <div className="flex flex-wrap gap-3">
-                                            {selectedCustomer.businessInfo.proofImages.map((url, i) => (
-                                                <a href={url} target="_blank" rel="noopener noreferrer" key={i} className="group relative block overflow-hidden rounded-md border border-[#333] hover:border-blue-500/50 transition-colors">
-                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img
-                                                        src={url}
-                                                        alt={`Business proof ${i + 1}`}
-                                                        className="h-28 w-28 object-cover group-hover:scale-105 transition-transform duration-300"
-                                                    />
-                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <Eye className="w-5 h-5 text-white" />
-                                                    </div>
-                                                </a>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
+                            <section aria-labelledby="business-heading" className="rounded-lg border border-[#333] bg-[#0D0D0D] p-4">
+                                <h3 id="business-heading" className="mb-3 text-sm font-semibold text-white">Business</h3>
+                                <BusinessDetails
+                                    info={selected.businessInfo || {}}
+                                    onReload={() => void reloadSelected()}
+                                    reloading={isReloading}
+                                />
+                            </section>
 
-                            <div className="flex items-center justify-end gap-3 pt-4 border-t border-[#333]">
+                            <div className="flex flex-col-reverse gap-2 border-t border-[#333] pt-4 sm:flex-row sm:justify-end">
                                 <Button
+                                    type="button"
                                     variant="outline"
                                     className="border-[#333] bg-transparent text-white hover:bg-[#333]"
-                                    onClick={() => setIsDetailsOpen(false)}
+                                    disabled={processing !== null}
+                                    onClick={() => setSelected(null)}
                                 >
                                     Close
                                 </Button>
-                                {selectedCustomer.businessInfo?.status === 'pending' && (
+                                {selectedStatus === "pending" && (
                                     <>
                                         <Button
-                                            variant="default"
-                                            className="bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/50"
-                                            disabled={isProcessing === selectedCustomer._id}
-                                            onClick={() => handleAction(selectedCustomer._id, 'reject')}
+                                            type="button"
+                                            className="border border-red-500/50 bg-red-500/10 text-red-500 hover:bg-red-500/20"
+                                            disabled={processing !== null}
+                                            onClick={() => void decide("reject")}
                                         >
-                                            {isProcessing === selectedCustomer._id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
+                                            {processing === "reject" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <XCircle className="mr-2 h-4 w-4" aria-hidden="true" />}
                                             Reject
                                         </Button>
                                         <Button
-                                            variant="default"
-                                            className="bg-green-500/10 text-green-500 hover:bg-green-500/20 border border-green-500/50"
-                                            disabled={isProcessing === selectedCustomer._id}
-                                            onClick={() => handleAction(selectedCustomer._id, 'accept')}
+                                            type="button"
+                                            className="border border-green-500/50 bg-green-500/10 text-green-500 hover:bg-green-500/20"
+                                            disabled={processing !== null}
+                                            onClick={() => void decide("accept")}
                                         >
-                                            {isProcessing === selectedCustomer._id ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
-                                            Accept Application
+                                            {processing === "accept" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : <CheckCircle2 className="mr-2 h-4 w-4" aria-hidden="true" />}
+                                            Accept application
                                         </Button>
                                     </>
-                                )}
-                                {selectedCustomer.businessInfo?.status === 'accepted' && (
-                                    <Badge className="bg-green-500/10 text-green-500 border-green-500/50">
-                                        Previously Accepted
-                                    </Badge>
-                                )}
-                                {selectedCustomer.businessInfo?.status === 'rejected' && (
-                                    <Badge className="bg-red-500/10 text-red-500 border-red-500/50">
-                                        Previously Rejected
-                                    </Badge>
                                 )}
                             </div>
                         </div>

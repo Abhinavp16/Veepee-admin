@@ -9,6 +9,7 @@ import type { DashboardUser } from "@/components/dashboard-context"
 import { VeepeeBrand } from "@/components/veepee-brand"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { NewDot, NewPill, useWhatsNew } from "@/components/whats-new"
+import { CountDot, CountPill, usePendingUpgradesCount } from "@/components/pending-upgrades"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { logout } from "@/lib/api"
 import { navigationGroups, type NavigationItem } from "@/lib/navigation"
@@ -27,15 +28,27 @@ function isActive(pathname: string, href?: string) {
 // each item keeps its name as a tooltip. The ☰ button opens the full menu.
 const RAIL_LABEL = "lg:max-xl:sr-only"
 
-// A new feature behind this link: a NEW pill, or a dot on the icon rail.
-function NewMark({ rail }: { rail: boolean }) {
+// A new feature behind this link: a NEW pill, or a dot on the icon rail
+// (left out there when the link already shows a count).
+function NewMark({ rail, dot = true }: { rail: boolean; dot?: boolean }) {
   return <>
     <NewPill className={`ml-auto ${rail ? "lg:max-xl:hidden" : ""}`} />
-    {rail && <NewDot className="hidden lg:max-xl:block" />}
+    {rail && dot && <NewDot className="hidden lg:max-xl:block" />}
   </>
 }
 
-function Navigation({ user, onNavigate, rail = false }: Pick<SidebarProps, "user"> & { onNavigate?: () => void; rail?: boolean }) {
+// Things waiting behind a link (pending Account Upgrades): a number pill, or
+// a small count on the icon rail. Nothing when 0.
+const countLabels: Record<string, string> = { "/account-upgrades": "waiting" }
+
+function CountMark({ count, label, rail, after }: { count: number; label: string; rail: boolean; after: boolean }) {
+  return <>
+    <CountPill count={count} label={label} className={`${after ? "ml-1" : "ml-auto"} ${rail ? "lg:max-xl:hidden" : ""}`} />
+    {rail && <CountDot count={count} label={label} className="hidden lg:max-xl:flex" />}
+  </>
+}
+
+function Navigation({ user, onNavigate, rail = false, counts = {} }: Pick<SidebarProps, "user"> & { onNavigate?: () => void; rail?: boolean; counts?: Record<string, number> }) {
   const pathname = usePathname()
   const [expanded, setExpanded] = useState(() => pathname.startsWith("/offers"))
   const navRef = useRef<HTMLElement>(null)
@@ -71,7 +84,8 @@ function Navigation({ user, onNavigate, rail = false }: Pick<SidebarProps, "user
       </div>
     }
 
-    return <Link key={item.href} href={item.href!} onClick={onNavigate} title={item.label} aria-current={active ? "page" : undefined} className={`admin-nav-item flex items-center gap-3 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors ${rail ? "lg:max-xl:justify-center lg:max-xl:px-0" : ""} ${active ? "admin-nav-item-active" : "admin-nav-item-inactive"}`}><Icon className="h-[17px] w-[17px] shrink-0" /><span className={label}>{item.label}</span>{fresh && <NewMark rail={rail} />}</Link>
+    const count = (item.href && counts[item.href]) || 0
+    return <Link key={item.href} href={item.href!} onClick={onNavigate} title={count ? `${item.label} (${count} ${countLabels[item.href!] || "new"})` : item.label} aria-current={active ? "page" : undefined} className={`admin-nav-item flex items-center gap-3 rounded-lg px-3 py-1.5 text-[13px] font-semibold transition-colors ${rail ? "lg:max-xl:justify-center lg:max-xl:px-0" : ""} ${active ? "admin-nav-item-active" : "admin-nav-item-inactive"}`}><Icon className="h-[17px] w-[17px] shrink-0" /><span className={label}>{item.label}</span>{fresh && <NewMark rail={rail} dot={!count} />}{count > 0 && <CountMark count={count} label={countLabels[item.href!] || "new"} rail={rail} after={fresh} />}</Link>
   }
 
   return <nav ref={navRef} className={`min-h-0 flex-1 overflow-y-auto px-3 py-3 ${rail ? "lg:max-xl:px-2" : ""}`}>{visibleGroups.map((group) => <section key={group.label} className="mb-3"><p className={`admin-nav-group mb-1.5 px-3 text-[11px] font-bold uppercase tracking-[0.14em] ${label}`}>{group.label}</p><div className="space-y-0.5">{group.items.map(renderItem)}</div></section>)}</nav>
@@ -86,17 +100,20 @@ function UtilityArea({ user, onNavigate, rail = false }: Pick<SidebarProps, "use
   return <div className={`admin-utility-area shrink-0 border-t p-3 ${rail ? "lg:max-xl:p-2" : ""}`}><div className="space-y-0.5"><div className={rail ? "lg:max-xl:hidden" : ""}><ThemeToggle /></div>{isAdmin && <Link href="/settings" onClick={onNavigate} title="Settings" className={`admin-nav-item flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors ${center} ${pathname === "/settings" ? "admin-nav-item-active" : "admin-nav-item-inactive"}`}><Settings className="h-[17px] w-[17px] shrink-0" /><span className={label}>Settings</span>{settingsNew && <NewMark rail={rail} />}</Link>}<button onClick={async () => { toast.success("Logged out successfully"); await logout() }} title="Logout" className={`admin-nav-item admin-nav-item-inactive flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors hover:!bg-red-500/10 hover:!text-red-500 ${center}`}><LogOut className="h-[17px] w-[17px] shrink-0" /><span className={label}>Logout</span></button></div></div>
 }
 
-function SidebarPanel({ user, onNavigate, showBrand = false, rail = false }: Pick<SidebarProps, "user"> & { onNavigate?: () => void; showBrand?: boolean; rail?: boolean }) {
-  return <div className="admin-sidebar flex h-full min-h-0 flex-col">{showBrand && <div className="admin-sidebar-brand shrink-0 border-b px-5 py-5"><VeepeeBrand /></div>}<Navigation user={user} onNavigate={onNavigate} rail={rail} /><UtilityArea user={user} onNavigate={onNavigate} rail={rail} /></div>
+function SidebarPanel({ user, onNavigate, showBrand = false, rail = false, counts }: Pick<SidebarProps, "user"> & { onNavigate?: () => void; showBrand?: boolean; rail?: boolean; counts?: Record<string, number> }) {
+  return <div className="admin-sidebar flex h-full min-h-0 flex-col">{showBrand && <div className="admin-sidebar-brand shrink-0 border-b px-5 py-5"><VeepeeBrand /></div>}<Navigation user={user} onNavigate={onNavigate} rail={rail} counts={counts} /><UtilityArea user={user} onNavigate={onNavigate} rail={rail} /></div>
 }
 
 export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) {
+  // One poll for both menus (docked and phone).
+  const pendingUpgrades = usePendingUpgradesCount(user.role === "admin")
+  const counts = { "/account-upgrades": pendingUpgrades }
   return <>
-    <aside className="hidden h-full min-h-0 shrink-0 border-r border-[var(--admin-border)] lg:flex lg:w-16 xl:w-[17rem]"><SidebarPanel user={user} rail /></aside>
+    <aside className="hidden h-full min-h-0 shrink-0 border-r border-[var(--admin-border)] lg:flex lg:w-16 xl:w-[17rem]"><SidebarPanel user={user} rail counts={counts} /></aside>
     <Sheet open={mobileOpen} onOpenChange={onMobileOpenChange}>
       <SheetContent side="left" className="w-[88vw] max-w-[22rem] border-[#333] bg-[#0D0D0D] p-0 text-white">
         <SheetHeader className="sr-only"><SheetTitle>Veepee navigation</SheetTitle></SheetHeader>
-        <SidebarPanel user={user} showBrand onNavigate={() => onMobileOpenChange(false)} />
+        <SidebarPanel user={user} showBrand counts={counts} onNavigate={() => onMobileOpenChange(false)} />
       </SheetContent>
     </Sheet>
   </>

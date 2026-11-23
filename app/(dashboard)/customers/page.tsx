@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
+import Link from "next/link"
 import {
     Table,
     TableBody,
@@ -12,7 +13,7 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Loader2, Eye, ShoppingBag, TrendingUp, Search, Bell, Send, CheckSquare, Square, MinusSquare, X, ChevronDown } from "lucide-react"
+import { Loader2, Eye, ShoppingBag, TrendingUp, Search, Bell, Send, CheckSquare, Square, MinusSquare, X, ChevronDown, ArrowRight } from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -38,6 +39,8 @@ import { CustomerAccountType, type AccountTypeBusinessInfo, type AccountTypeChan
 import { CustomerPasswordReset, type ResetRequest } from "@/components/customer-password-reset"
 import { CustomNotificationPanel } from "@/components/custom-notification/panel"
 import { NewFeatureHint, NewPill, useNewOnPage } from "@/components/whats-new"
+import { BusinessDetails } from "@/components/business-details"
+import { APPLICATION_STATUS_LABELS, announcePendingUpgradesChanged, isApplicationStatus, type BusinessInfo } from "@/lib/wholesaler-applications"
 
 interface Customer {
     _id: string
@@ -54,7 +57,8 @@ type CustomerType = "all" | "buyer" | "wholesaler"
 const typeLabels: Record<CustomerType, string> = { all: "All types", buyer: "Customers", wholesaler: "Wholesalers" }
 const listTitles: Record<CustomerType, string> = { all: "All Customers", buyer: "Customers", wholesaler: "Wholesalers" }
 
-interface CustomerDetails extends Customer {
+interface CustomerDetails extends Omit<Customer, "businessInfo"> {
+    businessInfo?: BusinessInfo | null
     accountTypeHistory?: AccountTypeChange[]
     openNegotiations?: number
     passwordResetRequestedAt?: string | null
@@ -72,6 +76,19 @@ interface CustomerDetails extends Customer {
     }[]
 }
 
+// Wholesalers, and anyone who has applied (or was removed), get a Business
+// details block with the application and its proof photos.
+function hasBusinessDetails(customer: CustomerDetails) {
+    const status = customer.businessInfo?.status
+    return customer.role === "wholesaler" || Boolean(status && status !== "none")
+}
+
+function applicationStatusLabel(customer: CustomerDetails) {
+    const status = customer.businessInfo?.status
+    if (isApplicationStatus(status)) return APPLICATION_STATUS_LABELS[status]
+    return customer.role === "wholesaler" ? "Wholesaler (no application on record)" : "Not applied"
+}
+
 export default function CustomersPage() {
     const isAdmin = useDashboardUser()?.role === 'admin'
     const [customers, setCustomers] = useState<Customer[]>([])
@@ -79,6 +96,7 @@ export default function CustomersPage() {
     const [isLoadingMore, setIsLoadingMore] = useState(false)
     const [selectedCustomer, setSelectedCustomer] = useState<CustomerDetails | null>(null)
     const [isDetailsOpen, setIsDetailsOpen] = useState(false)
+    const [isReloadingBusiness, setIsReloadingBusiness] = useState(false)
 
     // Selection & Notification state
     const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -173,6 +191,21 @@ export default function CustomersPage() {
             }
         } catch (error) {
             toast.error("Failed to load details")
+        }
+    }
+
+    // Fresh proof photo links (they work for 15 minutes).
+    async function reloadBusinessDetails(id: string) {
+        setIsReloadingBusiness(true)
+        try {
+            const res = await apiFetch(`/admin/customers/${id}`)
+            const data = await res.json().catch(() => null)
+            if (!res.ok || !data?.data) throw new Error(data?.message || "Could not reload the photos")
+            setSelectedCustomer((current) => current && current._id === id ? { ...current, businessInfo: data.data.businessInfo } : current)
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : "Could not reload the photos")
+        } finally {
+            setIsReloadingBusiness(false)
         }
     }
 
@@ -445,7 +478,7 @@ export default function CustomersPage() {
                                     <span className="text-gray-500 block text-xs">Phone</span>
                                     {selectedCustomer.phone}
                                 </div>
-                                {selectedCustomer.businessInfo?.businessName && (
+                                {selectedCustomer.businessInfo?.businessName && !hasBusinessDetails(selectedCustomer) && (
                                     <div className="col-span-2 pt-2 border-t border-[#333] mt-2">
                                         <span className="text-gray-500 block text-xs">Business</span>
                                         <span className="font-medium">{selectedCustomer.businessInfo.businessName}</span>
@@ -454,11 +487,36 @@ export default function CustomersPage() {
                                 )}
                             </div>
 
+                            {/* The application: business details and proof photos (photos for administrators). */}
+                            {hasBusinessDetails(selectedCustomer) && (
+                                <section aria-labelledby="customer-business-heading" className="rounded-lg border border-[#333] bg-[#0D0D0D] p-4">
+                                    <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                                        <h3 id="customer-business-heading" className="font-medium">Business details</h3>
+                                        {isAdmin && isApplicationStatus(selectedCustomer.businessInfo?.status) && (
+                                            <Link
+                                                href={`/account-upgrades?${new URLSearchParams({ status: selectedCustomer.businessInfo!.status!, search: selectedCustomer.phone || selectedCustomer.email || selectedCustomer.name }).toString()}`}
+                                                className="inline-flex items-center gap-1 rounded text-xs font-semibold text-[#86efac] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[#86efac]/50"
+                                            >
+                                                Open in Account Upgrades <ArrowRight className="h-3 w-3" aria-hidden="true" />
+                                            </Link>
+                                        )}
+                                    </div>
+                                    <BusinessDetails
+                                        info={selectedCustomer.businessInfo || {}}
+                                        statusLabel={applicationStatusLabel(selectedCustomer)}
+                                        onReload={isAdmin ? () => void reloadBusinessDetails(selectedCustomer._id) : undefined}
+                                        reloading={isReloadingBusiness}
+                                    />
+                                </section>
+                            )}
+
                             {/* Customer ↔ wholesaler (administrators) */}
                             {isAdmin && (
                                 <CustomerAccountType
                                     customer={selectedCustomer}
                                     onChanged={(updated) => {
+                                        // A pending applicant made a wholesaler: the sidebar count changes.
+                                        announcePendingUpgradesChanged()
                                         setSelectedCustomer((current) => current ? {
                                             ...current,
                                             role: updated.role,

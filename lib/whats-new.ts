@@ -39,6 +39,28 @@ export const WHATS_NEW_DAYS = 30
 
 export const whatsNew: WhatsNewEntry[] = [
   {
+    id: "live-stock",
+    title: "Live stock in Price Management",
+    body: "Stock now updates by itself while the page is open. Type the real count or tap − / +, pick a reason and save, one row or all at once.",
+    hint: "stock refreshes every 20 seconds; type a number or use − / + to change it, and an order placed meanwhile is never overwritten.",
+    href: "/price-management",
+    linkLabel: "Open Price Management",
+    navHref: "/price-management",
+    roles: ["admin"],
+    addedOn: "2026-11-23",
+  },
+  {
+    id: "wholesaler-applications",
+    title: "Wholesaler applications, all in one place",
+    body: "Pending, Accepted, Rejected and Removed tabs with search, proof photos kept private, and who decided each one. The menu shows how many are waiting.",
+    hint: "every application is listed here now (none are missed), with tabs, search, private proof photos and who accepted or rejected it.",
+    href: "/account-upgrades",
+    linkLabel: "Open Account Upgrades",
+    navHref: "/account-upgrades",
+    roles: ["admin"],
+    addedOn: "2026-11-23",
+  },
+  {
     id: "custom-notifications-v2",
     title: "Smarter notifications",
     body: "Send to people with items in their cart or who saved a product, with their name, Hindi text, a coupon, saved messages and a History tab.",

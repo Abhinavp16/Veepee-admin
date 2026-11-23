@@ -717,6 +717,44 @@ html.light {
   background: var(--whats-new);
   color: var(--whats-new-ink);
 }
+
+/* A count on a sidebar link (e.g. pending Account Upgrades): the What's new
+   pill's shape and colours, with a number and no shine. */
+.sidebar-count-pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  border-radius: 999px;
+  background: var(--whats-new);
+  padding: 0.0625rem 0.4rem;
+  color: var(--whats-new-ink);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  line-height: 1rem;
+}
+
+/* The icon rail: a small count badge on the icon's corner. */
+.sidebar-count-dot {
+  position: absolute;
+  top: 0.05rem;
+  right: 0.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1rem;
+  height: 1rem;
+  border-radius: 999px;
+  background: var(--whats-new);
+  padding: 0 0.2rem;
+  color: var(--whats-new-ink);
+  font-size: 0.625rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 0 0 0 2px var(--admin-sidebar);
+}
 }
 
 @keyframes whats-new-shine {
@@ -748,4 +786,18 @@ html.light {
   .whats-new-glow {
     box-shadow: 0 0 0 1px var(--whats-new-line), 0 0 0 4px var(--whats-new-soft);
   }
+}
+
+/* Price Management: the "Live stock" dot (components/live-stock.tsx). */
+.live-stock-dot {
+  animation: live-stock-pulse 1.8s ease-out infinite;
+}
+
+@keyframes live-stock-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(134, 239, 172, 0.6); }
+  100% { box-shadow: 0 0 0 6px rgba(134, 239, 172, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-stock-dot { animation: none; }
 }
