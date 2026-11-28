@@ -6,7 +6,9 @@ import { fillName } from "@/lib/custom-notifications"
 // How the notification reads on a phone, in English or Hindi, with {name}
 // shown as "Ramesh".
 
-export function PhonePreview({ title, body, titleHi, bodyHi, image, couponCode, opens }: {
+export function PhonePreview({ title, body, titleHi, bodyHi, image, couponCode, opens, previewName = "Ramesh" }: {
+    /** What {name} shows as: "there" for phones that aren't signed in (no name). */
+    previewName?: string
     title: string
     body: string
     titleHi: string
@@ -18,8 +20,10 @@ export function PhonePreview({ title, body, titleHi, bodyHi, image, couponCode, 
     const [language, setLanguage] = useState<"en" | "hi">("en")
     const hasHindi = Boolean(titleHi.trim() && bodyHi.trim())
     const hindi = language === "hi" && hasHindi
-    const shownTitle = fillName(hindi ? titleHi : title) || "Title"
-    const shownBody = fillName(hindi ? bodyHi : body) || "Your message will appear here."
+    // No name: the server writes "there" in English and "जी" in Hindi.
+    const name = previewName === "there" && hindi ? "जी" : previewName
+    const shownTitle = fillName(hindi ? titleHi : title, name) || "Title"
+    const shownBody = fillName(hindi ? bodyHi : body, name) || "Your message will appear here."
     const coupon = couponCode ? (hindi ? ` कोड ${couponCode} इस्तेमाल करें।` : ` Use code ${couponCode}.`) : ""
     const option = (active: boolean) => `flex-1 h-8 rounded-md text-xs font-bold transition-colors ${active ? "bg-[#86efac] text-black" : "text-gray-400 hover:text-white"}`
 
@@ -54,7 +58,9 @@ export function PhonePreview({ title, body, titleHi, bodyHi, image, couponCode, 
             {language === "hi" && !hasHindi && <p className="text-[11px] text-amber-400">No Hindi text yet: people using the app in Hindi get the English one.</p>}
             <p className="text-[11px] text-gray-500 leading-relaxed">
                 <span className="text-gray-300 font-semibold">Tapping opens:</span> {opens}.{" "}
-                Sent as a push to their phones and kept in the app&apos;s inbox. iPhones show the text only in the push.
+                {previewName === "there"
+                    ? <>Sent as a push only: these phones have no account, so no inbox. A coupon shows with Copy when they open it. iPhones show the text only in the push.</>
+                    : <>Sent as a push to their phones and kept in the app&apos;s inbox. iPhones show the text only in the push.</>}
             </p>
         </div>
     )

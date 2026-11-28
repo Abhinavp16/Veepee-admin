@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ChevronDown, ChevronRight, Loader2, Send, ShoppingCart, Heart, User, Users, Store, Ticket, UserPlus } from "lucide-react"
+import { ChevronDown, ChevronRight, Download, Loader2, Send, ShoppingCart, Heart, Sparkles, User, Users, Store, Ticket, UserPlus } from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,12 +24,17 @@ import {
     audienceLabels,
     audienceRole,
     audienceSummary,
+    guestOnlyPages,
+    guestPages,
+    guestWelcome,
+    installedLabels,
     pageKeys,
     pageLabels,
     pageRoles,
     roleWords,
     segmentLabels,
     type Audience,
+    type InstalledWithin,
     type NotificationTemplate,
     type PageKey,
     type Role,
@@ -46,6 +51,7 @@ export type LinkChoice = "none" | "product" | "category" | "sale" | PageKey
 export interface NotificationDraft {
     audience?: Audience
     segment?: Segment
+    installedWithinDays?: InstalledWithin
     savedProduct?: NotificationLinkTarget | null
     title?: string
     body?: string
@@ -107,12 +113,16 @@ const audienceCards: { key: Audience; icon: React.ElementType; hint: string; isN
     { key: "wholesalers", icon: Store, hint: "Every wholesaler account" },
     { key: "cart", icon: ShoppingCart, hint: "Have something in their cart", isNew: true },
     { key: "saved", icon: Heart, hint: "Saved a product to their wishlist", isNew: true },
+    { key: "guests", icon: Download, hint: "Phones with the app that never made an account", isNew: true },
 ]
 
 const linkChoices: LinkChoice[] = ["none", "product", "category", "sale", ...pageKeys]
 const choiceLabel = (choice: LinkChoice) =>
     choice === "none" ? "Just the message" : choice === "product" ? "Product" : choice === "category" ? "Category" : choice === "sale" ? "Sale page" : pageLabels[choice]
 const isPage = (choice: LinkChoice): choice is PageKey => (pageKeys as string[]).includes(choice)
+/** A page that needs an account (not for phones that aren't signed in). */
+const needsAccount = (choice: LinkChoice) => isPage(choice) && !guestPages.includes(choice)
+const isGuestOnly = (choice: LinkChoice) => isPage(choice) && guestOnlyPages.includes(choice)
 
 type TextField = "title" | "body" | "titleHi" | "bodyHi"
 
@@ -126,6 +136,7 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
 }) {
     const [audience, setAudience] = useState<Audience>("selected")
     const [segment, setSegment] = useState<Segment>("all")
+    const [installedWithin, setInstalledWithin] = useState<InstalledWithin>(null)
     const [savedProduct, setSavedProduct] = useState<NotificationLinkTarget | null>(null)
     const [text, setText] = useState<Record<TextField, string>>({ title: "", body: "", titleHi: "", bodyHi: "" })
     const [showHindi, setShowHindi] = useState(false)
@@ -135,7 +146,7 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
     const [customImage, setCustomImage] = useState("")
     const [couponCode, setCouponCode] = useState("")
     const [offers, setOffers] = useState<Offer[] | null>(null)
-    const [count, setCount] = useState<{ people: number; phones: number; skipped: number } | null>(null)
+    const [count, setCount] = useState<{ people: number; phones: number; skipped: number; hindi?: number } | null>(null)
     const [isCounting, setIsCounting] = useState(false)
     const [confirmOpen, setConfirmOpen] = useState(false)
     const [isSending, setIsSending] = useState(false)
@@ -155,12 +166,15 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
     const linkName = choice === "sale" && linkTarget ? `The sale ${linkTarget.name}` : choiceLabel(choice)
     const sendImage = notificationImage(linkTarget, imageMode, customImage)
     const hasHindi = Boolean(text.titleHi.trim() || text.bodyHi.trim())
+    const toGuests = audience === "guests"
+    const usesName = /\{\s*name\s*\}/i.test(text.title + text.body + text.titleHi + text.bodyHi)
 
     // "Send again" / a saved message.
     useEffect(() => {
         if (!draft) return
         if (draft.audience) setAudience(draft.audience)
         if (draft.segment) setSegment(draft.segment)
+        if (draft.installedWithinDays !== undefined) setInstalledWithin(draft.installedWithinDays)
         if (draft.savedProduct !== undefined) setSavedProduct(draft.savedProduct)
         setText((t) => ({
             title: draft.title ?? t.title,
@@ -205,7 +219,7 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
 
     // How many people it reaches (debounced).
     const countLink = isPage(choice) ? { type: "page", page: choice } : choice === "sale" && linkTarget ? { type: "sale", id: linkTarget.id } : null
-    const countKey = JSON.stringify([audience, segment, savedProduct?.id, audience === "selected" ? selectedIds : null, countLink])
+    const countKey = JSON.stringify([audience, segment, installedWithin, savedProduct?.id, audience === "selected" ? selectedIds : null, countLink])
     useEffect(() => {
         // A new question: the old answer is never shown for it.
         setCount(null)
@@ -239,11 +253,14 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
         if (audience === "selected") return { userIds: selectedIds }
         if (audience === "cart") return { audience, segment }
         if (audience === "saved") return { audience, segment, productId: savedProduct?.id }
+        if (audience === "guests") return { audience, installedWithinDays: installedWithin }
         return { audience }
     }
 
     // A customers-only or wholesalers-only page rules out the other group.
     function audienceBlocked(key: Audience): string | null {
+        // A sale only for wholesalers can't go to phones that aren't signed in.
+        if (key === "guests" && pageRole === "wholesaler") return `${linkName} is only for wholesalers`
         if (!pageRole) return null
         if ((key === "buyers" && pageRole === "wholesaler") || (key === "wholesalers" && pageRole === "buyer")) {
             return `${linkName} is only for ${roleWords[pageRole]}`
@@ -258,10 +275,18 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
 
     function chooseAudience(key: Audience) {
         setAudience(key)
+        // Pages that need an account (or Create account, for accounts) aren't offered.
+        if ((key === "guests" && needsAccount(choice)) || (key !== "guests" && isGuestOnly(choice))) {
+            setChoice("none")
+            toast.message(key === "guests"
+                ? `${pageLabels[choice as PageKey]} needs an account, so tapping now opens the message`
+                : "Create account is only for phones that aren't signed in, so tapping now opens the message")
+        }
         if ((key === "cart" || key === "saved") && pageRole) setSegment(roleSegment[pageRole])
     }
 
     function choiceBlocked(next: LinkChoice): string | null {
+        if (toGuests && needsAccount(next)) return "Needs an account"
         const role = isPage(next) ? pageRoles[next] : undefined
         if (!role) return null
         if ((audience === "buyers" || audience === "wholesalers") && groupRole !== role) return `Only for ${roleWords[role]}`
@@ -292,7 +317,7 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
     // A sale only for the other group can't go to All customers / All wholesalers.
     function saleBlocked(sale: NotificationLinkTarget): string | null {
         if (!sale.role) return null
-        if ((audience === "buyers" || audience === "wholesalers") && groupRole !== sale.role) return `Only for ${roleWords[sale.role]}`
+        if ((audience === "buyers" || audience === "wholesalers" || audience === "guests") && groupRole !== sale.role) return `Only for ${roleWords[sale.role]}`
         return null
     }
 
@@ -347,6 +372,8 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
         if (Boolean(text.titleHi.trim()) !== Boolean(text.bodyHi.trim())) return "Fill in both the Hindi title and message, or leave both empty."
         if ((choice === "product" || choice === "category" || choice === "sale") && !linkTarget) return `Pick the ${choice === "sale" ? "sale" : choice} it opens.`
         if (couponProblem) return `Coupon ${couponCode}: ${couponProblem.toLowerCase()}.`
+        if (toGuests && needsAccount(choice)) return `${pageLabels[choice as PageKey]} needs an account. Pick another page.`
+        if (toGuests && count && count.phones === 0) return "No phone that isn't signed in can get this yet. Phones join once they have the new app version and allow notifications."
         if (count && count.people === 0) return "Nobody would get this. Change who it goes to."
         if (!count) return isCounting ? "Counting who gets it…" : "Couldn't count who gets it yet."
         return null
@@ -375,6 +402,7 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
         setCouponCode("")
         setAudience("selected")
         setSegment("all")
+        setInstalledWithin(null)
         setSavedProduct(null)
     }
 
@@ -440,7 +468,14 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
         setCustomImage(linkState.customImage || "")
         const role = isPage(choiceNext) ? pageRoles[choiceNext] : undefined
         let switched = ""
-        if (role) {
+        if (isGuestOnly(choiceNext) && audience !== "guests") {
+            setAudience("guests")
+            switched = `Send to switched to ${audienceLabels.guests}`
+        } else if (audience === "guests" && needsAccount(choiceNext)) {
+            const next: Audience = role === "wholesaler" ? "wholesalers" : "buyers"
+            setAudience(next)
+            switched = `${pageLabels[choiceNext as PageKey]} needs an account: Send to switched to ${audienceLabels[next]}`
+        } else if (role) {
             if ((audience === "cart" || audience === "saved") && segment !== roleSegment[role]) {
                 setSegment(roleSegment[role])
                 switched = `"Who among them" switched to ${segmentLabels[roleSegment[role]]}`
@@ -467,14 +502,16 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
 
     // Only a count for exactly this audience (stale ones are cleared).
     const peopleText = count
-        ? `${count.people.toLocaleString("en-IN")} ${count.people === 1 ? "person" : "people"}`
-        : "these people"
+        ? toGuests
+            ? `${count.phones.toLocaleString("en-IN")} ${count.phones === 1 ? "phone" : "phones"}`
+            : `${count.people.toLocaleString("en-IN")} ${count.people === 1 ? "person" : "people"}`
+        : toGuests ? "these phones" : "these people"
     const opensText = useMemo(() => {
-        if (choice === "none") return "the full message in the app"
+        if (choice === "none") return toGuests ? "the app (these phones have no inbox, so the text is only in the notification)" : "the full message in the app"
         if (isPage(choice)) return `${pageLabels[choice]} in the app`
         if (linkTarget) return `${choice === "sale" ? "the sale" : `the ${choice}`} ${linkTarget.name}`
         return `a ${choice === "sale" ? "sale" : choice} (not picked yet)`
-    }, [choice, linkTarget])
+    }, [choice, linkTarget, toGuests])
 
     const titleLength = text.title.length
 
@@ -544,6 +581,25 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
                             </div>
                         )}
 
+                        {toGuests && (
+                            <div className="space-y-2">
+                                <span id="cn-installed" className="text-xs font-semibold text-gray-300">Installed</span>
+                                <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="cn-installed">
+                                    {installedLabels.map(({ value, label }) => (
+                                        <button key={label} type="button" role="radio" aria-checked={installedWithin === value} onClick={() => setInstalledWithin(value)} className={chip(installedWithin === value)}>
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p className="text-[11px] text-gray-500">Phones that downloaded the app, allowed notifications and haven&apos;t signed in. They join from the new app version on; signing in takes a phone off this list.</p>
+                                {!text.title.trim() && !text.body.trim() && (
+                                    <button type="button" onClick={() => loadTemplate(guestWelcome)} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-md border border-[#86efac]/40 text-xs font-semibold text-[#86efac] hover:bg-[#86efac]/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#86efac]/50">
+                                        <Sparkles className="w-3.5 h-3.5" aria-hidden="true" /> Use the welcome message
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
                         {audience === "selected" && pageRole && (
                             <p className="text-[11px] text-gray-500">{linkName} is only for {roleWords[pageRole]}: the others you ticked won&apos;t get it.</p>
                         )}
@@ -551,6 +607,8 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
                         <p className="text-sm text-gray-300" aria-live="polite">
                             {isCounting
                                 ? <span className="inline-flex items-center gap-2 text-gray-500"><Loader2 className="w-3.5 h-3.5 animate-spin" /> Counting…</span>
+                                : count && toGuests
+                                    ? <><span className="text-lg font-black text-[#86efac]">{count.phones.toLocaleString("en-IN")}</span> {count.phones === 1 ? "phone" : "phones"} can get this{count.hindi ? <span className="text-gray-500"> · {count.hindi.toLocaleString("en-IN")} in Hindi</span> : null}</>
                                 : count
                                     ? <><span className="text-lg font-black text-[#86efac]">{count.people.toLocaleString("en-IN")}</span> {count.people === 1 ? "person" : "people"} will get this <span className="text-gray-500">· {count.phones.toLocaleString("en-IN")} {count.phones === 1 ? "phone" : "phones"} signed in{count.skipped > 0 ? ` · ${count.skipped} left out` : ""}</span></>
                                     : <span className="text-gray-500">{audience === "saved" ? "Pick a product to see how many people saved it." : audience === "selected" ? "Tick people in the list below." : "—"}</span>}
@@ -586,7 +644,9 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
                                 <span className="text-[11px] text-gray-500">{text.body.length}/500</span>
                             </div>
                             <Textarea id="cn-body" ref={refs.body} maxLength={500} placeholder="What do you want to tell them?" className="bg-[#161616] border-[#333] text-white min-h-[110px] resize-y" {...textProps("body")} />
-                            <p className="text-[11px] text-gray-500">{"{name}"} becomes each person&apos;s first name (&quot;there&quot; when the account has none).</p>
+                            {toGuests
+                                ? <p className={`text-[11px] ${usesName ? "text-amber-400" : "text-gray-500"}`}>These phones have no name yet, so {"{name}"} becomes &quot;there&quot; (&quot;जी&quot; in Hindi).</p>
+                                : <p className="text-[11px] text-gray-500">{"{name}"} becomes each person&apos;s first name (&quot;there&quot; when the account has none).</p>}
                         </div>
 
                         <div className="rounded-lg border border-[#333]">
@@ -621,7 +681,7 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
                     <section className={section} aria-labelledby="cn-step-3">
                         <h3 id="cn-step-3" className={sectionTitle}><span className={stepBadge} aria-hidden="true">3</span>When tapped, open</h3>
                         <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby="cn-step-3">
-                            {linkChoices.map((key) => {
+                            {linkChoices.filter((key) => toGuests || !isGuestOnly(key)).map((key) => {
                                 const blocked = choiceBlocked(key)
                                 const role = isPage(key) ? pageRoles[key] : undefined
                                 return (
@@ -633,6 +693,9 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
                                 )
                             })}
                         </div>
+                        {toGuests && (
+                            <p className="text-[11px] text-gray-500">Cart, Wishlist, My orders, Apply for Wholesaler and Ask your price need an account, so they&apos;re off for phones that aren&apos;t signed in.</p>
+                        )}
                         {(audience === "buyers" || audience === "wholesalers") && (
                             <p className="text-[11px] text-gray-500">
                                 {audience === "buyers" ? "Ask your price is for wholesalers, so it's off for All customers." : "Apply for Wholesaler is for customers, so it's off for All wholesalers."}
@@ -681,6 +744,7 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
                         image={sendImage}
                         couponCode={couponCode}
                         opens={opensText}
+                        previewName={toGuests ? "there" : "Ramesh"}
                     />
                     <Button
                         type="button"
@@ -701,10 +765,12 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
                         <AlertDialogTitle>Send to {peopleText}?</AlertDialogTitle>
                         <AlertDialogDescription asChild>
                             <div className="space-y-3 text-sm text-gray-400">
-                                <p>Everyone gets it in the app&apos;s inbox, and as a push on phones where they&apos;re signed in{count ? ` (${count.phones.toLocaleString("en-IN")} ${count.phones === 1 ? "phone" : "phones"})` : ""}. This can&apos;t be undone.</p>
+                                {toGuests
+                                    ? <p>A push to phones that have the app but no account. They have no inbox, so only the push arrives. This can&apos;t be undone.</p>
+                                    : <p>Everyone gets it in the app&apos;s inbox, and as a push on phones where they&apos;re signed in{count ? ` (${count.phones.toLocaleString("en-IN")} ${count.phones === 1 ? "phone" : "phones"})` : ""}. This can&apos;t be undone.</p>}
                                 <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 rounded-lg border border-[#333] bg-[#0D0D0D] p-3">
                                     <dt className="text-gray-500">Send to</dt>
-                                    <dd className="text-white">{audienceSummary(audience, segment, savedProduct?.name, audience === "selected" ? selectedIds.length : undefined)}{count?.skipped ? ` · ${count.skipped} left out` : ""}</dd>
+                                    <dd className="text-white">{audienceSummary(audience, segment, savedProduct?.name, audience === "selected" ? selectedIds.length : undefined, installedWithin)}{count?.skipped ? ` · ${count.skipped} left out` : ""}</dd>
                                     <dt className="text-gray-500">Title</dt>
                                     <dd className="text-white break-words">{text.title}</dd>
                                     <dt className="text-gray-500">Opens</dt>
@@ -713,9 +779,9 @@ export function NotificationComposer({ selectedIds, onSent, draft, draftKey, onC
                                     <dd className="text-white">{couponCode || "None"}</dd>
                                     <dt className="text-gray-500">Languages</dt>
                                     <dd className="text-white">{hasHindi ? "English, and Hindi for people using the app in Hindi" : "English for everyone"}</dd>
-                                    {/\{\s*name\s*\}/i.test(text.title + text.body + text.titleHi + text.bodyHi) && (<>
+                                    {usesName && (<>
                                         <dt className="text-gray-500">Names</dt>
-                                        <dd className="text-white">Each person&apos;s first name fills {"{name}"}</dd>
+                                        <dd className="text-white">{toGuests ? <>{"{name}"} shows as &quot;there&quot; (no account, no name)</> : <>Each person&apos;s first name fills {"{name}"}</>}</dd>
                                     </>)}
                                 </dl>
                             </div>

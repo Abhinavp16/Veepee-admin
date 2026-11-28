@@ -10,6 +10,7 @@ import { VeepeeBrand } from "@/components/veepee-brand"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { NewDot, NewPill, useWhatsNew } from "@/components/whats-new"
 import { CountDot, CountPill, usePendingUpgradesCount } from "@/components/pending-upgrades"
+import { useNewLeadsCount } from "@/components/new-leads"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { logout } from "@/lib/api"
 import { navigationGroups, type NavigationItem } from "@/lib/navigation"
@@ -37,9 +38,9 @@ function NewMark({ rail, dot = true }: { rail: boolean; dot?: boolean }) {
   </>
 }
 
-// Things waiting behind a link (pending Account Upgrades): a number pill, or
+// Things waiting behind a link (pending Account Upgrades, new Leads): a number pill, or
 // a small count on the icon rail. Nothing when 0.
-const countLabels: Record<string, string> = { "/account-upgrades": "waiting" }
+const countLabels: Record<string, string> = { "/account-upgrades": "waiting", "/potential-customers": "new" }
 
 function CountMark({ count, label, rail, after }: { count: number; label: string; rail: boolean; after: boolean }) {
   return <>
@@ -107,7 +108,8 @@ function SidebarPanel({ user, onNavigate, showBrand = false, rail = false, count
 export function Sidebar({ user, mobileOpen, onMobileOpenChange }: SidebarProps) {
   // One poll for both menus (docked and phone).
   const pendingUpgrades = usePendingUpgradesCount(user.role === "admin")
-  const counts = { "/account-upgrades": pendingUpgrades }
+  const newLeads = useNewLeadsCount(user.role === "admin")
+  const counts = { "/account-upgrades": pendingUpgrades, "/potential-customers": newLeads }
   return <>
     <aside className="hidden h-full min-h-0 shrink-0 border-r border-[var(--admin-border)] lg:flex lg:w-16 xl:w-[17rem]"><SidebarPanel user={user} rail counts={counts} /></aside>
     <Sheet open={mobileOpen} onOpenChange={onMobileOpenChange}>

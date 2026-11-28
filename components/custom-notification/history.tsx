@@ -91,8 +91,8 @@ export function NotificationHistory({ onSendAgain }: { onSendAgain: (campaign: C
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-sm text-gray-300 whitespace-normal">
-                                        {audienceSummary(item.audience, item.segment, item.productName)}
-                                        <span className="block text-xs text-gray-500">{item.recipients.toLocaleString("en-IN")} {item.recipients === 1 ? "person" : "people"}{item.skipped ? ` · ${item.skipped} left out` : ""}</span>
+                                        {audienceSummary(item.audience, item.segment, item.productName, undefined, item.installedWithinDays)}
+                                        <span className="block text-xs text-gray-500">{item.recipients.toLocaleString("en-IN")} {item.audience === "guests" ? (item.recipients === 1 ? "phone" : "phones") : (item.recipients === 1 ? "person" : "people")}{item.skipped ? ` · ${item.skipped} left out` : ""}</span>
                                     </TableCell>
                                     <TableCell className="text-sm text-gray-300 whitespace-normal">{linkLabel(item.link)}</TableCell>
                                     <TableCell className="text-sm whitespace-normal">
@@ -106,7 +106,7 @@ export function NotificationHistory({ onSendAgain }: { onSendAgain: (campaign: C
                                                 ? <span className="text-gray-500">No phones signed in</span>
                                                 : <span className={failures ? "text-amber-400" : "text-white"}>{item.delivered.toLocaleString("en-IN")} of {item.phones.toLocaleString("en-IN")}</span>}
                                         <span className="block text-xs text-gray-500">
-                                            {failures ? `${item.failed} failed${item.pushError ? ` (${item.pushError})` : ""} · ` : ""}In everyone&apos;s inbox; people without the app signed in get no push
+                                            {failures ? `${item.failed} failed${item.pushError ? ` (${item.pushError})` : ""} · ` : ""}{item.audience === "guests" ? "Push only (no account, so no inbox)" : <>In everyone&apos;s inbox; people without the app signed in get no push</>}
                                         </span>
                                     </TableCell>
                                     <TableCell className="text-xs text-gray-400 whitespace-normal">

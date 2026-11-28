@@ -15,6 +15,7 @@ import { toast } from "sonner"
 import { apiFetch } from "@/lib/api"
 import { fetchAllCategories, type CategoryOption } from "@/lib/categories"
 import { formatDateTime } from "@/lib/format"
+import { NEW_LEAD_DAYS, NewLeadTag, fetchNewLeads, markLeadsSeen, type NewLeadsInfo } from "@/components/new-leads"
 
 type InterestLevel = "Hot" | "Warm" | "Browsing"
 
@@ -52,6 +53,8 @@ interface PotentialCustomer {
     // When and by whom the lead was messaged.
     contact?: LeadContactInfo
     isContacted?: boolean
+    // Viewed in the last 2 days: a new lead (green dot).
+    isNew?: boolean
     interest?: InterestLevel
     user: LeadUser
     product: LeadProduct
@@ -67,6 +70,7 @@ interface LeadPerson {
     lastViewed: string
     contactedCount: number
     lastContactAt?: string
+    isNew?: boolean
     interest: InterestLevel
     products: Omit<PotentialCustomer, "userId" | "user">[]
 }
@@ -128,6 +132,29 @@ export default function PotentialCustomersPage() {
     const [queue, setQueue] = useState<{ items: (LeadPerson | PotentialCustomer)[]; index: number; sent: number } | null>(null)
     // Only the latest request updates the list.
     const requestRef = useRef(0)
+    // New leads (last 2 days) and how many came in since the last visit,
+    // read before this visit is marked as seen.
+    const [newInfo, setNewInfo] = useState<NewLeadsInfo | null>(null)
+    // "Show all" goes back to the period chosen before "Show only new".
+    const beforeNewRef = useRef("7d")
+
+    useEffect(() => {
+        let cancelled = false
+        let marked = false
+        fetchNewLeads().then((info) => {
+            // Not read (e.g. a timeout): don't clear a count nobody saw.
+            if (cancelled || !info) return
+            setNewInfo(info)
+            marked = true
+            void markLeadsSeen()
+        })
+        return () => {
+            cancelled = true
+            // Leaving: leads that came in while the page was open are seen
+            // too (not before the count was read).
+            if (marked) void markLeadsSeen()
+        }
+    }, [])
 
     useEffect(() => {
         const timer = window.setTimeout(() => {
@@ -180,7 +207,10 @@ export default function PotentialCustomersPage() {
             day.setDate(day.getDate() - offsetDays)
             return day
         }
-        if (lastViewed === "today") {
+        if (lastViewed === "new") {
+            params.set("period", "7d")
+            params.set("lastViewedFrom", new Date(Date.now() - NEW_LEAD_DAYS * 86400000).toISOString())
+        } else if (lastViewed === "today") {
             params.set("period", "7d")
             params.set("lastViewedFrom", startOfDay(0).toISOString())
         } else if (lastViewed === "yesterday") {
@@ -411,6 +441,7 @@ export default function PotentialCustomersPage() {
     }
 
     const lastViewedOptions = [
+        { value: "new", label: `Last viewed: New (last ${NEW_LEAD_DAYS} days)` },
         { value: "today", label: "Last viewed: Today" },
         { value: "yesterday", label: "Last viewed: Yesterday" },
         { value: "3d", label: "Last viewed: Last 3 days" },
@@ -466,10 +497,11 @@ export default function PotentialCustomersPage() {
         </div>
     )
 
-    const customerCell = (user: LeadUser) => (
+    const customerCell = (user: LeadUser, isNew = false) => (
         <div className="space-y-1">
             <div className="flex items-center gap-2 flex-wrap">
                 <p className="font-medium text-sm text-white">{user.name}</p>
+                {isNew && view === "todo" && <NewLeadTag />}
                 {user.role === "wholesaler" ? (
                     <span className="px-1.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-wide text-purple-300 bg-purple-500/15">Wholesaler</span>
                 ) : (
@@ -709,6 +741,31 @@ export default function PotentialCustomersPage() {
                         </div>
                     )}
                 </div>
+                {view === "todo" && newInfo && newInfo.newLeads > 0 && (
+                    <div className="px-6 py-3 border-b border-[#333] bg-[#86efac]/10 flex items-center gap-2 flex-wrap text-sm" role="status">
+                        <span className="h-2 w-2 rounded-full bg-[#86efac]" aria-hidden="true" />
+                        <span className="font-semibold text-[#86efac]">
+                            {newInfo.unseen > 0
+                                ? `${newInfo.unseen} new ${newInfo.unseen === 1 ? "lead" : "leads"} since you last looked`
+                                : `${newInfo.newLeads} new ${newInfo.newLeads === 1 ? "lead" : "leads"} in the last ${NEW_LEAD_DAYS} days`}
+                        </span>
+                        <span className="text-[#919191]">· new leads keep the green dot for {NEW_LEAD_DAYS} days</span>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (lastViewed === "new") {
+                                    setLastViewed(beforeNewRef.current === "new" ? "7d" : beforeNewRef.current)
+                                } else {
+                                    beforeNewRef.current = lastViewed
+                                    setLastViewed("new")
+                                }
+                            }}
+                            className="ml-auto text-sm font-semibold text-[#86efac] underline underline-offset-2 hover:text-white"
+                        >
+                            {lastViewed === "new" ? "Show all" : "Show only new"}
+                        </button>
+                    </div>
+                )}
                 {queue && queueItem && (
                     <div className="px-6 py-3 border-b border-[#333] bg-[#86efac]/5 flex items-center justify-between gap-3 flex-wrap">
                         <div className="text-sm text-white">
@@ -779,7 +836,7 @@ export default function PotentialCustomersPage() {
                                                         <TableCell className="pr-0">
                                                             <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${open ? "" : "-rotate-90"}`} />
                                                         </TableCell>
-                                                        <TableCell>{customerCell(person.user)}</TableCell>
+                                                        <TableCell>{customerCell(person.user, person.isNew)}</TableCell>
                                                         <TableCell>
                                                             <div className="flex items-center gap-3">
                                                                 <div className="flex -space-x-3">
@@ -861,6 +918,7 @@ export default function PotentialCustomersPage() {
                                                                                             <div>
                                                                                                 <p className="text-sm font-medium text-white line-clamp-2 max-w-[220px] whitespace-normal">{lead.product.name}</p>
                                                                                                 <p className="text-xs text-[#919191]">{formatPrice(lead.product.price)}{lead.product.sku ? ` · ${lead.product.sku}` : ""}</p>
+                                                                                                {lead.isNew && view === "todo" && <div className="mt-1"><NewLeadTag /></div>}
                                                                                             </div>
                                                                                         </div>
                                                                                     </TableCell>
@@ -898,7 +956,7 @@ export default function PotentialCustomersPage() {
                                     <TableBody>
                                         {leads.map((lead, i) => (
                                             <TableRow key={`${lead.userId}-${lead.productId}-${i}`} className="border-[#333] hover:bg-[#1A1A1A]">
-                                                <TableCell>{customerCell(lead.user)}</TableCell>
+                                                <TableCell>{customerCell(lead.user, lead.isNew)}</TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center gap-3">
                                                         {productThumb(lead.product)}

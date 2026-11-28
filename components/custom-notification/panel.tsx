@@ -25,6 +25,7 @@ export function CustomNotificationPanel({ selectedIds, onSent, onClearSelection 
         setDraft({
             audience: campaign.audience,
             segment: campaign.segment || "all",
+            installedWithinDays: campaign.installedWithinDays === 7 || campaign.installedWithinDays === 30 ? campaign.installedWithinDays : null,
             savedProduct: campaign.audience === "saved" && campaign.productId
                 ? { type: "product", id: String(campaign.productId), name: campaign.productName || "The product", image: "" }
                 : null,

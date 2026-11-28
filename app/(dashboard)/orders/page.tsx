@@ -31,6 +31,7 @@ import { TableSkeleton } from "@/components/table-skeleton"
 import { apiFetch } from "@/lib/api"
 import { useDashboardUser } from "@/components/dashboard-context"
 import { formatDateTime } from "@/lib/format"
+import { DownloadButton, useFileDownload } from "@/components/file-download"
 
 interface Order {
     _id: string
@@ -94,6 +95,10 @@ export default function OrdersPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [isLoadingMore, setIsLoadingMore] = useState(false)
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+    // The payment screenshots of the open order (current and rejected ones).
+    const screenshots = useFileDownload(
+        selectedOrder?.payment ? `/admin/orders/${selectedOrder._id}/payment-screenshots/download` : null
+    )
     const [isdetailsOpen, setIsDetailsOpen] = useState(false)
     const [isVerifying, setIsVerifying] = useState(false)
     const [isRejecting, setIsRejecting] = useState(false)
@@ -697,9 +702,27 @@ export default function OrdersPage() {
 
                                         {selectedOrder.payment.screenshotUrl && (
                                             <div>
-                                                <span className="text-gray-400 block mb-2 text-sm">
-                                                    {selectedOrder.payment.status === 'rejected' ? 'Rejected Screenshot' : 'Payment Screenshot'}
-                                                </span>
+                                                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                                                    <span className="text-gray-400 text-sm">
+                                                        {selectedOrder.payment.status === 'rejected' ? 'Rejected Screenshot' : 'Payment Screenshot'}
+                                                    </span>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        <DownloadButton
+                                                            label="Download"
+                                                            busy={screenshots.busy === 'current'}
+                                                            onClick={() => void screenshots.download('current', (file) => file.label === 'current')}
+                                                            ariaLabel="Download this payment screenshot"
+                                                        />
+                                                        {!!selectedOrder.payment.previousAttempts?.some((attempt) => attempt.screenshotUrl) && (
+                                                            <DownloadButton
+                                                                label="Download all"
+                                                                busy={screenshots.busy === 'all'}
+                                                                onClick={() => void screenshots.download('all')}
+                                                                ariaLabel="Download all payment screenshots, including rejected ones"
+                                                            />
+                                                        )}
+                                                    </div>
+                                                </div>
                                                 {/* Opens full size in a new tab to check the details. */}
                                                 <a href={selectedOrder.payment.screenshotUrl} target="_blank" rel="noopener noreferrer" title="Open full size" className="relative block aspect-video w-full rounded-md overflow-hidden border border-[#333] cursor-zoom-in">
                                                     <img
@@ -717,7 +740,10 @@ export default function OrdersPage() {
                                                     Earlier screenshots ({selectedOrder.payment.previousAttempts.length} rejected)
                                                 </span>
                                                 <div className="space-y-2">
-                                                    {[...selectedOrder.payment.previousAttempts].reverse().map((attempt, idx) => (
+                                                    {[...selectedOrder.payment.previousAttempts].reverse().map((attempt, idx, shown) => {
+                                                        // Its place in the saved list (oldest first), as the server names it.
+                                                        const label = `rejected-${shown.length - idx}`
+                                                        return (
                                                         <div key={idx} className="flex items-center gap-3 p-2 rounded border border-[#333] text-xs">
                                                             {attempt.screenshotUrl && (
                                                                 <a href={attempt.screenshotUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
@@ -730,8 +756,19 @@ export default function OrdersPage() {
                                                                     <p className="text-gray-500">{formatDateTime(attempt.rejectedAt)}</p>
                                                                 )}
                                                             </div>
+                                                            {attempt.screenshotUrl && (
+                                                                <div className="ml-auto shrink-0">
+                                                                    <DownloadButton
+                                                                        label="Download"
+                                                                        busy={screenshots.busy === label}
+                                                                        onClick={() => void screenshots.download(label, (file) => file.label === label)}
+                                                                        ariaLabel="Download this rejected screenshot"
+                                                                    />
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                    ))}
+                                                        )
+                                                    })}
                                                 </div>
                                             </div>
                                         )}

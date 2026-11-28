@@ -5,6 +5,7 @@ import { ExternalLink, ImageOff, Loader2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { formatDate, formatDateTime } from "@/lib/format"
 import type { BusinessInfo, PreviousApplication } from "@/lib/wholesaler-applications"
+import { DownloadButton, DownloadIconButton, useFileDownload } from "@/components/file-download"
 
 /** True once the signed proof links have stopped working. */
 function useLinksExpired(expiresAt?: string | null) {
@@ -45,12 +46,15 @@ function previousLine(item: PreviousApplication) {
  * A wholesaler application's business details and proof photos (Account
  * Upgrades and Customers). Photos are signed links that work for 15 minutes:
  * when they have expired (or a photo won't load), Reload fetches fresh ones.
+ * With [customerId] (administrators), each photo and all of them can be
+ * downloaded.
  */
 export function BusinessDetails({
     info,
     statusLabel,
     onReload,
     reloading = false,
+    customerId,
 }: {
     info: BusinessInfo
     /** Shown as "Status"; leave out to hide the row. */
@@ -58,6 +62,8 @@ export function BusinessDetails({
     /** Fetches the record again (fresh photo links). */
     onReload?: () => void
     reloading?: boolean
+    /** The customer's id: shows Download buttons for the proof photos. */
+    customerId?: string
 }) {
     const proofs = info.proofImages || []
     const linksExpired = useLinksExpired(info.proofLinksExpireAt)
@@ -70,6 +76,8 @@ export function BusinessDetails({
     const previous = [...(info.previousApplications || [])].reverse()
     const gst = info.gstNumber || info.gstIn
     const reviewer = info.reviewedBy?.name
+    const canDownload = !!customerId && proofs.length > 0 && !unsigned
+    const { download, busy } = useFileDownload(canDownload ? `/admin/customers/${customerId}/proofs/download` : null)
 
     return (
         <div className="space-y-4">
@@ -115,12 +123,22 @@ export function BusinessDetails({
                     <h4 className="text-sm font-semibold text-white">
                         Proof photos <span className="font-normal text-gray-500">({proofs.length || info.proofCount || 0})</span>
                     </h4>
+                    <div className="flex flex-wrap items-center gap-2">
+                    {canDownload && (
+                        <DownloadButton
+                            label={proofs.length > 1 ? `Download all (${proofs.length})` : "Download"}
+                            busy={busy === "all"}
+                            onClick={() => void download("all", undefined, proofs.length)}
+                            ariaLabel={proofs.length > 1 ? `Download all ${proofs.length} proof photos` : "Download the proof photo"}
+                        />
+                    )}
                     {onReload && proofs.length > 0 && needsReload && (
                         <Button type="button" size="sm" variant="outline" onClick={onReload} disabled={reloading} className="h-8 border-[#333] bg-transparent text-white hover:bg-[#1A1A1A]">
                             {reloading ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : <RefreshCw className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />}
                             Reload photos
                         </Button>
                     )}
+                    </div>
                 </div>
                 {needsReload && proofs.length > 0 && (
                     <p className="mb-2 text-xs text-amber-500" role="status">
@@ -140,7 +158,7 @@ export function BusinessDetails({
                 ) : (
                     <ul className="flex flex-wrap gap-3">
                         {proofs.map((url, index) => (
-                            <li key={url}>
+                            <li key={url} className="relative">
                                 <a
                                     href={url}
                                     target="_blank"
@@ -167,6 +185,13 @@ export function BusinessDetails({
                                         <ExternalLink className="h-3.5 w-3.5" />
                                     </span>
                                 </a>
+                                {canDownload && (
+                                    <DownloadIconButton
+                                        busy={busy === `one-${index}`}
+                                        onClick={() => void download(`one-${index}`, (_file, i) => i === index, proofs.length)}
+                                        label={`Download proof photo ${index + 1}`}
+                                    />
+                                )}
                             </li>
                         ))}
                     </ul>

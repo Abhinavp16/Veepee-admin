@@ -506,6 +506,7 @@ export default function CustomersPage() {
                                         statusLabel={applicationStatusLabel(selectedCustomer)}
                                         onReload={isAdmin ? () => void reloadBusinessDetails(selectedCustomer._id) : undefined}
                                         reloading={isReloadingBusiness}
+                                        customerId={isAdmin ? selectedCustomer._id : undefined}
                                     />
                                 </section>
                             )}

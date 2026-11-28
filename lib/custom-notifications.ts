@@ -4,7 +4,7 @@ import { apiFetch } from "@/lib/api"
 // saved messages (Settings.notificationTemplates) and the History rows.
 // The server rules live in Veepee-backend services/customNotificationService.
 
-export type Audience = "selected" | "buyers" | "wholesalers" | "cart" | "saved"
+export type Audience = "selected" | "buyers" | "wholesalers" | "cart" | "saved" | "guests"
 export type Segment = "all" | "buyers" | "wholesalers"
 export type Role = "buyer" | "wholesaler"
 
@@ -14,7 +14,16 @@ export const audienceLabels: Record<Audience, string> = {
     wholesalers: "All wholesalers",
     cart: "Items in cart",
     saved: "Saved a product",
+    guests: "Not signed in",
 }
+
+/** "Not signed in": phones that joined in the last 7 or 30 days, or any time (null). */
+export type InstalledWithin = 7 | 30 | null
+export const installedLabels: { value: InstalledWithin; label: string }[] = [
+    { value: 7, label: "Last 7 days" },
+    { value: 30, label: "Last 30 days" },
+    { value: null, label: "Any time" },
+]
 
 export const segmentLabels: Record<Segment, string> = {
     all: "Everyone",
@@ -23,9 +32,10 @@ export const segmentLabels: Record<Segment, string> = {
 }
 
 export type PageKey =
-    | "cart" | "wishlist" | "coupons" | "orders" | "hot-deals" | "popular" | "coming-soon" | "wholesaler" | "negotiations"
+    | "signup" | "cart" | "wishlist" | "coupons" | "orders" | "hot-deals" | "popular" | "coming-soon" | "wholesaler" | "negotiations"
 
 export const pageLabels: Record<PageKey, string> = {
+    signup: "Create account",
     cart: "Cart",
     wishlist: "Wishlist",
     coupons: "My coupons",
@@ -45,11 +55,30 @@ export const pageRoles: Partial<Record<PageKey, Role>> = {
     negotiations: "wholesaler",
 }
 
+/** Pages that work without an account: the only ones "Not signed in" can open. */
+export const guestPages: PageKey[] = ["signup", "coupons", "hot-deals", "popular", "coming-soon"]
+/** Create account is only for phones that aren't signed in. */
+export const guestOnlyPages: PageKey[] = ["signup"]
+
+/** Offered when sending to phones that aren't signed in. */
+export const guestWelcome: NotificationTemplate = {
+    name: "Welcome: create your account",
+    title: "Welcome to OXON",
+    body: "Create your account to order OXON tools and sprayers and track your orders.",
+    titleHi: "OXON में आपका स्वागत है",
+    bodyHi: "OXON के औज़ार और स्प्रेयर ऑर्डर करने और अपने ऑर्डर देखने के लिए अपना खाता बनाएँ।",
+    link: { type: "page", page: "signup" },
+    imageUrl: "",
+}
+
 export const roleWords: Record<Role, string> = { buyer: "customers", wholesaler: "wholesalers" }
 
-/** The one account type a group has, or null when it mixes both (or is a list of people). */
+/**
+ * The one account type a group has, or null when it mixes both (or is a list
+ * of people). Phones that aren't signed in become customers when they sign up.
+ */
 export function audienceRole(audience: Audience, segment: Segment): Role | null {
-    if (audience === "buyers") return "buyer"
+    if (audience === "buyers" || audience === "guests") return "buyer"
     if (audience === "wholesalers") return "wholesaler"
     if (audience === "cart" || audience === "saved") {
         if (segment === "buyers") return "buyer"
@@ -123,6 +152,7 @@ export interface Campaign {
     bodyHi?: string
     audience: Audience
     segment?: Segment | null
+    installedWithinDays?: number | null
     productId?: string | null
     productName?: string
     link: StoredLink | null
@@ -149,8 +179,9 @@ export function linkLabel(link: StoredLink | null | undefined): string {
 }
 
 /** "Items in cart · Customers", "Saved a product · Pump X". */
-export function audienceSummary(audience: Audience, segment?: Segment | null, productName?: string, people?: number): string {
+export function audienceSummary(audience: Audience, segment?: Segment | null, productName?: string, people?: number, installedWithinDays?: number | null): string {
     let text = audienceLabels[audience] || audience
+    if (audience === "guests") text += installedWithinDays ? ` · installed in the last ${installedWithinDays} days` : " · installed any time"
     if (audience === "saved" && productName) text += `: ${productName}`
     if ((audience === "cart" || audience === "saved") && segment && segment !== "all") text += ` · ${segmentLabels[segment]}`
     if (audience === "selected" && people != null) text += ` (${people})`

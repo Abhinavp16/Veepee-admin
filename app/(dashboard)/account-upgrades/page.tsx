@@ -375,6 +375,7 @@ export default function AccountUpgradesPage() {
                                     info={selected.businessInfo || {}}
                                     onReload={() => void reloadSelected()}
                                     reloading={isReloading}
+                                    customerId={selected._id}
                                 />
                             </section>
 

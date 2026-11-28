@@ -23,6 +23,9 @@ const contentSecurityPolicy = [
   // Firebase endpoints are needed for browser push notifications.
   // storage.googleapis.com: banner videos upload straight to Firebase Storage.
   `connect-src 'self' ${apiOrigin} https://storage.googleapis.com https://fcmregistrations.googleapis.com https://firebaseinstallations.googleapis.com https://fcm.googleapis.com${isDev ? ' ws: http://localhost:* http://127.0.0.1:*' : ''}`.trim(),
+  // Downloads of proof photos and payment screenshots: a hidden frame opens
+  // the signed storage link, which tells the browser to save the file.
+  "frame-src 'self' https://storage.googleapis.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
